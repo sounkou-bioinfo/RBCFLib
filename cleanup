@@ -1,0 +1,9 @@
+#!/bin/sh
+# cleanup htslib
+HTSLIB_DIR="src/htslib-1.21"
+rm -f ${HTSLIB_DIR}/config.h src/*.o src/*.so src/*.dll src/*.dylib src/Makevars
+cd $HTSLIB_DIR && make clean && cd -
+# # cleanup bcftools
+BCFTOOLS_DIR="src/bcftools-1.21"
+rm -f ${BCFTOOLS_DIR}/config.h src/*.o src/*.so src/*.dll src/*.dylib 
+cd $BCFTOOLS_DIR && make clean && cd -

@@ -1,0 +1,20 @@
+#include <R.h>
+#include <Rinternals.h>
+#include <stdlib.h>
+#include <R_ext/Rdynload.h>
+#include "RBCFLib.h"
+
+
+
+/* R native routine registration */
+static const R_CallMethodDef CallEntries[] = {
+    {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
+    {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
+    {NULL, NULL, 0}
+};
+
+void R_init_RBCFLib(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
+    R_forceSymbols(dll, TRUE);
+}
