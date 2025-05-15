@@ -5,11 +5,13 @@
 #include "RBCFLib.h"
 
 
-
+extern SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr, 
+                    SEXP stdout_file, SEXP stderr_file);
 /* R native routine registration */
 static const R_CallMethodDef CallEntries[] = {
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
+    {"RC_bcftools_run", (DL_FUNC) &RC_bcftools_run, 5},
     {NULL, NULL, 0}
 };
 

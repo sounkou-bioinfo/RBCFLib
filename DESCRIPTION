@@ -1,6 +1,6 @@
 Package: RBCFLib
-Title: `htslib`  And `bcftools` Libraries And Utility Functions
-Version: 1.21-1
+Title: `htslib`  And `bcftools` Libraries And Command Line Tools
+Version: 1.21-2
 Authors@R: c(
     person(given = "Sounkou Mahamane", family = "Toure", 
     email = "sounkoutoure@gmail.com", role = c("aut", "cre")),
@@ -15,10 +15,12 @@ Description:
     and Binary Call Format (BCF). The package includes utility functions for 
     reading, writing, and manipulating VCF/BCF files, as well as for performing 
     common operations such as filtering and merging VCF/BCF files.
-License: MIT + file LICENSE
+License: MIT + file LICENSEs
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 OS_type: unix
+SystemRequirements: 
+    GNU make
 Suggests:
     tinytest

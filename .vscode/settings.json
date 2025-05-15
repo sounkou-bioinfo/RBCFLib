@@ -1,2 +1,6 @@
 {
+    "files.associations": {
+        "*.rmd": "markdown",
+        "bcftools.rbcflib.h": "c"
+    }
 }

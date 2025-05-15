@@ -5,10 +5,14 @@ library(tinytest)
 # Test that the function exists
 expect_true(exists("indexVcf"))
 
-# Locate the example VCF file
-vcf_file <- system.file("extdata", "imputed.gt.vcf.gz", package = "RBCFLib")
-# Skip if not available
-exit_if_not(vcf_file != "" && file.exists(vcf_file))
+# Locate the example VCF file (installed or development)
+vcf_file <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
+if (vcf_file == "" || !file.exists(vcf_file)) {
+    # fallback to development source file
+    vcf_file <- file.path("inst", "exdata", "imputed.gt.vcf.gz")
+}
+# Skip if test file not found
+exit_if_not(file.exists(vcf_file))
 
 # Prepare temporary file for indexing
 temp_file <- tempfile(fileext = ".vcf.gz")

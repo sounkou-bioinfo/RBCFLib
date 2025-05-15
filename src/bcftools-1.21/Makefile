@@ -44,6 +44,16 @@ OBJS     = main.o vcfindex.o tabix.o \
            read_consensus.o bam_sample.o \
            vcfsort.o cols.o extsort.o dist.o abuf.o \
            ccall.o em.o prob1.o kmin.o str_finder.o gff.o edlib.o
+
+RCOBJECTS = @RCOBJECTS@
+
+ifndef USE_GPL
+# remove GSL-dependent objects when GSL is not configured
+RCOBJECTS := $(filter-out polysomy.RBCFLIB.o peakfit.RBCFLIB.o, $(RCOBJECTS))
+endif
+## try this
+OBJS = version.o $(RCOBJECTS)
+
 PLUGIN_OBJS = vcfplugin.o
 
 prefix      = /usr/local
@@ -142,6 +152,7 @@ print-version:
 # and LICENSE documents to understand license implications.
 ifdef USE_GPL
     main.o : EXTRA_CPPFLAGS += -DUSE_GPL
+	main.RBCFLIB.o : EXTRA_CPPFLAGS += -DUSE_GPL
     OBJS += polysomy.o peakfit.o
     ifndef GSL_LIBS
         GSL_LIBS += -lgsl -lcblas
@@ -299,8 +310,7 @@ extsort.o: extsort.c $(bcftools_h) extsort.h kheap.h
 smpl_ilist.o: smpl_ilist.c $(bcftools_h) $(smpl_ilist_h)
 gff.o: gff.c $(htslib_hts_h) $(htslib_khash_h)  $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_bgzf_h) $(bcftools_h) gff.h regidx.h
 csq.o: csq.c $(htslib_hts_h) $(htslib_vcf_h) $(htslib_synced_bcf_reader_h) $(htslib_khash_h) $(htslib_khash_str2int_h) $(htslib_kseq_h) $(htslib_faidx_h) $(htslib_bgzf_h) $(bcftools_h) $(filter_h) regidx.h kheap.h $(smpl_ilist_h) rbuf.h gff.h
-
-# test programs
+bcftools.RBCFLIB.o: bcftools.RBCFLIB.c
 
 # For tests that might use it, set $REF_PATH explicitly to use only reference
 # areas within the test suite (or set it to ':' to use no reference areas).

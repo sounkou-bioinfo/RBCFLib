@@ -10,5 +10,4 @@ tar -xjf bcftools-${version}.tar.bz2
 echo "Cleaning up"
 rm -f bcftools-${version}.tar.bz2 || true
 cd bcftools-${version} || exit 1
-[[ -d htslib-${version} ]] && rm -rf htslib-${version} || true
 mv -f htslib-{version} ../ || exit 1
