@@ -13,7 +13,8 @@ R_CFLAGS=`"${R_HOME}/bin/R" CMD config CFLAGS`
 R_CPICFLAGS=`"${R_HOME}/bin/R" CMD config CPICFLAGS`
 HTSLIB_BUNDLED_MK=${THISDir}/inst/makefiles/htscodecs_bundled.mk
 BCFTOOLS_CONFIG_MK_IN=${THISDir}/inst/makefiles/bcftools_config.mk.in
-#RSCRIPT=`"${R_HOME}/bin/Rscript`
+RSCRIPT="${R_HOME}/bin/Rscript"
+importScript="${THISDir}/tools/Import.R"
 # -fPIC is ensential for shared lib
 # CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -fPIC -D_FILE_OFFSET_BITS=64"
 CFLAGS="-Wall -g -O2 -fvisibility=hidden -fPIC -D_FILE_OFFSET_BITS=64"
@@ -55,9 +56,10 @@ sed -e "s|@HTSDIR@|${HTSLIB_DIR}|g" \
 sed -e \
     '/^prefix/,/^PLUGIN_EXT/d;s/@Hsource@//;s/@Hinstall@/#/;s#@HTSDIR@#htslib#g;s/@HTSLIB_CPPFLAGS@/-I$$(HTSDIR)/g;' \
     config.mk.in > config.mk
-
+#-- run import script
+echo "----------Running Import script-----------------"
+${RSCRIPT} ${importScript} ${PWD} ${PWD}
 ${MAKE} -f Makefile libRbcftools.a CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}"
-
 echo "Create Makevar file"
 cd ..
 sed \
