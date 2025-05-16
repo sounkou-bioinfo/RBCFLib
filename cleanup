@@ -6,4 +6,4 @@ cd $HTSLIB_DIR && make clean && cd -
 # # cleanup bcftools
 BCFTOOLS_DIR="src/bcftools-1.21"
 rm -f ${BCFTOOLS_DIR}/config.h src/*.o src/*.so src/*.dll src/*.dylib 
-cd $BCFTOOLS_DIR && make clean && cd -
+cd $BCFTOOLS_DIR && make clean && rm -f *.RBCFLIB.c *.RBCFLIB.h && cd -

@@ -27,3 +27,4 @@ rd:
 
 clean:
 	@rm -rf $(PKGNAME)_$(PKGVERS).tar.gz $(PKGNAME).Rcheck
+	@rm -rf src/*.o src/*.so src/*.dSYM
