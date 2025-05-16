@@ -56,7 +56,7 @@ sed -e \
     '/^prefix/,/^PLUGIN_EXT/d;s/@Hsource@//;s/@Hinstall@/#/;s#@HTSDIR@#htslib#g;s/@HTSLIB_CPPFLAGS@/-I$$(HTSDIR)/g;' \
     config.mk.in > config.mk
 
-${MAKE} -f Makefile.RBCFLIB libbcftools.a CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}"
+${MAKE} -f Makefile libRbcftools.a CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}"
 
 echo "Create Makevar file"
 cd ..

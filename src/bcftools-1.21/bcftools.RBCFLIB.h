@@ -61,6 +61,9 @@ extern int bcftools_main(int argc, char *argv[]);
 #define bam_smpl_destroy bcftools_bam_smpl_destroy
 #define read_file_list bcftools_read_file_list
 
+/* A non-static error() function name is used in bcftools, which collides
+   with glibc's error() function. #define with a prefix to avoid collision. */
+#define error bcftools_error
 
 #endif
 

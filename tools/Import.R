@@ -40,12 +40,12 @@ Import <- function(bcftools_src_dir, dest_dir = NULL) {
     if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
 
     # Define files to exclude
-    exclude_patterns <- c("test/", "version.c", "plugins/", "RBCFLIB\\.c$")
+    exclude_patterns <- c("test/", "plugins/", "RBCFLIB\\.c$")
 
     # Find all .c files in source directory
     c_files <- list.files(bcftools_src_dir,
         pattern = "\\.c$",
-        recursive = TRUE,
+        recursive = FALSE,
         full.names = TRUE
     )
 
@@ -103,23 +103,6 @@ Import <- function(bcftools_src_dir, dest_dir = NULL) {
         file.path(dest_dir, "bcftools.RBCFLIB.c"),
         overwrite = TRUE
     )
-
-    # Add bcftools.RBCFLIB.o to our list
-    rbcflib_files <- c("main.RBCFLIB.o", "bcftools.RBCFLIB.o", rbcflib_files)
-
-    # Remove "main.RBCFLIB.o" from its original position if it's duplicated
-    rbcflib_files <- unique(rbcflib_files)
-
-    # Process the Makefile
-    makefile_path <- file.path(bcftools_src_dir, "Makefile")
-    if (file.exists(makefile_path)) {
-        dest_makefile <- file.path(dest_dir, "Makefile.RBCFLIB")
-        ProcessMakefile(makefile_path, dest_makefile, rbcflib_files)
-        message(sprintf("Created modified Makefile at %s", dest_makefile))
-    } else {
-        warning("Could not find Makefile in bcftools source directory")
-    }
-
     return(invisible(modified_count))
 }
 
@@ -170,31 +153,6 @@ ProcessCFile <- function(lines, basename) {
     }
 
     return(lines)
-}
-
-# Process the Makefile to adapt it for RBCFLIB
-ProcessMakefile <- function(src_makefile, dest_makefile, rbcflib_files = NULL) {
-    # Read the original Makefile
-    makefile_content <- readLines(src_makefile, warn = FALSE, encoding = "UTF-8")
-
-    # Define the RCOBJECTS value
-    if (!is.null(rbcflib_files) && length(rbcflib_files) > 0) {
-        # Use the actual list of RBCFLIB files we generated
-        rcobjects_value <- paste(rbcflib_files, collapse = " ")
-    } else {
-        # Fallback to the pattern approach if no list is provided
-        rcobjects_value <- "main.RBCFLIB.o bcftools.RBCFLIB.o $(patsubst %.o,%.RBCFLIB.o,$(filter-out main.o version.o, $(OBJS)))"
-    }
-
-    # Replace @RCOBJECTS@ with the actual value
-    for (i in seq_along(makefile_content)) {
-        makefile_content[i] <- gsub("@RCOBJECTS@", rcobjects_value, makefile_content[i])
-    }
-
-    # Write the modified Makefile
-    writeLines(makefile_content, dest_makefile, useBytes = TRUE)
-
-    return(TRUE)
 }
 
 # If run from command line
