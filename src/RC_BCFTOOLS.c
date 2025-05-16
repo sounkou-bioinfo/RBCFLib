@@ -2,10 +2,15 @@
 #include <Rinternals.h>
 #include "bcftools.RBCFLIB.h"
 #include <fcntl.h>
-extern void bcftools_close_stdout(void);
-extern void bcftools_close_stderr(void);
+#include <stdlib.h>        // for setenv()
+
 SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr, 
                     SEXP stdout_file, SEXP stderr_file) {
+
+  // disable any pager so help just prints and returns immediately
+  setenv("BCFTOOLS_PAGER", "", 1);
+  setenv("PAGER", "cat", 1);
+
   int i, status, nargs;
   const char *std_out, *std_err;
   int fd_stdout = -1, fd_stderr = -1;
