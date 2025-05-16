@@ -5,13 +5,18 @@
 #'
 #' @param args A character vector of arguments to pass to bcftools, where the first
 #'   element should be the bcftools command (e.g., "view", "query", "call", etc.)
-#' @param captureStdout Logical; whether to capture standard output to a file (default: FALSE)
-#' @param captureStderr Logical; whether to capture standard error to a file (default: FALSE)
+#' @param captureStdout Logical; whether to capture standard output to a file (default: TRUE)
+#' @param captureStderr Logical; whether to capture standard error to a file (default: TRUE)
 #' @param stdoutFile Character; file path where to save standard output (if captureStdout is TRUE)
 #' @param stderrFile Character; file path where to save standard error (if captureStderr is TRUE)
 #'
-#' @return Integer value representing the exit status of the bcftools command
-#'   (typically 0 for success, non-zero for errors)
+#' @return A named list with elements:
+#' \describe{
+#'   \item{status}{Integer exit status of the bcftools command (0 for success, non-zero for errors)}
+#'   \item{stdout}{Character vector of captured standard output lines, or NULL if not captured}
+#'   \item{stderr}{Character vector of captured standard error lines, or NULL if not captured}
+#'   \item{command}{Character vector representing the full bcftools command invoked}
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -25,8 +30,8 @@
 #'
 #' @export
 BCFToolsRun <- function(args,
-                        captureStdout = FALSE,
-                        captureStderr = FALSE,
+                        captureStdout = TRUE,
+                        captureStderr = TRUE,
                         stdoutFile = tempfile("bcftools_stdout_"),
                         stderrFile = tempfile("bcftools_stderr_")) {
     # Input validation
@@ -49,9 +54,19 @@ BCFToolsRun <- function(args,
     if (!is.character(stderrFile) || length(stderrFile) != 1) {
         stop("'stderrFile' must be a character string")
     }
+    if (interactive()) {
+        if (
+            !captureStderr || !captureStdout
+        ) {
+            stop(
+                "captureStdout and captureStderr must be TRUE in interactive mode"
+            )
+        }
+    }
 
-    # Call the C function
-    status <- .Call(
+
+    # Call the C function, which returns an integer with 'command' attribute
+    res_int <- .Call(
         RC_bcftools_run,
         args,
         captureStdout,
@@ -59,7 +74,17 @@ BCFToolsRun <- function(args,
         stdoutFile,
         stderrFile
     )
-
-    # Return the status code
-    return(status)
+    # Extract command attribute
+    cmd <- attr(res_int, "command")
+    # Read captured output
+    stdout_lines <- if (captureStdout) readLines(stdoutFile) else NULL
+    stderr_lines <- if (captureStderr) readLines(stderrFile) else NULL
+    # Build result list
+    result <- list(
+        status = as.integer(res_int),
+        stdout = stdout_lines,
+        stderr = stderr_lines,
+        command = cmd
+    )
+    return(result)
 }

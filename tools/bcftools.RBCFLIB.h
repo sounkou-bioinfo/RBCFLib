@@ -63,7 +63,7 @@ extern int bcftools_main(int argc, char *argv[]);
 
 /* A non-static error() function name is used in bcftools, which collides
    with glibc's error() function. #define with a prefix to avoid collision. */
-#define error bcftools_error
+//#define error bcftools_error
 
 #endif
 

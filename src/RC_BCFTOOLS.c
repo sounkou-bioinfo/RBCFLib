@@ -1,9 +1,8 @@
-#include <R.h>
 #include <Rinternals.h>
 #include "bcftools.RBCFLIB.h"
 #include <fcntl.h>
 #include <stdlib.h>
-#include <unistd.h>          // for close()
+#include <unistd.h> 
 
 SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr, 
                     SEXP stdout_file, SEXP stderr_file) {
@@ -72,21 +71,19 @@ SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr,
   bcftools_close_stdout();
   bcftools_close_stderr();
   
-  // Return status code
-  if (fd_stdout != -1) {
-    close(fd_stdout);
-  }
-  if (fd_stderr != -1) {
-    close(fd_stderr);
-  }
-  if (status == -1) {
-    error("bcftools_dispatch failed");
-  }
-  if (status == 0) {
-    Rprintf("bcftools completed successfully\n");
-  } else {
-    Rprintf("bcftools failed with status %d\n", status);
-  }
+  // Return status code with command attribute
+  if (fd_stdout != -1) close(fd_stdout);
+  if (fd_stderr != -1) close(fd_stderr);
+  if (status == -1) error("bcftools_dispatch failed");
 
-  return ScalarInteger(status);
+  // Build command character vector to return
+  SEXP cmd = PROTECT(allocVector(STRSXP, bc_n));
+  for (i = 0; i < bc_n; i++) {
+    SET_STRING_ELT(cmd, i, mkChar(bc_argv[i]));
+  }
+  // Wrap status as integer with 'command' attribute
+  SEXP res = PROTECT(ScalarInteger(status));
+  setAttrib(res, install("command"), cmd);
+  UNPROTECT(2);
+  return res;
 }
