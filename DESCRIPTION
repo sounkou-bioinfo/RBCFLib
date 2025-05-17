@@ -5,7 +5,9 @@ Authors@R: c(
     person(given = "Sounkou Mahamane", family = "Toure", 
     email = "sounkoutoure@gmail.com", role = c("aut", "cre")),
     person("Bonfield, James K and Marshall, John and Danecek, Petr and Li, Heng and Ohan, Valeriu and Whitwham, Andrew and Keane, Thomas and Davies, Robert M",  role = "cph",
-           comment = "Authors of included htslib library"))
+           comment = "Authors of included htslib library"),
+    person("Zilong", "Li", "zilong.dk@gmail.com", role = c("cph"),
+           comment = "Author of the vcfpp library from whom makefiles and configure strategy is borrowed"),)
 Copyright: See the file COPYRIGHTS for various htslib copyright details 
 Description: 
     This package provides a wrapper for the htslib and bcftools libraries, 
