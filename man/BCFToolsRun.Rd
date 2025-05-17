@@ -2,27 +2,30 @@
 % Please edit documentation in R/BCFToolsRun.R
 \name{BCFToolsRun}
 \alias{BCFToolsRun}
-\title{Run bcftools commands}
+\title{Run BCFTools commands}
 \usage{
 BCFToolsRun(
-  args,
-  captureStdout = TRUE,
-  captureStderr = TRUE,
-  stdoutFile = tempfile("bcftools_stdout_"),
-  stderrFile = tempfile("bcftools_stderr_")
+  command,
+  args = character(),
+  catchStdout = TRUE,
+  catchStderr = TRUE,
+  saveStdout = NULL,
+  isUsage = FALSE
 )
 }
 \arguments{
-\item{args}{A character vector of arguments to pass to bcftools, where the first
-element should be the bcftools command (e.g., "view", "query", "call", etc.)}
+\item{command}{A character string specifying the bcftools command to run
+(e.g., "view", "query", "call", etc.)}
 
-\item{captureStdout}{Logical; whether to capture standard output to a file (default: TRUE)}
+\item{args}{A character vector of arguments to pass to the bcftools command}
 
-\item{captureStderr}{Logical; whether to capture standard error to a file (default: TRUE)}
+\item{catchStdout}{Logical; whether to capture standard output (default: TRUE)}
 
-\item{stdoutFile}{Character; file path where to save standard output (if captureStdout is TRUE)}
+\item{catchStderr}{Logical; whether to capture standard error (default: TRUE)}
 
-\item{stderrFile}{Character; file path where to save standard error (if captureStderr is TRUE)}
+\item{saveStdout}{Character; file path where to save standard output, or NULL (default: NULL)}
+
+\item{isUsage}{Logical; if TRUE, will not redirect output for commands with explicit output options (default: FALSE)}
 }
 \value{
 A named list with elements:
@@ -36,15 +39,20 @@ A named list with elements:
 \description{
 Executes bcftools commands from within R using the embedded bcftools library.
 This function allows running any bcftools command and its options directly from R.
+It automatically handles output redirection for commands that accept -o/--output options.
 }
 \examples{
 \dontrun{
 # View a VCF file header
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
-BCFToolsRun(c("view", "-h", vcfFile))
+BCFToolsRun("view", c("-h", vcfFile))
 
 # Query specific fields from a VCF file
-BCFToolsRun(c("query", "-f", "\%CHROM\\\\t\%POS\\\\t\%REF\\\\t\%ALT[\\\\t\%GT]\\\\n", vcfFile))
+BCFToolsRun("query", c("-f", "\%CHROM\\\\t\%POS\\\\t\%REF\\\\t\%ALT[\\\\t\%GT]\\\\n", vcfFile))
+
+# Save output directly to a file
+outFile <- tempfile(fileext = ".vcf")
+BCFToolsRun("view", c("-h", vcfFile), saveStdout = outFile)
 }
 
 }

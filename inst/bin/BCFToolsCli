@@ -1,0 +1,144 @@
+#!/usr/bin/env Rscript
+
+# BCFToolsCli - A PascalCase CLI wrapper for BCFTools using RBCFLib
+# This script provides a command-line interface to bcftools functionality
+# through the RBCFLib package's BCFToolsRun function with PascalCase command naming.
+
+# Load RBCFLib
+if (!requireNamespace("RBCFLib", quietly = TRUE)) {
+    cat("Error: RBCFLib package is required but not installed\n", file = stderr())
+    cat("Please install the package using: install.packages('RBCFLib')\n", file = stderr())
+    quit(status = 1)
+}
+
+suppressPackageStartupMessages(library(RBCFLib))
+
+# Display help information
+DisplayHelp <- function() {
+    cat("BCFToolsCli - A PascalCase CLI wrapper for bcftools using RBCFLib\n\n")
+    cat("Usage: BCFToolsCli <Command> [options]\n\n")
+    cat("Commands:\n")
+    cat("  Version      - Display version information\n")
+    cat("  View         - View, subset and filter VCF/BCF files\n")
+    cat("  Index        - Index VCF/BCF files\n")
+    cat("  Query        - Query VCF/BCF files using SQL-like language\n")
+    cat("  Call         - SNP/indel variant calling\n")
+    cat("  Mpileup      - Produce genotype likelihoods in VCF/BCF format\n")
+    cat("  Concat       - Concatenate VCF/BCF files\n")
+    cat("  Merge        - Merge VCF/BCF files\n")
+    cat("  Norm         - Left-align and normalize indels\n")
+    cat("  Stats        - Produce stats which can be plotted with plot-vcfstats\n")
+    cat("  Annotate     - Add annotations\n")
+    cat("  Cnv          - Copy number variation caller\n")
+    cat("  Consensus    - Create consensus sequence from VCF\n")
+    cat("  Convert      - Convert between VCF/BCF and related formats\n")
+    cat("  Csq          - Call variation consequences\n")
+    cat("  Filter       - Filter VCF/BCF files using fixed thresholds\n")
+    cat("  Gtcheck      - Check sample concordance\n")
+    cat("  Plugin       - User-defined plugins\n")
+    cat("  Roh          - Identify runs of autozygosity/homozygosity\n")
+    cat("  Isec         - Create intersections, unions and complements\n")
+    cat("  Reheader     - Modify header of VCF/BCF files\n")
+    cat("  Sort         - Sort VCF/BCF file\n")
+    cat("  Head         - Print header\n")
+    cat("  Help         - Display help for commands\n")
+    cat("\nType 'BCFToolsCli Help <Command>' for help on a specific command\n")
+    cat("\nBCFToolsCli wraps the BCFToolsRun function from RBCFLib\n")
+}
+
+# Convert PascalCase to lowercase for bcftools commands
+ConvertCommand <- function(pascalCommand) {
+    # Simple conversion from PascalCase to lowercase
+    tolower(pascalCommand)
+}
+
+# Main function
+Main <- function() {
+    # Get command-line arguments
+    args <- commandArgs(trailingOnly = TRUE)
+
+    # Check if no arguments provided
+    if (length(args) == 0) {
+        DisplayHelp()
+        quit(status = 1)
+    }
+
+    # Extract command (first argument) - in PascalCase
+    pascalCommand <- args[1]
+
+    # Convert PascalCase command to lowercase for bcftools
+    command <- ConvertCommand(pascalCommand)
+
+    # Check if command is "help"
+    if (tolower(command) == "help") {
+        if (length(args) > 1) {
+            # Help for specific command - convert from PascalCase
+            helpCommand <- ConvertCommand(args[2])
+            result <- BCFToolsRun(helpCommand, "--help", isUsage = TRUE)
+            if (result$status == 0) {
+                cat(result$stderr, sep = "\n")
+            } else {
+                cat("Error: Invalid command or help request failed\n")
+                quit(status = 1)
+            }
+        } else {
+            DisplayHelp()
+        }
+        quit(status = 0)
+    }
+
+    # Process remaining arguments
+    cmdArgs <- if (length(args) > 1) args[2:length(args)] else character()
+
+    # Check for output redirection
+    outputFile <- NULL
+    isOutputSpecified <- FALSE
+
+    for (i in seq_along(cmdArgs)) {
+        if (cmdArgs[i] == "-o" || cmdArgs[i] == "--output") {
+            if (i < length(cmdArgs)) {
+                outputFile <- cmdArgs[i + 1]
+                isOutputSpecified <- TRUE
+                break
+            }
+        } else if (startsWith(cmdArgs[i], "-o=") || startsWith(cmdArgs[i], "--output=")) {
+            outputFile <- sub("^-o=|^--output=", "", cmdArgs[i])
+            isOutputSpecified <- TRUE
+            break
+        }
+    }
+
+    # Run bcftools command through BCFToolsRun
+    tryCatch(
+        {
+            result <- BCFToolsRun(
+                command = command,
+                args = cmdArgs,
+                catchStdout = TRUE,
+                catchStderr = TRUE,
+                saveStdout = outputFile,
+                isUsage = FALSE
+            )
+
+            # Print error messages to stderr
+            if (!is.null(result$stderr) && length(result$stderr) > 0) {
+                cat(result$stderr, sep = "\n", file = stderr())
+            }
+
+            # Print stdout to console if not redirected to file
+            if (!is.null(result$stdout) && length(result$stdout) > 0 && !isOutputSpecified) {
+                cat(result$stdout, sep = "\n")
+            }
+
+            # Return exit code from bcftools
+            quit(status = result$status)
+        },
+        error = function(e) {
+            cat("Error: ", e$message, "\n", file = stderr())
+            quit(status = 1)
+        }
+    )
+}
+
+# Run main function
+Main()
