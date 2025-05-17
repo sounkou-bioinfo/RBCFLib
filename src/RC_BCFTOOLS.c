@@ -2,10 +2,17 @@
 #include "bcftools.RBCFLIB.h"
 #include <fcntl.h>
 #include <stdlib.h>
-#include <unistd.h> 
+#include <unistd.h>
+#include <string.h>
 
-SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr, 
-                    SEXP stdout_file, SEXP stderr_file) {
+SEXP RC_bcftools_run(
+                  SEXP command, 
+                  SEXP args, 
+                  SEXP capture_stdout,
+                  SEXP capture_stderr, 
+                  SEXP stdout_file,
+                  SEXP stderr_file,
+                  SEXP is_usage) {
 
 
   int i, status, nargs;
@@ -20,6 +27,9 @@ SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr,
     user_argv[i] = (char*) CHAR(STRING_ELT(args, i));
   }
   
+  // Get the command string
+  const char* cmd_str = CHAR(STRING_ELT(command, 0));
+  
   // Setup stdout redirection if requested
   if (asLogical(capture_stdout)) {
     std_out = CHAR(STRING_ELT(stdout_file, 0));
@@ -29,7 +39,12 @@ SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr,
     }
     bcftools_set_stdout(fd_stdout);
   } else {
-    bcftools_set_stdout(1); // Standard stdout
+    // Redirect to /dev/null if we don't want to capture stdout
+    fd_stdout = open("/dev/null", O_WRONLY);
+    if (fd_stdout == -1) {
+      error("Could not open /dev/null for writing");
+    }
+    bcftools_set_stdout(fd_stdout);
   }
   
   // Setup stderr redirection if requested
@@ -42,26 +57,37 @@ SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr,
     }
     bcftools_set_stderr(fd_stderr);
   } else {
-    bcftools_set_stderr(2); // Standard stderr
+    // Redirect stderr to /dev/null if we don't want to capture it
+    fd_stderr = open("/dev/null", O_WRONLY);
+    if (fd_stderr == -1) {
+      if (fd_stdout != -1) close(fd_stdout);
+      error("Could not open /dev/null for writing");
+    }
+    bcftools_set_stderr(fd_stderr);
   }
   
-  // Call the bcftools dispatcher
-  Rprintf("Running bcftools with %d arguments\n", nargs);
-  for (i = 0; i < nargs; i++) {
-    Rprintf("argv[%d]: %s\n", i, user_argv[i]);
-  }
-
-  // build an argv[] with an extra slot for the program name
+  // Build an argv[] with slots for "bcftools" and the command
   int user_n = length(args);
-  int bc_n   = user_n + 1;            // +1 for "bcftools"
+  int bc_n   = user_n + 2;            // +1 for "bcftools", +1 for command
   char *bc_argv[bc_n];
 
   // argv[0] must be the program name
   bc_argv[0] = "bcftools";
+  
+  // argv[1] is the command
+  bc_argv[1] = (char*)cmd_str;
 
-  // shift user args into argv[1..]
+  // shift user args into argv[2..]
   for (i = 0; i < user_n; i++) {
-    bc_argv[i+1] = user_argv[i];
+    bc_argv[i+2] = user_argv[i];
+  }
+  
+  // For debugging, can be enabled by an environment variable or verbose flag
+  if (getenv("RBCFLIB_DEBUG") != NULL) {
+    Rprintf("Running bcftools %s with %d arguments\n", cmd_str, nargs);
+    for (i = 0; i < bc_n; i++) {
+      Rprintf("argv[%d]: %s\n", i, bc_argv[i]);
+    }
   }
 
   // now dispatch
@@ -72,8 +98,8 @@ SEXP RC_bcftools_run(SEXP args, SEXP capture_stdout, SEXP capture_stderr,
   bcftools_close_stderr();
   
   // Return status code with command attribute
-  if (fd_stdout != -1) close(fd_stdout);
-  if (fd_stderr != -1) close(fd_stderr);
+  if (fd_stdout != -1 && fd_stdout != 1) close(fd_stdout); // Don't close stdout (fd 1)
+  if (fd_stderr != -1 && fd_stderr != 2) close(fd_stderr); // Don't close stderr (fd 2)
   if (status == -1) error("bcftools_dispatch failed");
 
   // Build command character vector to return
