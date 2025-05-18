@@ -1606,7 +1606,7 @@ static double gibbs(int nrow, const map_t *map, const double *sd_arr, const doub
  * PLUGIN                               *
  ****************************************/
 
-const char *about(void) { return "Compute best linear unbiased predictor from GWAS-VCF summary statistics.\n"; }
+static const char *about(void) { return "Compute best linear unbiased predictor from GWAS-VCF summary statistics.\n"; }
 
 static const char *usage(void) {
     return "\n"

@@ -152,7 +152,7 @@ static int (*tsv_setters[])(tsv_t *tsv, bcf1_t *rec, void *usr) = {tsv_setter_id
  * PLUGIN                               *
  ****************************************/
 
-const char *about(void) { return "Convert summary statistics to GWAS-VCF.\n"; }
+static const char *about(void) { return "Convert summary statistics to GWAS-VCF.\n"; }
 
 static const char *usage_text(void) {
     return "\n"
@@ -192,7 +192,7 @@ static const char *usage_text(void) {
            "\n";
 }
 
-int run(int argc, char **argv) {
+int run_munge(int argc, char **argv) {
     float ns = 0.0f;
     float nc = 0.0f;
     float ne = 0.0f;

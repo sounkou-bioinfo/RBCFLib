@@ -394,7 +394,7 @@ static void summary_destroy(summary_t *summary) {
  * PLUGIN                               *
  ****************************************/
 
-const char *about(void) { return "Compute polygenic scores from GWAS-VCF summary statistics.\n"; }
+static const char *about(void) { return "Compute polygenic scores from GWAS-VCF summary statistics.\n"; }
 
 static const char *usage_text(void) {
     return "\n"
@@ -458,7 +458,7 @@ static double *parse_list(const char *str, int *n) {
     return v;
 }
 
-int run(int argc, char **argv) {
+int run_score(int argc, char **argv) {
     int i, j, k, idx, ap;
     int use_tag = 0;
     int display_cnts = 0;

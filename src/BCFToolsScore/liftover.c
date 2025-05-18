@@ -488,7 +488,7 @@ static int compress_tags(int *info_rules, int *fmt_rules, int n, tag_t **tags) {
  * PLUGIN                               *
  ****************************************/
 
-const char *about(void) { return "Lift over a VCF from one genome build to another.\n"; }
+static const char *about(void) { return "Lift over a VCF from one genome build to another.\n"; }
 
 const char *usage(void) {
     return "\n"
@@ -565,7 +565,7 @@ static inline FILE *get_file_handle(const char *str) {
     return ret;
 }
 
-int init(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out) {
+int run_liftover(int argc, char **argv, bcf_hdr_t *in, bcf_hdr_t *out) {
     args = (args_t *)calloc(1, sizeof(args_t));
     args->in_hdr = in;
     args->out_hdr = out;
@@ -2601,7 +2601,7 @@ bcf1_t *process(bcf1_t *rec) {
     return rec;
 }
 
-void destroy(void) {
+static void destroy(void) {
     if (args->idx)
         fprintf(stderr, "Lines   total/swapped/reference added/rejected:\t%d/%d/%d/%d\n", args->ntotal, args->nswapped,
                 args->nref_added, args->nrejected);

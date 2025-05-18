@@ -61,8 +61,10 @@ sed -e \
 echo "----------Running Import script-----------------"
 ${RSCRIPT} ${importScript} ${PWD} ${PWD}
 ${MAKE} -f Makefile libRbcftools.a CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}"
-echo "Create Makevar file"
 cd ..
+echo "---- RUN BCFtoolsScore import script ----"
+${RSCRIPT} ${importScript} ${PWD}/BCFToolsScore ${PWD}/BCFToolsScore
+echo "Create Makevar file"
 sed \
     -e "s|@EXTRA_CPPFLAGS@|${CPPFLAGS}|g" \
     -e "s|@EXTRA_LIBS@|${EXTRA_LIBS}|g" \
