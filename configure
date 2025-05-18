@@ -13,6 +13,7 @@ R_CFLAGS=`"${R_HOME}/bin/R" CMD config CFLAGS`
 R_CPICFLAGS=`"${R_HOME}/bin/R" CMD config CPICFLAGS`
 HTSLIB_BUNDLED_MK=${THISDir}/inst/makefiles/htscodecs_bundled.mk
 BCFTOOLS_CONFIG_MK_IN=${THISDir}/inst/makefiles/bcftools_config.mk.in
+BCFTOOLS_MAKEFILE=${THISDir}/inst/makefiles/bcftools_Makefile
 RSCRIPT="${R_HOME}/bin/Rscript"
 importScript="${THISDir}/tools/Import.R"
 # -fPIC is ensential for shared lib

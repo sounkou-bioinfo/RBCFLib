@@ -22,7 +22,7 @@ ShowHelp <- function() {
         "version", "view", "index", "query", "call", "mpileup", "concat",
         "merge", "norm", "stats", "annotate", "cnv", "consensus",
         "convert", "csq", "filter", "gtcheck", "plugin", "roh",
-        "isec", "reheader", "sort", "head", "help", "munge", "score", "metal"
+        "isec", "reheader", "sort", "head", "help"
     )
     for (cmd in validCommands) {
         cat("  ", cmd, "\n")

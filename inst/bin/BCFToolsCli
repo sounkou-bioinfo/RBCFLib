@@ -41,7 +41,6 @@ DisplayHelp <- function() {
     cat("  Reheader     - Modify header of VCF/BCF files\n")
     cat("  Sort         - Sort VCF/BCF file\n")
     cat("  Head         - Print header\n")
-    cat("  Munge        - Munge converts gwas summary statistic files to GWAS-VCF format\n")
     cat("  Help         - Display help for commands\n")
     cat("\nType 'BCFToolsCli Help <Command>' for help on a specific command\n")
     cat("\nBCFToolsCli wraps the BCFToolsRun function from RBCFLib\n")
