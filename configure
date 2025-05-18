@@ -62,8 +62,6 @@ ${RSCRIPT} ${importScript} ${PWD} ${PWD}
 ${MAKE} -f Makefile libRbcftools.a CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}"
 echo "Create Makevar file"
 cd ..
-echo "----------Running Import script on munge-----------------"
-${RSCRIPT} ${importScript} BCFToolsScore BCFToolsScore
 sed \
     -e "s|@EXTRA_CPPFLAGS@|${CPPFLAGS}|g" \
     -e "s|@EXTRA_LIBS@|${EXTRA_LIBS}|g" \
