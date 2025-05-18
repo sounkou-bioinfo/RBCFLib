@@ -14,9 +14,18 @@ SEXP RC_bcftools_munge(
                   SEXP is_usage) {
 
 
-  int i, status, nargs;
-  const char *std_out, *std_err;
-  int fd_stdout = -1, fd_stderr = -1;
+/* Reset getopt()/getopt_long() processing. */
+#if defined __GLIBC__
+  optind = 0;
+#elif defined _OPTRESET || defined _OPTRESET_DECLARED
+  optreset = optind = 1;
+#else
+  optind = 1;
+#endif
+
+int i, status, nargs;
+const char *std_out, *std_err;
+int fd_stdout = -1, fd_stderr = -1;
   
   // Parse R arguments
   nargs = length(args);
@@ -27,7 +36,7 @@ SEXP RC_bcftools_munge(
   }
   
   // Get the command string
-  char* cmd_str = "bcftools+munge";
+  char* cmd_str = "munge";
   
   // Setup stdout redirection if requested
   if (asLogical(capture_stdout)) {

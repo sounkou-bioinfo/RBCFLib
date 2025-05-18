@@ -101,18 +101,21 @@ BCFToolsMunge <- function(InputFileName,
     # Initialize arguments vector
     args <- character()
 
+
     # Build the command arguments
     if (!is.null(Columns)) {
         args <- c(args, "-c", Columns)
     }
 
     if (!is.null(ColumnsFile)) {
-        args <- c(args, "-C", ColumnsFile)
+        args <- c(args, "--columns-file", ColumnsFile)
     }
 
     if (!is.null(FastaRef)) {
         args <- c(args, "-f", FastaRef)
     }
+
+
 
     if (!is.null(FaiFile)) {
         args <- c(args, "--fai", FaiFile)

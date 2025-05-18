@@ -37,12 +37,26 @@ expect_identical(as.integer(test_basic$status), 0L, "BCFToolsMunge should exit w
 # Check that output file was created
 expect_true(file.exists(outputFile), "Output BCF file was not created")
 
+# Test 1.5: Add debug print to help diagnose the issue
+cat("Before Test 2, checking fastaRef path: ", fastaRef, "\n")
+if (file.exists(fastaRef)) {
+    cat("Reference FASTA exists\n")
+} else {
+    cat("Reference FASTA does not exist\n")
+}
+if (file.exists(paste0(fastaRef, ".fai"))) {
+    cat("Reference FASTA index exists\n")
+} else {
+    cat("Reference FASTA index does not exist\n")
+}
+
 # Test 2: Test with custom column headers
 test_custom <- BCFToolsMunge(
     InputFileName = inputFile,
     ColumnsFile = colHeaders,
     FastaRef = fastaRef,
-    SampleName = "TEST_SAMPLE",
+    FaiFile = paste0(fastaRef, ".fai"),
+    SampleName = "TESTSAMPLE",
     OutputFile = outputFileVCF,
     OutputType = "v"
 )
@@ -99,7 +113,6 @@ test_bad_input <- BCFToolsMunge(
 
 expect_true(test_bad_input$status != 0, "BCFToolsMunge should fail with non-existent input file")
 expect_true(!is.null(test_bad_input$stderr), "Error message should be captured in stderr")
-
 # Clean up temp files
 if (file.exists(outputFile)) file.remove(outputFile)
 if (file.exists(outputFileVCF)) file.remove(outputFileVCF)
