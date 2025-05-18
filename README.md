@@ -1,28 +1,65 @@
 # RBCLIB
 
-Utility functions to manipulated BCF/VCF files in R usig `htslib` and `bctools` C libraries and a wrapper of the `bcftools` command line interface.
+**RBCFLib** provides R bindings to `htslib` and `bcftools`, enabling efficient manipulation of BCF/VCF genomic data files directly within R. It includes a wrapper for the `bcftools` command-line interface, with an implementation strategy inspired by [pysam](https://github.com/pysam-developers/pysam)'s approach to wrapping samtools/bcftools command line libraries tools.
 
-The main motivating gaol is to ultimately reproduce the fantastic [bcftools munge](https://github.com/freeseek/score) utility as a faster alternative to the great [{MungeSumstats}](https://github.com/Al-Murphy/MungeSumstats). 
+A primary goal that motivated **RBCFLib** is to performance R based GWAS-VCF centric alternative to existing sumstats manipulation tools, such as [{MungeSumstats}](https://github.com/Al-Murphy/MungeSumstats), by leveraging the speed of `bcftools munge`.
 
-TODO
+**Current Features:**
 
-- [ ] Provide full wrapping of BCFTOOLS command line tool from R
-  
-  The strategy is copied from [pysam](https://github.com/pysam-developers/pysam), especially the pysam.h and pysam.c file. The adaptation here of is static linking.
-  
-  - [ ] Non Interactive mode with Rscript
- 
-  - [ ] Interactive mode : issue here is how to manage sdtout
- 
-  - [ ] Allow user interupts : this may be done by running bcftools on a separate thread or background R session. 
+*   **BCFTools Command-Line Wrapper:** Execute `bcftools` commands directly from R using `BCFToolsRun()`.
+*   **BCFTools Munge Integration:** Specialized function `BCFToolsMunge()` for sumstats manipulation.
+*   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
+*   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsCLIPath()`.
 
-- [ ] Basic VCF/BCF manipulations and loading in R
-  
-  Our goal here is to provide a more dataframe like access to BCF/VCF files. But we will start with basic scanning functions and/or streaming.
+**TODO:**
 
-- [ ] faidx functions for fasta manipulation
+The following features are planned for future development:
 
-- [ ] kfunctions for intervals
+*   **Enhanced `bcftools` Wrapping:**
+    *   [ ] Improve handling of stdout/stderr for interactive R sessions.
+    *   [ ] Implement robust user interrupt handling (Ctrl+C). This might involve running `bcftools` commands in a separate thread or background R process.
 
-- [ ] Tabix Tabular imports to BCF/VCF
+*   **Direct BCF/VCF Data Manipulation in R:**
+    *   [ ] Develop functions for reading/scanning BCF/VCF files into R data structures (e.g., data frames or similar).
+    *   [ ] Explore streaming capabilities for large VCF/BCF files to manage memory efficiently.
 
+*   **`faidx` Integration:**
+    *   [ ] Implement functions for fast FASTA file indexing and sequence retrieval.
+
+*   **Interval Operations (kfunctions):**
+    *   [ ] Provide tools for working with genomic intervals.
+
+*   **Tabix Support:**
+    *   [ ] Enable importing data from Tabix-indexed tabular files into BCF/VCF format or R objects.
+
+**Installation**
+
+```r
+# Instructions for installing from GitHub (once available)
+devtools::install_github("sounkou-bioinfo/RBCFLib")
+```
+
+**Example Usage**
+
+```r
+# Load the library
+library(RBCFLib)
+
+# Get bcftools version
+BCFToolsVersion()
+
+# Run a bcftools command (example: view a VCF file)
+vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
+BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
+# Use bcftools munge help
+tsvFile <- system.file("exdata", "test_plink.tsv", package = "RBCFLib")
+refFile <- system.file("exdata", "Test.fa", package = "RBCFLib")
+outFile <- tempfile(fileext = ".vcf")
+
+out <- BCFToolsMunge(
+    input_file = tsvFile,
+    fasta_ref = refFile,
+    output = outFile,
+    columns = "PLINK" # Adding required columns parameter
+)
+```

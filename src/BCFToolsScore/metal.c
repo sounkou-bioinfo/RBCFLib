@@ -586,7 +586,7 @@ static inline int filter_test_with_logic(filter_t *filter, bcf1_t *line, uint8_t
     return pass;
 }
 
-int run(int argc, char **argv) {
+int main(int argc, char **argv) {
     int iter, i, j, k, l, m, rid, idx;
     int filter_logic = 0;
     int szw = 0;

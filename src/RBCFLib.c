@@ -1,8 +1,10 @@
 #include "RBCFLib.h"
-
 /* Function declarations */
 SEXP RC_HTSLibVersion(void);
 SEXP RC_BCFToolsVersion(void);
+
+extern  char *hts_version(void);
+extern  char *bcftools_version(void);
 
 /* Function implementations */
 /* 
