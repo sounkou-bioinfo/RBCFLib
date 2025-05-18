@@ -50,15 +50,4 @@ BCFToolsVersion()
 # Run a bcftools command (example: view a VCF file)
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
-# Use bcftools munge help
-tsvFile <- system.file("exdata", "test_plink.tsv", package = "RBCFLib")
-refFile <- system.file("exdata", "Test.fa", package = "RBCFLib")
-outFile <- tempfile(fileext = ".vcf")
-
-out <- BCFToolsMunge(
-    input_file = tsvFile,
-    fasta_ref = refFile,
-    output = outFile,
-    columns = "PLINK" # Adding required columns parameter
-)
 ```
