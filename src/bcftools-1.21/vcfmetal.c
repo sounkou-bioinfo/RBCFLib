@@ -510,7 +510,7 @@ static void inv_cor_hash_destroy(inv_cor_hash_t *this) {
  * PLUGIN                               *
  ****************************************/
 
-const char *about(void) { return "Run meta-analysis from GWAS-VCF summary statistics.\n"; }
+static const char *about(void) { return "Run meta-analysis from GWAS-VCF summary statistics.\n"; }
 
 static const char *usage_text(void) {
     return "\n"
@@ -524,7 +524,7 @@ static const char *usage_text(void) {
            "[ Lin, D. & Sullivan, P. F. Meta-Analysis of Genome-wide Association Studies with Overlapping Subjects.\n"
            "The American Journal of Human Genetics 85, 862–872 (2009) http://doi.org/10.1016/j.ajhg.2009.11.001 ]\n"
            "\n"
-           "Usage: bcftools +metal [options] <score1.gwas.vcf.gz> "
+           "Usage: bcftools metal [options] <score1.gwas.vcf.gz> "
            "<score2.gwas.vcf.gz> [<score3.gwas.vcf.gz> ...]\n"
            "Plugin options:\n"
            "       --summaries <file>          list of summary statistics VCFs from file\n"
@@ -556,9 +556,9 @@ static const char *usage_text(void) {
            "   -W, --write-index[=FMT]         Automatically index the output files [off]\n"
            "\n"
            "Examples:\n"
-           "      bcftools +metal -Ob -o ukb_mvp.gwas.bcf -i ukb.gwas.bcf mvp.gwas.bcf\n"
-           "      bcftools +metal -Ob -o ukb_mvp.gwas.bcf -i 'NS>1000 & AF>0.01 & AF<0.99' ukb.gwas.bcf mvp.gwas.bcf\n"
-           "      bcftools +metal -Ob -o ukb_mvp.gwas.bcf -i 'ID=\"rs1234\" || ID=\"rs123456\" || ID=\"rs123\"' "
+           "      bcftools metal -Ob -o ukb_mvp.gwas.bcf -i ukb.gwas.bcf mvp.gwas.bcf\n"
+           "      bcftools metal -Ob -o ukb_mvp.gwas.bcf -i 'NS>1000 & AF>0.01 & AF<0.99' ukb.gwas.bcf mvp.gwas.bcf\n"
+           "      bcftools metal -Ob -o ukb_mvp.gwas.bcf -i 'ID=\"rs1234\" || ID=\"rs123456\" || ID=\"rs123\"' "
            "ukb.gwas.bcf mvp.gwas.bcf\n"
            "\n";
 }
@@ -586,7 +586,7 @@ static inline int filter_test_with_logic(filter_t *filter, bcf1_t *line, uint8_t
     return pass;
 }
 
-int run(int argc, char **argv) {
+int main_metal(int argc, char **argv) {
     int iter, i, j, k, l, m, rid, idx;
     int filter_logic = 0;
     int szw = 0;
