@@ -7,7 +7,6 @@ A primary goal that motivated **RBCFLib** is to performance R based GWAS-VCF cen
 **Current Features:**
 
 *   **BCFTools Command-Line Wrapper:** Execute `bcftools` commands directly from R using `BCFToolsRun()`.
-*   **BCFTools Munge Integration:** Specialized function `BCFToolsMunge()` for sumstats manipulation.
 *   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
 *   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsCLIPath()`.
 
