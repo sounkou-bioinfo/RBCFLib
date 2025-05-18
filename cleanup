@@ -1,9 +1,12 @@
 #!/bin/sh
 # cleanup htslib
 HTSLIB_DIR="src/htslib-1.21"
+BCFTOOLS_SCORE_DIR="src/BCFToolsScore"
+BCFTOOLS_DIR="src/bcftools-1.21"
 rm -f ${HTSLIB_DIR}/config.h src/*.o src/*.so src/*.dll src/*.dylib src/Makevars
 cd $HTSLIB_DIR && make clean && cd -
 # # cleanup bcftools
-BCFTOOLS_DIR="src/bcftools-1.21"
 rm -f ${BCFTOOLS_DIR}/config.h src/*.o src/*.so src/*.dll src/*.dylib 
 cd $BCFTOOLS_DIR && make clean && rm -f *.RBCFLIB.c *.RBCFLIB.h && cd -
+# munge directory cleanup
+rm -f ${BCFTOOLS_SCORE_DIR}/*RBCFLIB.c ${BCFTOOLS_SCORE_DIR}/*RBCFLIB.h
