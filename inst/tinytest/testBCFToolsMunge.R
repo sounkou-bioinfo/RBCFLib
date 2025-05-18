@@ -105,14 +105,15 @@ expect_identical(as.integer(test_options$status), 0L, "BCFToolsMunge with extra 
 
 # Test 5: Test with non-existent input file
 nonexistentFile <- tempfile(fileext = ".tsv")
-test_bad_input <- BCFToolsMunge(
-    InputFileName = nonexistentFile,
-    Columns = "PLINK",
-    FastaRef = fastaRef
+expect_error(
+    BCFToolsMunge(
+        InputFileName = nonexistentFile,
+        Columns = "PLINK",
+        FastaRef = fastaRef
+    ),
+    "Could not open .* No such file or directory"
 )
 
-expect_true(test_bad_input$status != 0, "BCFToolsMunge should fail with non-existent input file")
-expect_true(!is.null(test_bad_input$stderr), "Error message should be captured in stderr")
 # Clean up temp files
 if (file.exists(outputFile)) file.remove(outputFile)
 if (file.exists(outputFileVCF)) file.remove(outputFileVCF)
