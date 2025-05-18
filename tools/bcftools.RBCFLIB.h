@@ -50,7 +50,7 @@ void RBCFLIB_NORETURN bcftools_exit(int status);
 extern int bcftools_main(int argc, char *argv[]);
 
 /* These are only needed in C source, not R interface code */
-#if !(defined CYTHON_ABI || defined CYTHON_HEX_VERSION || defined R_INTERFACE)
+#if !( defined R_INTERFACE)
 
 /* Several non-static function names are used in both samtools and bcftools.
    Both libraries may be loaded simultaneously, leading to collisions.
@@ -63,7 +63,7 @@ extern int bcftools_main(int argc, char *argv[]);
 
 /* A non-static error() function name is used in bcftools, which collides
    with glibc's error() function. #define with a prefix to avoid collision. */
-//#define error bcftools_error
+//#define error bcftools_error , we let bctools bind to the Rf_error
 
 #endif
 

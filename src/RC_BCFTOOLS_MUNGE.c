@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#define run bcftools_munge 
+// Define bcftools_munge as the name for the run function in munge.RBCFLIB.c
+#define run bcftools_munge
 #include "BCFToolsScore/munge.RBCFLIB.c"
 
 SEXP RC_bcftools_munge(
