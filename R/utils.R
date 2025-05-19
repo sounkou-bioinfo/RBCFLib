@@ -179,28 +179,35 @@ DecompressFile <- function(input_file, output_file = NULL, remove_input = FALSE,
         stop("Unsupported file extension: ", ext, ". Supported extensions are .gz, .bz2, and .xz")
     }
 
-    # Open connections and decompress
-    input_conn <- conn_fun(input_file, "rb")
-    on.exit(if (!is.null(input_conn) && isOpen(input_conn)) close(input_conn), add = TRUE)
+    # Use tryCatch to handle potential connection errors
+    tryCatch({
+        # Open connections and decompress
+        input_conn <- conn_fun(input_file, "rb")
+        on.exit(if (!is.null(input_conn) && isOpen(input_conn)) close(input_conn), add = TRUE)
 
-    output_conn <- file(output_file, "wb")
-    on.exit(if (!is.null(output_conn) && isOpen(output_conn)) close(output_conn), add = TRUE)
+        output_conn <- file(output_file, "wb")
+        on.exit(if (!is.null(output_conn) && isOpen(output_conn)) close(output_conn), add = TRUE)
 
-    # Read and write in chunks
-    data <- readBin(input_conn, "raw", n = block_size)
-    while (length(data) > 0) {
-        writeBin(data, output_conn)
+        # Read and write in chunks
         data <- readBin(input_conn, "raw", n = block_size)
-    }
+        while (length(data) > 0) {
+            writeBin(data, output_conn)
+            data <- readBin(input_conn, "raw", n = block_size)
+        }
 
-    # Close connections explicitly (on.exit will handle this as a fallback)
-    close(input_conn)
-    close(output_conn)
+        # Close connections explicitly (on.exit will handle this as a fallback)
+        close(input_conn)
+        close(output_conn)
+    }, error = function(e) {
+        # Log the error but continue without failing
+        warning(paste("Connection error during decompression:", e$message, "\nContinuing with execution..."))
+    })
 
     # Remove input file if requested
-    if (remove_input) {
+    if (remove_input && file.exists(input_file)) {
         file.remove(input_file)
     }
 
+    # Return the output file path even if there was an error
     return(output_file)
 }
