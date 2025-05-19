@@ -1,0 +1,95 @@
+#!/usr/bin/env Rscript
+
+# BCFToolsPGS - Command-line interface for BCFTools pgs
+# Usage: BCFToolsPGS [options] <input_gwas_vcf> <ldgm_file>
+#
+# Compute polygenic score loadings from GWAS summary statistics
+
+suppressPackageStartupMessages(library(RBCFLib))
+suppressPackageStartupMessages(library(optparse))
+
+option_list <- list(
+    make_option(c("-l", "--ldgm"), type = "character", default = NULL, help = "LDGM file with sparse LD matrix"),
+    make_option(c("-r", "--regions"), type = "character", default = NULL, help = "Restrict to comma-separated list of regions"),
+    make_option(c("--regions-file"), type = "character", default = NULL, help = "Restrict to regions listed in file"),
+    make_option(c("-t", "--targets"), type = "character", default = NULL, help = "Similar to --regions but streams rather than index-jumps"),
+    make_option(c("--targets-file"), type = "character", default = NULL, help = "Similar to --regions-file but streams rather than index-jumps"),
+    make_option(c("--prior"), type = "character", default = NULL, help = "Prior specification for effect size variance"),
+    make_option(c("--lds-tag"), type = "character", default = NULL, help = "INFO tag containing LD score values"),
+    make_option(c("--q-score-thr"), type = "numeric", default = NULL, help = "Minimum quality score threshold for variants"),
+    make_option(c("--max-file-size"), type = "integer", default = NULL, help = "Maximum file size in MB for memory mapping"),
+    make_option(c("--max-chunk-size"), type = "integer", default = NULL, help = "Maximum chunk size in MB for memory mapping"),
+    make_option(c("--avg-effects"), type = "logical", action = "store_true", default = FALSE, help = "Average effects across proxies for redundant sites"),
+    make_option(c("--avg-lds"), type = "numeric", default = NULL, help = "Average genome-wide LD score for variants"),
+    make_option(c("--er"), type = "numeric", default = NULL, help = "Expected ratio of associations to null"),
+    make_option(c("--min-maf"), type = "numeric", default = NULL, help = "Remove variants with MAF below this threshold"),
+    make_option(c("--no-normalize"), type = "logical", action = "store_true", default = FALSE, help = "Do not normalize by allele frequency"),
+    make_option(c("-s", "--samples"), type = "character", default = NULL, help = "Comma-separated list of sample names to process"),
+    make_option(c("--samples-file"), type = "character", default = NULL, help = "File with list of samples to include"),
+    make_option(c("-i", "--include"), type = "character", default = NULL, help = "Include sites for which the expression is true"),
+    make_option(c("-e", "--exclude"), type = "character", default = NULL, help = "Exclude sites for which the expression is true"),
+    make_option(c("-o", "--output-file"), type = "character", default = NULL, help = "Write output to a file"),
+    make_option(c("-O", "--output-type"), type = "character", default = NULL, help = "b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF"),
+    make_option(c("--threads"), type = "integer", default = NULL, help = "Number of extra output compression threads [0]"),
+    make_option(c("-W", "--write-index"), type = "logical", action = "store_true", default = FALSE, help = "Automatically index the output file")
+)
+
+# Parse command-line arguments
+parser <- OptionParser(usage = "%prog [options] <input_gwas_vcf> <ldgm_file>", option_list = option_list)
+args <- parse_args(parser, positional_arguments = 2)
+
+# Extract positional arguments
+input_vcf <- args$args[1]
+ldgm_file <- args$args[2]
+
+# Execute the function with tryCatch to handle potential CHOLMOD errors
+tryCatch(
+    {
+        result <- BCFToolsPGS(
+            InputFileName = input_vcf,
+            LDMatrix = ldgm_file,
+            Regions = args$options$regions,
+            RegionsFile = args$options$`regions-file`,
+            Targets = args$options$targets,
+            TargetsFile = args$options$`targets-file`,
+            Prior = args$options$prior,
+            LDScoreTag = args$options$`lds-tag`,
+            QScoreThreshold = args$options$`q-score-thr`,
+            MaxFileSize = args$options$`max-file-size`,
+            MaxChunkSize = args$options$`max-chunk-size`,
+            AverageEffects = args$options$`avg-effects`,
+            AverageLDScore = args$options$`avg-lds`,
+            ExpectedRatio = args$options$er,
+            MAFThreshold = args$options$`min-maf`,
+            NoNormalize = args$options$`no-normalize`,
+            SampleNames = args$options$samples,
+            SamplesFile = args$options$`samples-file`,
+            IncludeFilter = args$options$include,
+            ExcludeFilter = args$options$exclude,
+            OutputFile = args$options$`output-file`,
+            OutputType = args$options$`output-type`,
+            NumThreads = args$options$threads,
+            WriteIndex = args$options$`write-index`
+        )
+
+        # Print command and exit status
+        cat("Command:", result$command, "\n")
+        cat("Exit status:", result$status, "\n")
+
+        # Print any stderr messages
+        if (!is.null(result$stderr)) {
+            cat("\nStandard Error:\n")
+            cat(result$stderr, sep = "\n")
+        }
+
+        # Exit with the same status as the command
+        quit(status = result$status)
+    },
+    error = function(e) {
+        cat("Error:", e$message, "\n")
+        if (grepl("CHOLMOD", e$message)) {
+            cat("BCFTools was compiled without CHOLMOD support. Please install CHOLMOD and recompile.\n")
+        }
+        quit(status = 1)
+    }
+)

@@ -1,0 +1,76 @@
+#!/usr/bin/env Rscript
+
+# BCFToolsLiftover - Command-line interface for BCFTools liftover
+# Usage: BCFToolsLiftover [options] <input_vcf> <chain_file>
+#
+# Converts variant coordinates between genome assemblies
+
+suppressPackageStartupMessages(library(RBCFLib))
+suppressPackageStartupMessages(library(optparse))
+
+option_list <- list(
+    make_option(c("-c", "--chain"), type = "character", default = NULL, help = "Chain file for mapping old to new assembly"),
+    make_option(c("-f", "--fasta-ref"), type = "character", default = NULL, help = "Reference sequence in FASTA format"),
+    make_option(c("-r", "--regions"), type = "character", default = NULL, help = "Restrict to comma-separated list of regions"),
+    make_option(c("--regions-file"), type = "character", default = NULL, help = "Restrict to regions listed in file"),
+    make_option(c("-t", "--targets"), type = "character", default = NULL, help = "Similar to --regions but streams rather than index-jumps"),
+    make_option(c("--targets-file"), type = "character", default = NULL, help = "Similar to --regions-file but streams rather than index-jumps"),
+    make_option(c("--flip-tag"), type = "character", default = NULL, help = "INFO tag to mark reverse-complemented sites"),
+    make_option(c("--swap-tag"), type = "character", default = NULL, help = "INFO tag to mark swapped REF/ALT sites"),
+    make_option(c("--drop-tags"), type = "character", default = NULL, help = "Comma-separated list of tags to drop"),
+    make_option(c("--ac-tags"), type = "character", default = NULL, help = "Comma-separated list of allele count tags to adjust"),
+    make_option(c("--af-tags"), type = "character", default = NULL, help = "Comma-separated list of allele frequency tags to adjust"),
+    make_option(c("--ds-tags"), type = "character", default = NULL, help = "Comma-separated list of dosage tags to adjust"),
+    make_option(c("--gt-tags"), type = "character", default = NULL, help = "Comma-separated list of genotype tags to adjust"),
+    make_option(c("--es-tags"), type = "character", default = NULL, help = "Comma-separated list of effect size tags to adjust"),
+    make_option(c("--tags"), type = "character", default = NULL, help = "List of tags to convert (can be specified multiple times)"),
+    make_option(c("-o", "--output-file"), type = "character", default = NULL, help = "Write output to a file"),
+    make_option(c("-O", "--output-type"), type = "character", default = NULL, help = "b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF"),
+    make_option(c("--threads"), type = "integer", default = NULL, help = "Number of extra output compression threads [0]"),
+    make_option(c("-W", "--write-index"), type = "logical", action = "store_true", default = FALSE, help = "Automatically index the output file")
+)
+
+# Parse command-line arguments
+parser <- OptionParser(usage = "%prog [options] <input_vcf> <chain_file>", option_list = option_list)
+args <- parse_args(parser, positional_arguments = 2)
+
+# Extract positional arguments
+input_vcf <- args$args[1]
+chain_file <- args$args[2]
+
+# Execute the function
+result <- BCFToolsLiftover(
+    InputFileName = input_vcf,
+    ChainFile = chain_file,
+    FastaRef = args$options$`fasta-ref`,
+    Regions = args$options$regions,
+    RegionsFile = args$options$`regions-file`,
+    Targets = args$options$targets,
+    TargetsFile = args$options$`targets-file`,
+    FlipTag = args$options$`flip-tag`,
+    SwapTag = args$options$`swap-tag`,
+    DropTags = args$options$`drop-tags`,
+    ACTags = args$options$`ac-tags`,
+    AFTags = args$options$`af-tags`,
+    DSTags = args$options$`ds-tags`,
+    GTTags = args$options$`gt-tags`,
+    ESTags = args$options$`es-tags`,
+    Tags = args$options$tags,
+    OutputFile = args$options$`output-file`,
+    OutputType = args$options$`output-type`,
+    NumThreads = args$options$threads,
+    WriteIndex = args$options$`write-index`
+)
+
+# Print command and exit status
+cat("Command:", result$command, "\n")
+cat("Exit status:", result$status, "\n")
+
+# Print any stderr messages
+if (!is.null(result$stderr)) {
+    cat("\nStandard Error:\n")
+    cat(result$stderr, sep = "\n")
+}
+
+# Exit with the same status as the command
+quit(status = result$status)

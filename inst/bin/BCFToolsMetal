@@ -1,0 +1,69 @@
+#!/usr/bin/env Rscript
+
+# BCFToolsMetal - Command-line interface for BCFTools metal
+# Usage: BCFToolsMetal [options] <input_vcf_files...>
+#
+# Run METAL-like meta-analysis on GWAS-VCF files
+
+suppressPackageStartupMessages(library(RBCFLib))
+suppressPackageStartupMessages(library(optparse))
+
+option_list <- list(
+    make_option(c("-w", "--weights"), type = "character", default = NULL, help = "File with sample weights"),
+    make_option(c("-s", "--scheme"), type = "character", default = NULL, help = "Meta-analysis scheme (fixed-effects or random-effects)"),
+    make_option(c("--heterogeneity"), type = "character", default = NULL, help = "Heterogeneity test to use"),
+    make_option(c("--outlier"), type = "numeric", default = NULL, help = "Maximum number of standard deviations for outlier detection"),
+    make_option(c("--freq-imputation"), type = "character", default = NULL, help = "Method for frequency imputation (none, meta, hapmap)"),
+    make_option(c("--freq-imputation-min-maf"), type = "numeric", default = NULL, help = "Minimum MAF for frequency imputation"),
+    make_option(c("--sample-name"), type = "character", default = NULL, help = "Sample name for the output file"),
+    make_option(c("-i", "--include"), type = "character", default = NULL, help = "Include sites for which the expression is true"),
+    make_option(c("-e", "--exclude"), type = "character", default = NULL, help = "Exclude sites for which the expression is true"),
+    make_option(c("-o", "--output-file"), type = "character", default = NULL, help = "Write output to a file"),
+    make_option(c("-O", "--output-type"), type = "character", default = NULL, help = "b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF"),
+    make_option(c("--threads"), type = "integer", default = NULL, help = "Number of extra output compression threads [0]"),
+    make_option(c("-W", "--write-index"), type = "logical", action = "store_true", default = FALSE, help = "Automatically index the output file")
+)
+
+# Parse command-line arguments
+parser <- OptionParser(usage = "%prog [options] <input_vcf_files...>", option_list = option_list)
+args <- parse_args(parser, positional_arguments = TRUE)
+
+# Check if at least one input file is provided
+if (length(args$args) < 1) {
+    cat("Error: At least one input VCF file must be provided\n")
+    quit(status = 1)
+}
+
+# Extract positional arguments (input VCF files)
+input_vcfs <- args$args
+
+# Execute the function
+result <- BCFToolsMetal(
+    InputFileNames = input_vcfs,
+    WeightsFile = args$options$weights,
+    Scheme = args$options$scheme,
+    Heterogeneity = args$options$heterogeneity,
+    OutlierThreshold = args$options$outlier,
+    FreqImputation = args$options$`freq-imputation`,
+    FreqImputationMinMAF = args$options$`freq-imputation-min-maf`,
+    SampleName = args$options$`sample-name`,
+    IncludeFilter = args$options$include,
+    ExcludeFilter = args$options$exclude,
+    OutputFile = args$options$`output-file`,
+    OutputType = args$options$`output-type`,
+    NumThreads = args$options$threads,
+    WriteIndex = args$options$`write-index`
+)
+
+# Print command and exit status
+cat("Command:", result$command, "\n")
+cat("Exit status:", result$status, "\n")
+
+# Print any stderr messages
+if (!is.null(result$stderr)) {
+    cat("\nStandard Error:\n")
+    cat(result$stderr, sep = "\n")
+}
+
+# Exit with the same status as the command
+quit(status = result$status)

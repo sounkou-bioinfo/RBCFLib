@@ -1,0 +1,75 @@
+#!/usr/bin/env Rscript
+
+# BCFToolsScore - Command-line interface for BCFTools score
+# Usage: BCFToolsScore [options] <input_vcf>
+#
+# Compute polygenic scores from genotype data
+
+suppressPackageStartupMessages(library(RBCFLib))
+suppressPackageStartupMessages(library(optparse))
+
+option_list <- list(
+    make_option(c("-s", "--scores"), type = "character", default = NULL, help = "File containing weights for variants"),
+    make_option(c("--samples-file"), type = "character", default = NULL, help = "File of sample names to include"),
+    make_option(c("-r", "--regions"), type = "character", default = NULL, help = "Restrict to comma-separated list of regions"),
+    make_option(c("--regions-file"), type = "character", default = NULL, help = "Restrict to regions listed in file"),
+    make_option(c("-t", "--targets"), type = "character", default = NULL, help = "Similar to --regions but streams rather than index-jumps"),
+    make_option(c("--targets-file"), type = "character", default = NULL, help = "Similar to --regions-file but streams rather than index-jumps"),
+    make_option(c("--samples"), type = "character", default = NULL, help = "List of samples to include"),
+    make_option(c("--format"), type = "character", default = NULL, help = "Format field to use for scoring (GT/DS)"),
+    make_option(c("--score-column"), type = "character", default = NULL, help = "Column name or number (1-based) in scores file containing weights"),
+    make_option(c("-o", "--output-file"), type = "character", default = NULL, help = "Write output to a file"),
+    make_option(c("-O", "--output-type"), type = "character", default = NULL, help = "b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF"),
+    make_option(c("--columns"), type = "character", default = NULL, help = "Comma-separated list of columns to output"),
+    make_option(c("--threads"), type = "integer", default = NULL, help = "Number of extra output compression threads [0]"),
+    make_option(c("-W", "--write-index"), type = "logical", action = "store_true", default = FALSE, help = "Automatically index the output file"),
+    make_option(c("--tsv"), type = "logical", action = "store_true", default = FALSE, help = "Force output in TSV format"),
+    make_option(c("-i", "--include"), type = "character", default = NULL, help = "Include sites for which the expression is true"),
+    make_option(c("-e", "--exclude"), type = "character", default = NULL, help = "Exclude sites for which the expression is true"),
+    make_option(c("--use-id"), type = "logical", action = "store_true", default = FALSE, help = "Use variant IDs instead of coordinates for alignment"),
+    make_option(c("--q-score-thr"), type = "numeric", default = NULL, help = "Apply weights only if quality score exceeds threshold")
+)
+
+# Parse command-line arguments
+parser <- OptionParser(usage = "%prog [options] <input_vcf>", option_list = option_list)
+args <- parse_args(parser, positional_arguments = 1)
+
+# Extract positional arguments
+input_vcf <- args$args[1]
+
+# Execute the function
+result <- BCFToolsScore(
+    InputFileName = input_vcf,
+    ScoresFile = args$options$scores,
+    SamplesFile = args$options$`samples-file`,
+    Regions = args$options$regions,
+    RegionsFile = args$options$`regions-file`,
+    Targets = args$options$targets,
+    TargetsFile = args$options$`targets-file`,
+    Samples = args$options$samples,
+    Format = args$options$format,
+    ScoresColumn = args$options$`score-column`,
+    OutputFile = args$options$`output-file`,
+    OutputType = args$options$`output-type`,
+    OutputColumns = args$options$columns,
+    NumThreads = args$options$threads,
+    WriteIndex = args$options$`write-index`,
+    TSV = args$options$tsv,
+    IncludeFilter = args$options$include,
+    ExcludeFilter = args$options$exclude,
+    VariantID = args$options$`use-id`,
+    QScoreThreshold = args$options$`q-score-thr`
+)
+
+# Print command and exit status
+cat("Command:", result$command, "\n")
+cat("Exit status:", result$status, "\n")
+
+# Print any stderr messages
+if (!is.null(result$stderr)) {
+    cat("\nStandard Error:\n")
+    cat(result$stderr, sep = "\n")
+}
+
+# Exit with the same status as the command
+quit(status = result$status)
