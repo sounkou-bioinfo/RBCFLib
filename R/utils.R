@@ -81,11 +81,25 @@ DownloadHumanReferenceGenomes <- function(
     grch37_fai <- paste0(grch37_fasta, ".fai")
 
     if (!file.exists(grch37_fasta)) {
-        download.file(urls$grch37_fasta, grch37_fasta_gz, mode = "wb", method = method, extra = extra)
-        DecompressFile(grch37_fasta_gz, grch37_fasta)
+        tryCatch(
+            {
+                download.file(urls$grch37_fasta, grch37_fasta_gz, mode = "wb", method = method, extra = extra)
+                DecompressFile(grch37_fasta_gz, grch37_fasta)
+            },
+            error = function(e) {
+                warning(paste("Error downloading/decompressing GRCh37 reference:", e$message, "\nContinuing with execution..."))
+            }
+        )
     }
-    if (!file.exists(grch37_fai)) {
-        FaidxIndexFasta(grch37_fasta)
+    if (file.exists(grch37_fasta) && !file.exists(grch37_fai)) {
+        tryCatch(
+            {
+                FaidxIndexFasta(grch37_fasta)
+            },
+            error = function(e) {
+                warning(paste("Error indexing GRCh37 reference:", e$message, "\nContinuing with execution..."))
+            }
+        )
     }
 
     # GRCh38
@@ -94,11 +108,25 @@ DownloadHumanReferenceGenomes <- function(
     grch38_fai <- paste0(grch38_fasta, ".fai")
 
     if (!file.exists(grch38_fasta)) {
-        download.file(urls$grch38_fasta, grch38_fasta_gz, mode = "wb", method = method, extra = extra)
-        DecompressFile(grch38_fasta_gz, grch38_fasta)
+        tryCatch(
+            {
+                download.file(urls$grch38_fasta, grch38_fasta_gz, mode = "wb", method = method, extra = extra)
+                DecompressFile(grch38_fasta_gz, grch38_fasta)
+            },
+            error = function(e) {
+                warning(paste("Error downloading/decompressing GRCh38 reference:", e$message, "\nContinuing with execution..."))
+            }
+        )
     }
-    if (!file.exists(grch38_fai)) {
-        FaidxIndexFasta(grch38_fasta)
+    if (file.exists(grch38_fasta) && !file.exists(grch38_fai)) {
+        tryCatch(
+            {
+                FaidxIndexFasta(grch38_fasta)
+            },
+            error = function(e) {
+                warning(paste("Error indexing GRCh38 reference:", e$message, "\nContinuing with execution..."))
+            }
+        )
     }
 
     # Optionally download cytoband and chain files
@@ -110,10 +138,24 @@ DownloadHumanReferenceGenomes <- function(
             grch38 = file.path(grch38_dir, "cytoBand.txt.gz")
         )
         if (!file.exists(cytoband_files$grch37)) {
-            download.file(urls$grch37_cytoband, cytoband_files$grch37, mode = "wb", method = method, extra = extra)
+            tryCatch(
+                {
+                    download.file(urls$grch37_cytoband, cytoband_files$grch37, mode = "wb", method = method, extra = extra)
+                },
+                error = function(e) {
+                    warning(paste("Error downloading GRCh37 cytoband file:", e$message, "\nContinuing with execution..."))
+                }
+            )
         }
         if (!file.exists(cytoband_files$grch38)) {
-            download.file(urls$grch38_cytoband, cytoband_files$grch38, mode = "wb", method = method, extra = extra)
+            tryCatch(
+                {
+                    download.file(urls$grch38_cytoband, cytoband_files$grch38, mode = "wb", method = method, extra = extra)
+                },
+                error = function(e) {
+                    warning(paste("Error downloading GRCh38 cytoband file:", e$message, "\nContinuing with execution..."))
+                }
+            )
         }
     }
     if (chain) {
@@ -123,13 +165,34 @@ DownloadHumanReferenceGenomes <- function(
             grch38_19 = file.path(grch38_dir, "hg19ToHg38.over.chain.gz")
         )
         if (!file.exists(chain_files$grch37)) {
-            download.file(urls$grch37_chain, chain_files$grch37, mode = "wb", method = method, extra = extra)
+            tryCatch(
+                {
+                    download.file(urls$grch37_chain, chain_files$grch37, mode = "wb", method = method, extra = extra)
+                },
+                error = function(e) {
+                    warning(paste("Error downloading GRCh37 chain file:", e$message, "\nContinuing with execution..."))
+                }
+            )
         }
         if (!file.exists(chain_files$grch38_18)) {
-            download.file(urls$grch38_chain_18, chain_files$grch38_18, mode = "wb", method = method, extra = extra)
+            tryCatch(
+                {
+                    download.file(urls$grch38_chain_18, chain_files$grch38_18, mode = "wb", method = method, extra = extra)
+                },
+                error = function(e) {
+                    warning(paste("Error downloading GRCh38 chain file (hg18):", e$message, "\nContinuing with execution..."))
+                }
+            )
         }
         if (!file.exists(chain_files$grch38_19)) {
-            download.file(urls$grch38_chain_19, chain_files$grch38_19, mode = "wb", method = method, extra = extra)
+            tryCatch(
+                {
+                    download.file(urls$grch38_chain_19, chain_files$grch38_19, mode = "wb", method = method, extra = extra)
+                },
+                error = function(e) {
+                    warning(paste("Error downloading GRCh38 chain file (hg19):", e$message, "\nContinuing with execution..."))
+                }
+            )
         }
     }
 
@@ -180,28 +243,31 @@ DecompressFile <- function(input_file, output_file = NULL, remove_input = FALSE,
     }
 
     # Use tryCatch to handle potential connection errors
-    tryCatch({
-        # Open connections and decompress
-        input_conn <- conn_fun(input_file, "rb")
-        on.exit(if (!is.null(input_conn) && isOpen(input_conn)) close(input_conn), add = TRUE)
+    tryCatch(
+        {
+            # Open connections and decompress
+            input_conn <- conn_fun(input_file, "rb")
+            on.exit(if (!is.null(input_conn) && isOpen(input_conn)) close(input_conn), add = TRUE)
 
-        output_conn <- file(output_file, "wb")
-        on.exit(if (!is.null(output_conn) && isOpen(output_conn)) close(output_conn), add = TRUE)
+            output_conn <- file(output_file, "wb")
+            on.exit(if (!is.null(output_conn) && isOpen(output_conn)) close(output_conn), add = TRUE)
 
-        # Read and write in chunks
-        data <- readBin(input_conn, "raw", n = block_size)
-        while (length(data) > 0) {
-            writeBin(data, output_conn)
+            # Read and write in chunks
             data <- readBin(input_conn, "raw", n = block_size)
-        }
+            while (length(data) > 0) {
+                writeBin(data, output_conn)
+                data <- readBin(input_conn, "raw", n = block_size)
+            }
 
-        # Close connections explicitly (on.exit will handle this as a fallback)
-        close(input_conn)
-        close(output_conn)
-    }, error = function(e) {
-        # Log the error but continue without failing
-        warning(paste("Connection error during decompression:", e$message, "\nContinuing with execution..."))
-    })
+            # Close connections explicitly (on.exit will handle this as a fallback)
+            close(input_conn)
+            close(output_conn)
+        },
+        error = function(e) {
+            # Log the error but continue without failing
+            warning(paste("Connection error during decompression:", e$message, "\nContinuing with execution..."))
+        }
+    )
 
     # Remove input file if requested
     if (remove_input && file.exists(input_file)) {
