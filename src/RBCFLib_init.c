@@ -14,6 +14,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"RC_bcftools_liftover", (DL_FUNC) &RC_bcftools_liftover, 5},
     {"RC_bcftools_metal", (DL_FUNC) &RC_bcftools_metal, 5},
     {"RC_bcftools_pgs", (DL_FUNC) &RC_bcftools_pgs, 5},
+    {"RC_bcftools_blup", (DL_FUNC) &RC_bcftools_blup, 5},
     {"RC_FaidxIndexFasta", (DL_FUNC) &RC_FaidxIndexFasta, 1},
     {"RC_FaidxFetchRegion", (DL_FUNC) &RC_FaidxFetchRegion, 4},
     {NULL, NULL, 0}

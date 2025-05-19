@@ -1,0 +1,203 @@
+#!/usr/bin/env Rscript
+
+# BCFToolsBLUP - Command-line interface for BCFTools blup
+# Usage: BCFToolsBLUP [options] <input_vcf> <ldgm_file>
+#
+# Compute best linear unbiased prediction for polygenic score weights
+
+suppressPackageStartupMessages(library(RBCFLib))
+
+# Define usage info
+usage <- function() {
+    cat("Usage: BCFToolsBLUP [options] <input_gwas_vcf> <ldgm_file>\n")
+    cat("\nOptions:\n")
+    cat("  -l, --ldgm FILE           LDGM file with sparse LD matrix\n")
+    cat("  -r, --regions REGION      Restrict to comma-separated list of regions\n")
+    cat("      --regions-file FILE   Restrict to regions listed in file\n")
+    cat("  -t, --targets REGION      Similar to --regions but streams rather than index-jumps\n")
+    cat("      --targets-file FILE   Similar to --regions-file but streams rather than index-jumps\n")
+    cat("      --prior SPEC          Prior specification for effect size variance\n")
+    cat("      --lds-tag TAG         INFO tag containing LD score values\n")
+    cat("      --q-score-thr FLOAT   Minimum quality score threshold for variants\n")
+    cat("      --max-file-size INT   Maximum file size in MB for memory mapping\n")
+    cat("      --max-chunk-size INT  Maximum chunk size in MB for memory mapping\n")
+    cat("      --avg-effects         Average effects across proxies for redundant sites\n")
+    cat("      --avg-lds FLOAT       Average genome-wide LD score for variants\n")
+    cat("      --er FLOAT            Expected ratio of associations to null\n")
+    cat("      --min-maf FLOAT       Remove variants with MAF below this threshold\n")
+    cat("      --no-normalize        Do not normalize by allele frequency\n")
+    cat("  -i, --include EXPR        Include sites for which the expression is true\n")
+    cat("  -e, --exclude EXPR        Exclude sites for which the expression is true\n")
+    cat("  -o, --output-file FILE    Write output to a file\n")
+    cat("  -O, --output-type TYPE    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF\n")
+    cat("      --threads INT         Number of extra output compression threads [0]\n")
+    cat("  -W, --write-index         Automatically index the output file\n")
+    cat("  -h, --help                Show this help message and exit\n")
+    quit(status = 0)
+}
+
+# Process command line arguments
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 2 || "--help" %in% args || "-h" %in% args) {
+    usage()
+}
+
+# Initialize parameter list
+params <- list(
+    ldgm = NULL,
+    regions = NULL,
+    regions_file = NULL,
+    targets = NULL,
+    targets_file = NULL,
+    prior = NULL,
+    lds_tag = NULL,
+    q_score_thr = NULL,
+    max_file_size = NULL,
+    max_chunk_size = NULL,
+    avg_effects = FALSE,
+    avg_lds = NULL,
+    er = NULL,
+    min_maf = NULL,
+    no_normalize = FALSE,
+    include = NULL,
+    exclude = NULL,
+    output_file = NULL,
+    output_type = NULL,
+    threads = NULL,
+    write_index = FALSE
+)
+
+# Parse arguments
+i <- 1
+positional_args <- c()
+
+while (i <= length(args)) {
+    arg <- args[i]
+    if (arg %in% c("-l", "--ldgm") && i < length(args)) {
+        params$ldgm <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-r", "--regions") && i < length(args)) {
+        params$regions <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--regions-file" && i < length(args)) {
+        params$regions_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-t", "--targets") && i < length(args)) {
+        params$targets <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--targets-file" && i < length(args)) {
+        params$targets_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--prior" && i < length(args)) {
+        params$prior <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--lds-tag" && i < length(args)) {
+        params$lds_tag <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--q-score-thr" && i < length(args)) {
+        params$q_score_thr <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--max-file-size" && i < length(args)) {
+        params$max_file_size <- as.integer(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--max-chunk-size" && i < length(args)) {
+        params$max_chunk_size <- as.integer(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--avg-effects") {
+        params$avg_effects <- TRUE
+        i <- i + 1
+    } else if (arg == "--avg-lds" && i < length(args)) {
+        params$avg_lds <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--er" && i < length(args)) {
+        params$er <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--min-maf" && i < length(args)) {
+        params$min_maf <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--no-normalize") {
+        params$no_normalize <- TRUE
+        i <- i + 1
+    } else if (arg %in% c("-i", "--include") && i < length(args)) {
+        params$include <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-e", "--exclude") && i < length(args)) {
+        params$exclude <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-o", "--output-file") && i < length(args)) {
+        params$output_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-O", "--output-type") && i < length(args)) {
+        params$output_type <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--threads" && i < length(args)) {
+        params$threads <- as.integer(args[i + 1])
+        i <- i + 2
+    } else if (arg %in% c("-W", "--write-index")) {
+        params$write_index <- TRUE
+        i <- i + 1
+    } else if (substring(arg, 1, 1) == "-") {
+        cat("Unknown option:", arg, "\n")
+        usage()
+    } else {
+        # This must be a positional argument
+        positional_args <- c(positional_args, arg)
+        i <- i + 1
+    }
+}
+
+# Check if both required positional arguments are provided
+if (length(positional_args) < 2) {
+    cat("Error: Both input VCF and LDGM file must be specified\n")
+    usage()
+}
+
+input_vcf <- positional_args[1]
+ldgm_file <- positional_args[2]
+
+# Execute the function with tryCatch to handle potential errors
+tryCatch(
+    {
+        result <- BCFToolsBLUP(
+            InputFileName = input_vcf,
+            LDMatrix = ldgm_file,
+            Regions = params$regions,
+            RegionsFile = params$regions_file,
+            Targets = params$targets,
+            TargetsFile = params$targets_file,
+            Prior = params$prior,
+            LDScoreTag = params$lds_tag,
+            QScoreThreshold = params$q_score_thr,
+            MaxFileSize = params$max_file_size,
+            MaxChunkSize = params$max_chunk_size,
+            AverageEffects = params$avg_effects,
+            AverageLDScore = params$avg_lds,
+            ExpectedRatio = params$er,
+            MAFThreshold = params$min_maf,
+            NoNormalize = params$no_normalize,
+            IncludeFilter = params$include,
+            ExcludeFilter = params$exclude,
+            OutputFile = params$output_file,
+            OutputType = params$output_type,
+            NumThreads = params$threads,
+            WriteIndex = params$write_index
+        )
+
+        # Print command and exit status
+        cat("Command:", result$command, "\n")
+        cat("Exit status:", result$status, "\n")
+
+        # Print any stderr messages
+        if (!is.null(result$stderr)) {
+            cat("\nStandard Error:\n")
+            cat(result$stderr, sep = "\n")
+        }
+
+        # Exit with the same status as the command
+        quit(status = result$status)
+    },
+    error = function(e) {
+        cat("Error:", e$message, "\n")
+        quit(status = 1)
+    }
+)

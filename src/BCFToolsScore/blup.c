@@ -890,7 +890,7 @@ static void write_ld_block(htsFile *fh, bcf_hdr_t *hdr, line_t *lines, int n_lin
  * PLUGIN                               *
  ****************************************/
 
-const char *about(void) { return "Compute best linear unbiased predictor from GWAS-VCF summary statistics.\n"; }
+static const char *about(void) { return "Compute best linear unbiased predictor from GWAS-VCF summary statistics.\n"; }
 
 static const char *usage_text(void) {
     return "\n"
@@ -960,7 +960,7 @@ static FILE *get_file_handle(const char *str) {
     return ret;
 }
 
-int run(int argc, char **argv) {
+int run_blup(int argc, char **argv) {
     int i, pop, k, l;
     double average_ld_score = AVERAGE_LD_SCORE_DFLT;
     int verbose = 0;

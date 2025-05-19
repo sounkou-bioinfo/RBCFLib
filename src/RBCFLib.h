@@ -17,6 +17,8 @@ SEXP RC_bcftools_metal(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP
                   SEXP stderr_file);
 SEXP RC_bcftools_pgs(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
                   SEXP stderr_file);
+SEXP RC_bcftools_blup(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
+                  SEXP stderr_file);
 
 /* FASTA index and retrieval functions */
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);
