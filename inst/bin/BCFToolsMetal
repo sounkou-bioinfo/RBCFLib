@@ -6,53 +6,128 @@
 # Run METAL-like meta-analysis on GWAS-VCF files
 
 suppressPackageStartupMessages(library(RBCFLib))
-suppressPackageStartupMessages(library(optparse))
 
-option_list <- list(
-    make_option(c("-w", "--weights"), type = "character", default = NULL, help = "File with sample weights"),
-    make_option(c("-s", "--scheme"), type = "character", default = NULL, help = "Meta-analysis scheme (fixed-effects or random-effects)"),
-    make_option(c("--heterogeneity"), type = "character", default = NULL, help = "Heterogeneity test to use"),
-    make_option(c("--outlier"), type = "numeric", default = NULL, help = "Maximum number of standard deviations for outlier detection"),
-    make_option(c("--freq-imputation"), type = "character", default = NULL, help = "Method for frequency imputation (none, meta, hapmap)"),
-    make_option(c("--freq-imputation-min-maf"), type = "numeric", default = NULL, help = "Minimum MAF for frequency imputation"),
-    make_option(c("--sample-name"), type = "character", default = NULL, help = "Sample name for the output file"),
-    make_option(c("-i", "--include"), type = "character", default = NULL, help = "Include sites for which the expression is true"),
-    make_option(c("-e", "--exclude"), type = "character", default = NULL, help = "Exclude sites for which the expression is true"),
-    make_option(c("-o", "--output-file"), type = "character", default = NULL, help = "Write output to a file"),
-    make_option(c("-O", "--output-type"), type = "character", default = NULL, help = "b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF"),
-    make_option(c("--threads"), type = "integer", default = NULL, help = "Number of extra output compression threads [0]"),
-    make_option(c("-W", "--write-index"), type = "logical", action = "store_true", default = FALSE, help = "Automatically index the output file")
-)
-
-# Parse command-line arguments
-parser <- OptionParser(usage = "%prog [options] <input_vcf_files...>", option_list = option_list)
-args <- parse_args(parser, positional_arguments = TRUE)
-
-# Check if at least one input file is provided
-if (length(args$args) < 1) {
-    cat("Error: At least one input VCF file must be provided\n")
-    quit(status = 1)
+# Define usage info
+usage <- function() {
+    cat("Usage: BCFToolsMetal [options] <input_vcf_files...>\n")
+    cat("\nOptions:\n")
+    cat("  -w, --weights FILE        File with sample weights\n")
+    cat("  -s, --scheme SCHEME       Meta-analysis scheme (fixed-effects or random-effects)\n")
+    cat("      --heterogeneity TEST  Heterogeneity test to use\n")
+    cat("      --outlier FLOAT       Maximum number of standard deviations for outlier detection\n")
+    cat("      --freq-imputation M   Method for frequency imputation (none, meta, hapmap)\n")
+    cat("      --freq-imputation-min-maf FLOAT  Minimum MAF for frequency imputation\n")
+    cat("      --sample-name NAME    Sample name for the output file\n")
+    cat("  -i, --include EXPR        Include sites for which the expression is true\n")
+    cat("  -e, --exclude EXPR        Exclude sites for which the expression is true\n")
+    cat("  -o, --output-file FILE    Write output to a file\n")
+    cat("  -O, --output-type TYPE    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF\n")
+    cat("      --threads INT         Number of extra output compression threads [0]\n")
+    cat("  -W, --write-index         Automatically index the output file\n")
+    cat("  -h, --help                Show this help message and exit\n")
+    quit(status = 0)
 }
 
-# Extract positional arguments (input VCF files)
-input_vcfs <- args$args
+# Process command line arguments
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) == 0 || "--help" %in% args || "-h" %in% args) {
+    usage()
+}
+
+# Initialize parameter list
+params <- list(
+    weights = NULL,
+    scheme = NULL,
+    heterogeneity = NULL,
+    outlier = NULL,
+    freq_imputation = NULL,
+    freq_imputation_min_maf = NULL,
+    sample_name = NULL,
+    include = NULL,
+    exclude = NULL,
+    output_file = NULL,
+    output_type = NULL,
+    threads = NULL,
+    write_index = FALSE
+)
+
+# Parse arguments
+i <- 1
+input_vcfs <- c()
+
+while (i <= length(args)) {
+    arg <- args[i]
+    if (arg %in% c("-w", "--weights") && i < length(args)) {
+        params$weights <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-s", "--scheme") && i < length(args)) {
+        params$scheme <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--heterogeneity" && i < length(args)) {
+        params$heterogeneity <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--outlier" && i < length(args)) {
+        params$outlier <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--freq-imputation" && i < length(args)) {
+        params$freq_imputation <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--freq-imputation-min-maf" && i < length(args)) {
+        params$freq_imputation_min_maf <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (arg == "--sample-name" && i < length(args)) {
+        params$sample_name <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-i", "--include") && i < length(args)) {
+        params$include <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-e", "--exclude") && i < length(args)) {
+        params$exclude <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-o", "--output-file") && i < length(args)) {
+        params$output_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-O", "--output-type") && i < length(args)) {
+        params$output_type <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--threads" && i < length(args)) {
+        params$threads <- as.integer(args[i + 1])
+        i <- i + 2
+    } else if (arg %in% c("-W", "--write-index")) {
+        params$write_index <- TRUE
+        i <- i + 1
+    } else if (substring(arg, 1, 1) == "-") {
+        cat("Unknown option:", arg, "\n")
+        usage()
+    } else {
+        # This must be an input VCF file
+        input_vcfs <- c(input_vcfs, arg)
+        i <- i + 1
+    }
+}
+
+# Check if at least one input file is provided
+if (length(input_vcfs) < 1) {
+    cat("Error: At least one input VCF file must be provided\n")
+    usage()
+}
 
 # Execute the function
 result <- BCFToolsMetal(
     InputFileNames = input_vcfs,
-    WeightsFile = args$options$weights,
-    Scheme = args$options$scheme,
-    Heterogeneity = args$options$heterogeneity,
-    OutlierThreshold = args$options$outlier,
-    FreqImputation = args$options$`freq-imputation`,
-    FreqImputationMinMAF = args$options$`freq-imputation-min-maf`,
-    SampleName = args$options$`sample-name`,
-    IncludeFilter = args$options$include,
-    ExcludeFilter = args$options$exclude,
-    OutputFile = args$options$`output-file`,
-    OutputType = args$options$`output-type`,
-    NumThreads = args$options$threads,
-    WriteIndex = args$options$`write-index`
+    WeightsFile = params$weights,
+    Scheme = params$scheme,
+    Heterogeneity = params$heterogeneity,
+    OutlierThreshold = params$outlier,
+    FreqImputation = params$freq_imputation,
+    FreqImputationMinMAF = params$freq_imputation_min_maf,
+    SampleName = params$sample_name,
+    IncludeFilter = params$include,
+    ExcludeFilter = params$exclude,
+    OutputFile = params$output_file,
+    OutputType = params$output_type,
+    NumThreads = params$threads,
+    WriteIndex = params$write_index
 )
 
 # Print command and exit status

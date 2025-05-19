@@ -6,22 +6,17 @@
 SEXP RC_HTSLibVersion(void);
 SEXP RC_BCFToolsVersion(void);
 SEXP RC_bcftools_run(SEXP command, SEXP args, SEXP capture_stdout, SEXP capture_stderr, 
-                    SEXP stdout_file, SEXP stderr_file, SEXP is_usage);
+                    SEXP stdout_file, SEXP stderr_file);
 SEXP RC_bcftools_munge(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
-                  SEXP stderr_file,
-                  SEXP is_usage);
+                  SEXP stderr_file);
 SEXP RC_bcftools_score(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
-                  SEXP stderr_file,
-                  SEXP is_usage);
+                  SEXP stderr_file);
 SEXP RC_bcftools_liftover(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
-                  SEXP stderr_file,
-                  SEXP is_usage);
+                  SEXP stderr_file);
 SEXP RC_bcftools_metal(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
-                  SEXP stderr_file,
-                  SEXP is_usage);
+                  SEXP stderr_file);
 SEXP RC_bcftools_pgs(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
-                  SEXP stderr_file,
-                  SEXP is_usage);
+                  SEXP stderr_file);
 
 /* FASTA index and retrieval functions */
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);

@@ -10,8 +10,7 @@ SEXP RC_bcftools_munge(
                   SEXP capture_stdout,
                   SEXP capture_stderr, 
                   SEXP stdout_file,
-                  SEXP stderr_file,
-                  SEXP is_usage) {
+                  SEXP stderr_file) {
 
 
 /* Reset getopt()/getopt_long() processing. */
@@ -105,7 +104,7 @@ int fd_stdout = -1, fd_stderr = -1;
   // Return status code with command attribute
   if (fd_stdout != -1 && fd_stdout != 1) close(fd_stdout); // Don't close stdout (fd 1)
   if (fd_stderr != -1 && fd_stderr != 2) close(fd_stderr); // Don't close stderr (fd 2)
-  if (status == -1) error("bcftools_dispatch failed");
+  if (status == -1) error("bcftools munge failed");
 
   // Build command character vector to return
   SEXP cmd = PROTECT(allocVector(STRSXP, bc_n));

@@ -131,8 +131,7 @@ BCFToolsMetal <- function(InputFileNames,
         CatchStdout,
         CatchStderr,
         stdoutFile,
-        stderrFile,
-        FALSE
+        stderrFile
     )
 
     # Process the results

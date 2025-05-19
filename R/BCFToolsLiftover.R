@@ -166,8 +166,7 @@ BCFToolsLiftover <- function(InputFileName,
         CatchStdout,
         CatchStderr,
         stdoutFile,
-        stderrFile,
-        FALSE
+        stderrFile
     )
 
     # Process the results

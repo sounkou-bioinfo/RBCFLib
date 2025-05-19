@@ -6,59 +6,164 @@
 # Compute polygenic scores from genotype data
 
 suppressPackageStartupMessages(library(RBCFLib))
-suppressPackageStartupMessages(library(optparse))
 
-option_list <- list(
-    make_option(c("-s", "--scores"), type = "character", default = NULL, help = "File containing weights for variants"),
-    make_option(c("--samples-file"), type = "character", default = NULL, help = "File of sample names to include"),
-    make_option(c("-r", "--regions"), type = "character", default = NULL, help = "Restrict to comma-separated list of regions"),
-    make_option(c("--regions-file"), type = "character", default = NULL, help = "Restrict to regions listed in file"),
-    make_option(c("-t", "--targets"), type = "character", default = NULL, help = "Similar to --regions but streams rather than index-jumps"),
-    make_option(c("--targets-file"), type = "character", default = NULL, help = "Similar to --regions-file but streams rather than index-jumps"),
-    make_option(c("--samples"), type = "character", default = NULL, help = "List of samples to include"),
-    make_option(c("--format"), type = "character", default = NULL, help = "Format field to use for scoring (GT/DS)"),
-    make_option(c("--score-column"), type = "character", default = NULL, help = "Column name or number (1-based) in scores file containing weights"),
-    make_option(c("-o", "--output-file"), type = "character", default = NULL, help = "Write output to a file"),
-    make_option(c("-O", "--output-type"), type = "character", default = NULL, help = "b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF"),
-    make_option(c("--columns"), type = "character", default = NULL, help = "Comma-separated list of columns to output"),
-    make_option(c("--threads"), type = "integer", default = NULL, help = "Number of extra output compression threads [0]"),
-    make_option(c("-W", "--write-index"), type = "logical", action = "store_true", default = FALSE, help = "Automatically index the output file"),
-    make_option(c("--tsv"), type = "logical", action = "store_true", default = FALSE, help = "Force output in TSV format"),
-    make_option(c("-i", "--include"), type = "character", default = NULL, help = "Include sites for which the expression is true"),
-    make_option(c("-e", "--exclude"), type = "character", default = NULL, help = "Exclude sites for which the expression is true"),
-    make_option(c("--use-id"), type = "logical", action = "store_true", default = FALSE, help = "Use variant IDs instead of coordinates for alignment"),
-    make_option(c("--q-score-thr"), type = "numeric", default = NULL, help = "Apply weights only if quality score exceeds threshold")
+# Define usage info
+usage <- function() {
+    cat("Usage: BCFToolsScore [options] <input_vcf>\n")
+    cat("\nOptions:\n")
+    cat("  -s, --scores FILE         File containing weights for variants\n")
+    cat("      --samples-file FILE   File of sample names to include\n")
+    cat("  -r, --regions REGION      Restrict to comma-separated list of regions\n")
+    cat("      --regions-file FILE   Restrict to regions listed in file\n")
+    cat("  -t, --targets REGION      Similar to --regions but streams rather than index-jumps\n")
+    cat("      --targets-file FILE   Similar to --regions-file but streams rather than index-jumps\n")
+    cat("      --samples LIST        List of samples to include\n")
+    cat("      --format FMT          Format field to use for scoring (GT/DS)\n")
+    cat("      --score-column COL    Column name or number (1-based) in scores file containing weights\n")
+    cat("  -o, --output-file FILE    Write output to a file\n")
+    cat("  -O, --output-type TYPE    b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF\n")
+    cat("      --columns LIST        Comma-separated list of columns to output\n")
+    cat("      --threads INT         Number of extra output compression threads [0]\n")
+    cat("  -W, --write-index         Automatically index the output file\n")
+    cat("      --tsv                 Force output in TSV format\n")
+    cat("  -i, --include EXPR        Include sites for which the expression is true\n")
+    cat("  -e, --exclude EXPR        Exclude sites for which the expression is true\n")
+    cat("      --use-id              Use variant IDs instead of coordinates for alignment\n")
+    cat("      --q-score-thr FLOAT   Apply weights only if quality score exceeds threshold\n")
+    cat("  -h, --help                Show this help message and exit\n")
+    quit(status = 0)
+}
+
+# Process command line arguments
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) == 0 || "--help" %in% args || "-h" %in% args) {
+    usage()
+}
+
+# Initialize parameter list
+params <- list(
+    scores = NULL,
+    samples_file = NULL,
+    regions = NULL,
+    regions_file = NULL,
+    targets = NULL,
+    targets_file = NULL,
+    samples = NULL,
+    format = NULL,
+    score_column = NULL,
+    output_file = NULL,
+    output_type = NULL,
+    columns = NULL,
+    threads = NULL,
+    write_index = FALSE,
+    tsv = FALSE,
+    include = NULL,
+    exclude = NULL,
+    use_id = FALSE,
+    q_score_thr = NULL
 )
 
-# Parse command-line arguments
-parser <- OptionParser(usage = "%prog [options] <input_vcf>", option_list = option_list)
-args <- parse_args(parser, positional_arguments = 1)
+# Parse arguments
+i <- 1
+input_vcf <- NULL
 
-# Extract positional arguments
-input_vcf <- args$args[1]
+while (i <= length(args)) {
+    arg <- args[i]
+    if (arg %in% c("-s", "--scores") && i < length(args)) {
+        params$scores <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--samples-file" && i < length(args)) {
+        params$samples_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-r", "--regions") && i < length(args)) {
+        params$regions <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--regions-file" && i < length(args)) {
+        params$regions_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-t", "--targets") && i < length(args)) {
+        params$targets <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--targets-file" && i < length(args)) {
+        params$targets_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--samples" && i < length(args)) {
+        params$samples <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--format" && i < length(args)) {
+        params$format <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--score-column" && i < length(args)) {
+        params$score_column <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-o", "--output-file") && i < length(args)) {
+        params$output_file <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-O", "--output-type") && i < length(args)) {
+        params$output_type <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--columns" && i < length(args)) {
+        params$columns <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--threads" && i < length(args)) {
+        params$threads <- as.integer(args[i + 1])
+        i <- i + 2
+    } else if (arg %in% c("-W", "--write-index")) {
+        params$write_index <- TRUE
+        i <- i + 1
+    } else if (arg == "--tsv") {
+        params$tsv <- TRUE
+        i <- i + 1
+    } else if (arg %in% c("-i", "--include") && i < length(args)) {
+        params$include <- args[i + 1]
+        i <- i + 2
+    } else if (arg %in% c("-e", "--exclude") && i < length(args)) {
+        params$exclude <- args[i + 1]
+        i <- i + 2
+    } else if (arg == "--use-id") {
+        params$use_id <- TRUE
+        i <- i + 1
+    } else if (arg == "--q-score-thr" && i < length(args)) {
+        params$q_score_thr <- as.numeric(args[i + 1])
+        i <- i + 2
+    } else if (substring(arg, 1, 1) == "-") {
+        cat("Unknown option:", arg, "\n")
+        usage()
+    } else {
+        # This must be the input VCF
+        input_vcf <- arg
+        i <- i + 1
+    }
+}
+
+# Check if input VCF is provided
+if (is.null(input_vcf)) {
+    cat("Error: Input VCF file must be specified\n")
+    usage()
+}
 
 # Execute the function
 result <- BCFToolsScore(
     InputFileName = input_vcf,
-    ScoresFile = args$options$scores,
-    SamplesFile = args$options$`samples-file`,
-    Regions = args$options$regions,
-    RegionsFile = args$options$`regions-file`,
-    Targets = args$options$targets,
-    TargetsFile = args$options$`targets-file`,
-    Samples = args$options$samples,
-    Format = args$options$format,
-    ScoresColumn = args$options$`score-column`,
-    OutputFile = args$options$`output-file`,
-    OutputType = args$options$`output-type`,
-    OutputColumns = args$options$columns,
-    NumThreads = args$options$threads,
-    WriteIndex = args$options$`write-index`,
-    TSV = args$options$tsv,
-    IncludeFilter = args$options$include,
-    ExcludeFilter = args$options$exclude,
-    VariantID = args$options$`use-id`,
-    QScoreThreshold = args$options$`q-score-thr`
+    ScoresFile = params$scores,
+    SamplesFile = params$samples_file,
+    Regions = params$regions,
+    RegionsFile = params$regions_file,
+    Targets = params$targets,
+    TargetsFile = params$targets_file,
+    Samples = params$samples,
+    Format = params$format,
+    ScoresColumn = params$score_column,
+    OutputFile = params$output_file,
+    OutputType = params$output_type,
+    OutputColumns = params$columns,
+    NumThreads = params$threads,
+    WriteIndex = params$write_index,
+    TSV = params$tsv,
+    IncludeFilter = params$include,
+    ExcludeFilter = params$exclude,
+    VariantID = params$use_id,
+    QScoreThreshold = params$q_score_thr
 )
 
 # Print command and exit status

@@ -193,8 +193,7 @@ BCFToolsPGS <- function(InputFileName,
                 CatchStdout,
                 CatchStderr,
                 stdoutFile,
-                stderrFile,
-                FALSE
+                stderrFile
             )
         },
         error = function(e) {
