@@ -7,8 +7,15 @@ A primary goal that motivated **RBCFLib** is to performance R based GWAS-VCF cen
 **Current Features:**
 
 *   **BCFTools Command-Line Wrapper:** Execute `bcftools` commands directly from R using `BCFToolsRun()`.
+*   **BCFTools Plugin Functions:**
+    *   **`BCFToolsMunge()`**: Convert summary statistics to GWAS-VCF format
+    *   **`BCFToolsScore()`**: Compute polygenic scores using genotype data and weights 
+    *   **`BCFToolsLiftover()`**: Convert variants between genome assemblies
+    *   **`BCFToolsMetal()`**: Perform meta-analysis on GWAS-VCF files
+    *   **`BCFToolsPGS()`**: Compute polygenic score loadings (requires CHOLMOD)
 *   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
 *   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsCLIPath()`.
+*   **Command-Line Interfaces:** Use the package's functions as command-line tools via the scripts in `inst/bin/`.
 
 **TODO:**
 

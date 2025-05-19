@@ -26,6 +26,20 @@ HTSLIB_DIR="${THISDir}/src/htslib-1.21"
 HTS_FILE="${THISDir}/src/htslib-1.21/libhts.a"
 BCFTOOLS_DIR="${THISDir}/src/bcftools-1.21"
 
+# Check for CHOLMOD
+HAVE_CHOLMOD="no"
+CHOLMOD_CPPFLAGS=""
+CHOLMOD_LIBS=""
+
+if pkg-config --exists cholmod; then
+  echo "Found CHOLMOD via pkg-config"
+  HAVE_CHOLMOD="yes"
+  CHOLMOD_CPPFLAGS=$(pkg-config --cflags cholmod)
+  CHOLMOD_LIBS=$(pkg-config --libs cholmod)
+else
+  echo "CHOLMOD not found via pkg-config, BCFToolsPGS will be disabled"
+fi
+
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
 cd $HTSLIB_DIR
 
@@ -68,4 +82,7 @@ echo "Create Makevar file"
 sed \
     -e "s|@EXTRA_CPPFLAGS@|${CPPFLAGS}|g" \
     -e "s|@EXTRA_LIBS@|${EXTRA_LIBS}|g" \
+    -e "s|@HAVE_CHOLMOD@|${HAVE_CHOLMOD}|g" \
+    -e "s|@CHOLMOD_CPPFLAGS@|${CHOLMOD_CPPFLAGS}|g" \
+    -e "s|@CHOLMOD_LIBS@|${CHOLMOD_LIBS}|g" \
     Makevars.in > Makevars

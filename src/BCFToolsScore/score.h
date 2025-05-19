@@ -24,6 +24,9 @@
 
  */
 
+#ifndef SCORE_H
+#define SCORE_H
+
 #include "tsv2vcf.h"
 
 // see http://github.com/neurogenomics/MungeSumstats#future-enhancements
@@ -298,7 +301,7 @@ static int tsv_setter_chrom_flexible(tsv_t *tsv, bcf1_t *rec, void *usr) {
     return 0;
 }
 
-int tsv_read_float_and_minus_log10(tsv_t *tsv, bcf1_t *rec, void *usr) {
+static inline int tsv_read_float_and_minus_log10(tsv_t *tsv, bcf1_t *rec, void *usr) {
     float *single = (float *)usr;
     char *ptr, *endptr;
     for (ptr = tsv->ss; *ptr != 'e' && *ptr != 'E' && ptr < tsv->se; ptr++);
@@ -322,7 +325,7 @@ int tsv_read_float_and_minus_log10(tsv_t *tsv, bcf1_t *rec, void *usr) {
     return 0;
 }
 
-int tsv_read_float(tsv_t *tsv, bcf1_t *rec, void *usr) {
+static inline int tsv_read_float(tsv_t *tsv, bcf1_t *rec, void *usr) {
     float *single = (float *)usr;
     char *endptr;
     *single = (float)strtof(tsv->ss, &endptr);
@@ -335,7 +338,7 @@ int tsv_read_float(tsv_t *tsv, bcf1_t *rec, void *usr) {
     return 0;
 }
 
-int tsv_read_float_and_log(tsv_t *tsv, bcf1_t *rec, void *usr) {
+static inline int tsv_read_float_and_log(tsv_t *tsv, bcf1_t *rec, void *usr) {
     float *single = (float *)usr;
     char *endptr;
     *single = (float)strtof(tsv->ss, &endptr);
@@ -349,3 +352,5 @@ int tsv_read_float_and_log(tsv_t *tsv, bcf1_t *rec, void *usr) {
     }
     return 0;
 }
+
+#endif /* SCORE_H */

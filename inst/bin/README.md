@@ -1,10 +1,43 @@
-# RBCFLib Command Line Interfaces
+# RBCFLib Command Line Interfaces a.k.a bcftools bundler in a R package :D
 
-This directory contains command-line interfaces (CLIs) for the RBCFLib package that allow users to access the bcftools functionality directly from the command line.
+This directory contains command-line interfaces (CLIs) for the RBCFLib package that allow users to access the bcftools functionality directly from the command line but distributed in the R package. THIS DOES NOT SUPPORT PLUGINS except the ones provided as separed commnds.
 
 ## Available CLI Tools
 
-### 1. RBcftools
+### 1. DownloadGenomes
+
+`DownloadGenomes` is a command-line interface for downloading human reference genomes using the RBCFLib package's `DownloadHumanReferenceGenomes` function.
+
+Usage:
+```
+DownloadGenomes [options]
+```
+
+Options:
+```
+  --grch37-dir=DIR      Directory to store GRCh37 reference (default: ~/GRCh37)
+  --grch38-dir=DIR      Directory to store GRCh38 reference (default: ~/GRCh38)
+  --cytoband            Also download cytoband files
+  --chain               Also download chain files for liftover
+  --genomes             Download genome FASTA files (default behavior)
+  --grch37-fasta=URL    URL for GRCh37 FASTA (optional)
+  --grch38-fasta=URL    URL for GRCh38 FASTA (optional)
+  --method=METHOD       Download method: 'wget', 'curl', 'auto', 'internal', 'libcurl', or 'lynx' (default: 'wget')
+  --extra=ARG           Extra command-line arguments for 'wget' or 'curl' methods. For multiple arguments, use
+                        comma-separated values, e.g., '--extra=-C,on' for wget's continue feature
+  --help                Display this help message
+```
+
+Example:
+```
+# Download genomes with wget and enable continue feature for interrupted downloads
+DownloadGenomes --method=wget --extra=-C,on
+
+# Download genomes and also download cytoband and chain files
+DownloadGenomes --cytoband --chain
+```
+
+### 2. RBcftools
 
 `RBcftools` is a direct command-line wrapper for bcftools commands using the RBCFLib package's `BCFToolsRun` function.
 
@@ -20,7 +53,7 @@ RBcftools view -h sample.vcf.gz
 
 ### 2. BCFToolsCli
 
-`BCFToolsCli` provides the same functionality as `RBcftools` but uses PascalCase command names for a more R-like style. The commands work exactly the same way, but are capitalized.
+`BCFToolsCli` provides the same functionality as `RBcftools` but uses PascalCase command names. The commands work exactly the same way, but are capitalized.
 
 Usage:
 ```

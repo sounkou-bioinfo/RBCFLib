@@ -10,4 +10,21 @@ SEXP RC_bcftools_run(SEXP command, SEXP args, SEXP capture_stdout, SEXP capture_
 SEXP RC_bcftools_munge(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
                   SEXP stderr_file,
                   SEXP is_usage);
+SEXP RC_bcftools_score(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
+                  SEXP stderr_file,
+                  SEXP is_usage);
+SEXP RC_bcftools_liftover(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
+                  SEXP stderr_file,
+                  SEXP is_usage);
+SEXP RC_bcftools_metal(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
+                  SEXP stderr_file,
+                  SEXP is_usage);
+SEXP RC_bcftools_pgs(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
+                  SEXP stderr_file,
+                  SEXP is_usage);
+
+/* FASTA index and retrieval functions */
+SEXP RC_FaidxIndexFasta(SEXP fasta_path);
+SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
+
 #endif /* RBCFLIB_H */
