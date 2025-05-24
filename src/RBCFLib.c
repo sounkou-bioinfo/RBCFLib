@@ -1,13 +1,13 @@
 #include "RBCFLib.h"
+#include <htslib/hts.h>
+#include <htslib/faidx.h>
+
 /* Function declarations */
 SEXP RC_HTSLibVersion(void);
 SEXP RC_BCFToolsVersion(void);
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);
 SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
-
-#include <htslib/hts.h>
 extern char *bcftools_version(void);
-#include <htslib/faidx.h>
 
 /* Function implementations */
 /* 
