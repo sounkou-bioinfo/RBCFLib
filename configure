@@ -40,6 +40,22 @@ else
   echo "CHOLMOD not found via pkg-config, BCFToolsPGS will be disabled"
 fi
 
+# Check for GSL
+HAVE_GSL="no"
+USE_GPL=""
+GSL_LIBS=""
+
+if pkg-config --exists gsl; then
+  echo "Found GSL via pkg-config"
+  HAVE_GSL="yes"
+  USE_GPL="1"
+  GSL_LIBS=$(pkg-config --libs gsl)
+  # Add -DUSE_GSL to CPPFLAGS when GSL is available
+  CPPFLAGS="${CPPFLAGS} -DUSE_GSL"
+else
+  echo "GSL not found via pkg-config, polysomy functionality will be disabled"
+fi
+
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
 cd $HTSLIB_DIR
 
@@ -66,6 +82,8 @@ sed -e "s|@HTSDIR@|${HTSLIB_DIR}|g" \
 		    -e "s|@HTSLIB_CPPFLAGS@|-I${HTSLIB_DIR}|g" \
 		    -e "s|@HTSLIB@|${HTS_FILE}|g" \
 		    -e "s|@HTSLIB_LDFLAGS@|-L${HTSLIB_DIR}|g" \
+		    -e "s|@USE_GPL@|${USE_GPL}|g" \
+		    -e "s|@GSL_LIBS@|${GSL_LIBS}|g" \
             "${BCFTOOLS_CONFIG_MK_IN}"  > config.mk.in
 
 sed -e \
@@ -74,7 +92,7 @@ sed -e \
 #-- run import script
 echo "----------Running Import script-----------------"
 ${RSCRIPT} ${importScript} ${PWD} ${PWD}
-${MAKE} -f Makefile libRbcftools.a  CC="${CC}" CPPFLAGS="${CPPFLAGS} -DUSE_GPL" AR="${AR}" RANLIB="${RANLIB}" 
+${MAKE} -f Makefile libRbcftools.a  CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}" 
 cd ..
 echo "---- RUN BCFtoolsScore import script ----"
 ${RSCRIPT} ${importScript} ${PWD}/BCFToolsScore ${PWD}/BCFToolsScore
@@ -85,4 +103,7 @@ sed \
     -e "s|@HAVE_CHOLMOD@|${HAVE_CHOLMOD}|g" \
     -e "s|@CHOLMOD_CPPFLAGS@|${CHOLMOD_CPPFLAGS}|g" \
     -e "s|@CHOLMOD_LIBS@|${CHOLMOD_LIBS}|g" \
+    -e "s|@HAVE_GSL@|${HAVE_GSL}|g" \
+    -e "s|@GSL_LIBS@|${GSL_LIBS}|g" \
+    -e "s|@USE_GPL@|${USE_GPL}|g" \
     Makevars.in > Makevars
