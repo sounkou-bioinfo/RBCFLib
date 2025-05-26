@@ -153,13 +153,13 @@ endif
 # find all the RBCFLIB .c files in this dir
 RBCFLIB_SRCS := $(wildcard *.RBCFLIB.c)
 # remove polysomy.RBCFLIB.c peakfit.RBCFLIB.c in case USE_GPL is not set
-#ifndef USE_GPL
-#	RBCFLIB_SRCS := $(filter-out polysomy.RBCFLIB.c peakfit.RBCFLIB.c, $(RBCFLIB_SRCS))
-#endif
+ifndef USE_GPL
+	RBCFLIB_SRCS := $(filter-out polysomy.RBCFLIB.c peakfit.RBCFLIB.c, $(RBCFLIB_SRCS))
+endif
 # remove polysomy.RBCFLIB.c peakfit.RBCFLIB.c in case USE_GPL is set
-#ifdef USE_GPL
-#	RBCFLIB_SRCS := $(filter-out polysomy.RBCFLIB.c, $(RBCFLIB_SRCS))
-#endif
+ifdef USE_GPL
+	RBCFLIB_SRCS := $(filter-out polysomy.RBCFLIB.c, $(RBCFLIB_SRCS))
+endif
 # turn them into .o targets
 RBCFLIB_OBJS := $(patsubst %.RBCFLIB.c,%.RBCFLIB.o,$(RBCFLIB_SRCS))
 $(RBCFLIB_OBJS): $(OBJS)

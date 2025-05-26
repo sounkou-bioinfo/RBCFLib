@@ -50,7 +50,7 @@ BCFToolsRun <- function(command,
         "version", "view", "index", "query", "call", "mpileup", "concat",
         "merge", "norm", "stats", "annotate", "cnv", "consensus",
         "convert", "csq", "filter", "gtcheck", "plugin", "roh",
-        "isec", "reheader", "sort", "head", "help"
+        "isec", "reheader", "sort", "head", "help", "polysomy"
     )
 
     # Input validation
