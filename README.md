@@ -35,7 +35,7 @@ install.packages('RBCFLib', repos = c('https://sounkou-bioinfo.r-universe.dev')
 
 # install the developement version from github
 
-devtools::install_github("sounkou-bioinfo/RBCFLib")
+devtools::install_github("sounkou-bioinfo/RBCFLib@develop")
 
 ```
 
