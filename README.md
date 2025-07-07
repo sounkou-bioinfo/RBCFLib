@@ -14,7 +14,7 @@ The goal that motivated **RBCFLib** is to provide a minimalist and performant R 
     *   **`BCFToolsLiftover`**: Convert variants between genome assemblies
     *   **`BCFToolsMetal`**: Perform meta-analysis on GWAS-VCF files
     *   **`BCFToolsPGS`**: Compute polygenic score loadings (requires CHOLMOD, this is checked at install time)
-    *   **`BCFToolsBLUP`** : compule blup (requires [GSL](https://www.gnu.org/software/gsl/), this is checked at compile time)
+    *   **`BCFToolsBLUP`** : compule blup 
 
  For more details on this methods, refer to the documentations of BCFTools Score https://github.com/freeseek/score
 
