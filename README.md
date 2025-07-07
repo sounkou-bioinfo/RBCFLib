@@ -31,7 +31,7 @@ The goal that motivated **RBCFLib** is to provide a minimalist and performant R 
 
 # to install from r-universe
 
-install.packages('RBCFLib', repos = c('https://sounkou-bioinfo.r-universe.dev')
+install.packages('RBCFLib', repos = c('https://sounkou-bioinfo.r-universe.dev'))
 
 # install the developement version from github
 
