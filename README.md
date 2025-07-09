@@ -14,7 +14,7 @@ The goal that motivated **RBCFLib** is to provide a minimalist and performant R 
     *   **`BCFToolsLiftover`**: Convert variants between genome assemblies
     *   **`BCFToolsMetal`**: Perform meta-analysis on GWAS-VCF files
     *   **`BCFToolsPGS`**: Compute polygenic score loadings (requires CHOLMOD, this is checked at install time)
-    *   **`BCFToolsBLUP`** : compule blup 
+    *   **`BCFToolsBLUP`** : compute blup 
 
  For more details on this methods, refer to the documentations of BCFTools Score https://github.com/freeseek/score
 
@@ -59,14 +59,15 @@ The following features are planned for future development:
 
 *   **Enhanced `bcftools` Wrapping:**
     *   [ ] Improve handling of stdout/stderr for interactive R sessions. Probably change the BcftoolsRun function signature
-    *   [ ] Implement robust user interrupt handling (Ctrl+C). This might involve running `bcftools` commands in a separate thread or background R process.
+    *   [ ] Implement robust user interrupt handling (Ctrl+C)  This might involve running `bcftools` commands in a separate thread or background R process.
+    *   [ ] more plugins for basic statistics
 
 *   **Direct BCF/VCF Data Manipulation in R:**
-    *   [ ] Develop functions for reading/scanning BCF/VCF files into R data structures (e.g., data frames or similar).
-    *   [ ] Explore streaming capabilities for large VCF/BCF files to manage memory efficiently.
+    *   [ ] Develop functions for reading/scanning BCF/VCF files into R data structures ? (e.g., data frames or similar).
+    *   [ ] Minimal streaming like rbcf and vcfppR
 
-*   **Interval Operations (kfunctions):**
-    *   [ ] Provide tools for working with genomic intervals.
+*   **Some Interval Operations (kfunctions):**
+    *   [ ] Provide some utils for working with genomic intervals.
 
 *   **Tabix Support:**
     *   [ ] A tabix wrapper
