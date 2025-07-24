@@ -56,10 +56,10 @@ BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
 
 # Create a pipeline of multiple bcftools commands
 # Note: The input file can be included in the first command's arguments
-result <- BCFToolsPipeline(
-  "view", c("-r", "chr1:1000-2000", vcfFile), 
-  "view", c("-i", "QUAL>20"),
-  "view", c("-H")
+results <- BCFToolsPipeline(
+    "view", c("-r", "chr21", vcfFile),
+    "view", c("--no-version"),
+    "query", c("-f", "%CHROM\\t%POS\\t%REF\\t%ALT\\n")
 )
 print(result$stdout)
 ```
