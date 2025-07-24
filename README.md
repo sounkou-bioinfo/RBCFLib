@@ -8,7 +8,6 @@ The goal that motivated **RBCFLib** is to provide a minimalist and performant R 
 
 *   **BCFTools Command-Line Wrapper:** Execute a subset of `bcftools` commands directly from R using `BCFToolsRun()`.
 *   **Piping and Pipeline Support:** to be made more idiomatic R with NSE
-    *   **`BCFToolsPipe`**: Pipe the output of one bcftools command into another (similar to Unix pipe `|`).
     *   **`BCFToolsPipeline`**: Create a pipeline of multiple bcftools commands, executing them in sequence. **Note:** this should be valid bcftools pipeline
 *   **Download Reference Genomes:** download human reference genomes and liftover files files with `DownloadHumanReferenceGenomes` .
 *   **BCFTools Score Plugin wrappers:**
