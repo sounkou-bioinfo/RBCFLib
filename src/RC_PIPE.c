@@ -479,11 +479,7 @@ SEXP RC_bcftools_pipeline(
             
             // Run bcftools
             int status = bcftools_dispatch(argc_values[i], argv_values[i]);
-            
-            // Clean up and exit
-            bcftools_close_stdout();
-            bcftools_close_stderr();
-            
+              
             // Free all argv arrays
             for (int j = 0; j < num_commands; j++) {
                 free_argv(argv_values[j]);
