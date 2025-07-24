@@ -69,10 +69,7 @@ print(result$stdout)
 The following features are planned for future development:
 
 *   **Enhanced `bcftools` Wrapping:**
-    *   [ ] Improve handling of stdout/stderr for interactive R sessions. Probably change the BcftoolsRun function signature
-    *   [ ] Implement robust user interrupt handling (Ctrl+C)  This might involve running `bcftools` commands in a separate thread or background R process.
     *   [ ] more plugins for basic statistics
-
 *   **Direct BCF/VCF Data Manipulation in R:**
     *   [ ] Develop functions for reading/scanning BCF/VCF files into R data structures ? (e.g., data frames or similar).
     *   [ ] Minimal streaming like rbcf and vcfppR
