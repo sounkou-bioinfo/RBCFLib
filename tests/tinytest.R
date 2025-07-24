@@ -1,3 +1,3 @@
 library(tinytest)
 
-print("nothing to see here")
+print("Nothing to see here")

@@ -29,15 +29,15 @@
 # configure, the main Makefile contains suitable conservative defaults.
 
 
-@Hsource/home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21 = /home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21
-HTSLIB = /home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21/libhts.a
-HTSLIB_LIB = /home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21/libhts.a $(HTSLIB_static_LIBS)
-HTSLIB_DLL = /home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21/libhts.a @HTSLIB_DLL@
+@Hsource/home/stoure/Projects/RBCFLib/src/htslib-1.21 = /home/stoure/Projects/RBCFLib/src/htslib-1.21
+HTSLIB = /home/stoure/Projects/RBCFLib/src/htslib-1.21/libhts.a
+HTSLIB_LIB = /home/stoure/Projects/RBCFLib/src/htslib-1.21/libhts.a $(HTSLIB_static_LIBS)
+HTSLIB_DLL = /home/stoure/Projects/RBCFLib/src/htslib-1.21/libhts.a @HTSLIB_DLL@
 HTSLIB_LDFLAGS = $(HTSLIB_static_LDFLAGS)
 W32_PLUGIN_LIBS = libbcftools.a $(HTSLIB_DLL) $(ALL_LIBS)
 BGZIP = $(HTSDIR)/bgzip
 TABIX = $(HTSDIR)/tabix
-HTSLIB_CPPFLAGS =  -I/home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21
-#HTSLIB_LDFLAGS = -L/home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21
-#HTSLIB_LIB = /home/sounkoutoure/Projects/RBCFLib/src/htslib-1.21/libhts.a
+HTSLIB_CPPFLAGS =  -I/home/stoure/Projects/RBCFLib/src/htslib-1.21
+#HTSLIB_LDFLAGS = -L/home/stoure/Projects/RBCFLib/src/htslib-1.21
+#HTSLIB_LIB = /home/stoure/Projects/RBCFLib/src/htslib-1.21/libhts.a
 #W32_PLUGIN_LIBS = libbcftools.a $(HTSLIB_LDFLAGS) $(HTSLIB_LIB) $(ALL_LIBS)
