@@ -30,7 +30,7 @@
 #'
 #' # View a region then filter by some criteria and save to a file
 #' outFile <- tempfile(fileext = ".vcf")
-#' BCFToolsPipe("view", c("-r", "1:1000-2000", vcfFile),
+#' BCFToolsPipe("view", c("-r", "chr22:1000-2000000", vcfFile),
 #'              "view", c("-i", "'QUAL>20'"), 
 #'              saveStdout = outFile)
 #' }

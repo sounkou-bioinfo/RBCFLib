@@ -9,6 +9,8 @@ SEXP RC_bcftools_run(SEXP command, SEXP args, SEXP capture_stdout, SEXP capture_
                     SEXP stdout_file, SEXP stderr_file);
 SEXP RC_bcftools_pipe(SEXP command1, SEXP args1, SEXP command2, SEXP args2,
                     SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file, SEXP stderr_file);
+SEXP RC_bcftools_pipeline(SEXP commands, SEXP args, SEXP n_commands,
+                    SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file, SEXP stderr_file);
 SEXP RC_bcftools_munge(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
                   SEXP stderr_file);
 SEXP RC_bcftools_score(SEXP args, SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file,
