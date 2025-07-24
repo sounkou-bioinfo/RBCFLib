@@ -23,7 +23,7 @@
 #' # Pipeline of three commands: view, filter, annotate
 #' vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 #' result <- BCFToolsPipeline(
-#'   "view", c("-r", "chr1:1000-2000"), 
+#'   "view", c("-r", "chr1:1000-2000", vcfFile), 
 #'   "view", c("-i", "QUAL>20"),
 #'   "annotate", c("-x", "INFO")
 #' )

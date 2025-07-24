@@ -7,6 +7,9 @@ The goal that motivated **RBCFLib** is to provide a minimalist and performant R 
 **Currently in the box:**
 
 *   **BCFTools Command-Line Wrapper:** Execute a subset of `bcftools` commands directly from R using `BCFToolsRun()`.
+*   **Piping and Pipeline Support:** to be made more idiomatic R with NSE
+    *   **`BCFToolsPipe`**: Pipe the output of one bcftools command into another (similar to Unix pipe `|`).
+    *   **`BCFToolsPipeline`**: Create a pipeline of multiple bcftools commands, executing them in sequence. **Note:** this should be valid bcftools pipeline
 *   **Download Reference Genomes:** download human reference genomes and liftover files files with `DownloadHumanReferenceGenomes` .
 *   **BCFTools Score Plugin wrappers:**
     *   **`BCFToolsMunge`**: Convert summary statistics to GWAS-VCF format
@@ -51,6 +54,20 @@ BCFToolsVersion()
 # Run a bcftools command (example: view a VCF file)
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
+
+# Pipe two bcftools commands together
+result <- BCFToolsPipe("view", c("-r", "chr1:1000-2000", vcfFile), 
+                      "view", c("-i", "QUAL>20"))
+print(result$stdout)
+
+# Create a pipeline of multiple bcftools commands
+# Note: The input file can be included in the first command's arguments
+result <- BCFToolsPipeline(
+  "view", c("-r", "chr1:1000-2000", vcfFile), 
+  "view", c("-i", "QUAL>20"),
+  "view", c("-H")
+)
+print(result$stdout)
 ```
 
 **TODO:**
