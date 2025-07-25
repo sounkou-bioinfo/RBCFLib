@@ -16,7 +16,7 @@
 #' @details
 #' **Output Handling:**
 #' - Only the last command in the pipeline can contain -o/--output/--output-file arguments
-#' - Commands that don't support -o/--output options: head, index, roh, stats
+#' - Commands that don't support -o/--output options:  index, roh, stats
 #' - If -o/--output is used in any non-final command, an error will be thrown
 #' - If -o/--output is used with unsupported commands, an error will be thrown
 #'
@@ -74,9 +74,11 @@ BCFToolsPipeline <- function(...,
 
     # Commands that don't support standard output redirection with -o option
     # Based on the pysam implementation and BCFToolsRun.R
+    # head is for samtools, maybe we will wrap it too
     EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats")
 
     # Collect arguments
+    # TODO this is brittle, we should make a proper DSL 
     args <- list(...)
     if (length(args) < 2 || length(args) %% 2 != 0) {
         stop("Arguments must be pairs of command and argument vectors")
