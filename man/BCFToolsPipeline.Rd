@@ -37,24 +37,47 @@ A named list with elements:
 Executes a sequence of bcftools commands in a pipeline, where the output of each command
 is used as input for the next command, similar to chaining multiple Unix pipe operators (|).
 }
+\details{
+The function automatically validates that -o/--output options are only used in the last
+command of the pipeline and only for commands that support output redirection.
+
+\strong{Output Handling:}
+\itemize{
+\item Only the last command in the pipeline can contain -o/--output/--output-file arguments
+\item Commands that don't support -o/--output options:  index, roh, stats
+\item If -o/--output is used in any non-final command, an error will be thrown
+\item If -o/--output is used with unsupported commands, an error will be thrown
+}
+}
 \examples{
 \dontrun{
 # Pipeline of three commands: view, filter, annotate
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 result <- BCFToolsPipeline(
-  "view", c("-r", "chr1:1000-2000", vcfFile), 
-  "view", c("-i", "QUAL>20"),
-  "annotate", c("-x", "INFO")
+    "view", c("-r", "chr1:1000-2000", vcfFile),
+    "view", c("-i", "QUAL>20"),
+    "annotate", c("-x", "INFO")
 )
 
-# Filter, sort and index, saving to a file
-outFile <- tempfile(fileext = ".vcf")
+# Filter, sort and output to file (only last command has -o)
+outFile <- tempfile(fileext = ".vcf.gz")
 BCFToolsPipeline(
-  "view", c("-i", "'DP>30'", vcfFile),
-  "sort", character(),
-  "view", c("-Oz"),
-  saveStdout = outFile
+    "view", c("-i", "'DP>30'", vcfFile),
+    "sort", character(),
+    "view", c("-Oz", "-o", outFile)
 )
+
+# INVALID: -o in non-final command (will throw error)
+# BCFToolsPipeline(
+#   "view", c("-o", "temp.vcf", vcfFile),  # ERROR: -o not allowed here
+#   "sort", character()
+# )
+
+# INVALID: -o with unsupported command (will throw error)
+# BCFToolsPipeline(
+#   "view", c(vcfFile),
+#   "stats", c("-o", "stats.txt")  # ERROR: stats doesn't support -o
+# )
 }
 
 }

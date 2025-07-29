@@ -9,7 +9,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
     {"RC_bcftools_run", (DL_FUNC) &RC_bcftools_run, 7},
-    {"RC_bcftools_pipe", (DL_FUNC) &RC_bcftools_pipe, 8},
     {"RC_bcftools_pipeline", (DL_FUNC) &RC_bcftools_pipeline, 7},
     {"RC_bcftools_munge", (DL_FUNC) &RC_bcftools_munge, 5},
     {"RC_bcftools_score", (DL_FUNC) &RC_bcftools_score, 5},

@@ -78,7 +78,7 @@ BCFToolsPipeline <- function(...,
     EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats")
 
     # Collect arguments
-    # TODO this is brittle, we should make a proper DSL 
+    # TODO this is brittle, we should make a proper DSL
     args <- list(...)
     if (length(args) < 2 || length(args) %% 2 != 0) {
         stop("Arguments must be pairs of command and argument vectors")
@@ -189,22 +189,39 @@ BCFToolsPipeline <- function(...,
         PACKAGE = "RBCFLib"
     )
 
+    # Function to collect output from file (handles both text and binary)
+    collect_output <- function(file_path) {
+        if (!file.exists(file_path) || file.info(file_path)$size == 0) {
+            return(character(0))
+        }
+
+        result <- tryCatch(
+            {
+                readLines(file_path)
+            },
+            error = function(e) {
+                # Handle binary output by reading as raw if text reading fails
+                readBin(file_path, what = "raw", n = file.info(file_path)$size)
+            }
+        )
+
+        return(result)
+    }
+
     # Read captured output if needed
     stdout_lines <- NULL
     stderr_lines <- NULL
 
+    # Only read stdout content if catchStdout is TRUE AND saveStdout is NULL
+    # This matches BCFToolsRun behavior
     if (catchStdout && is.null(saveStdout)) {
-        if (file.exists(stdout_file) && file.info(stdout_file)$size > 0) {
-            stdout_lines <- readLines(stdout_file)
-            file.remove(stdout_file)
-        }
+        stdout_lines <- collect_output(stdout_file)
+        file.remove(stdout_file)
     }
 
     if (catchStderr) {
-        if (file.exists(stderr_file) && file.info(stderr_file)$size > 0) {
-            stderr_lines <- readLines(stderr_file)
-            file.remove(stderr_file)
-        }
+        stderr_lines <- collect_output(stderr_file)
+        file.remove(stderr_file)
     }
 
     # Build the result
