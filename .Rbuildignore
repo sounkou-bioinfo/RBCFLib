@@ -1,3 +1,4 @@
+^r-svn/.*$
 ^LICENSE\.md$
 ^Makefile$
 ^\.vscode$

@@ -208,6 +208,11 @@ SEXP RC_bcftools_pipe(
         // Additional SIGPIPE protection in child process
         signal(SIGPIPE, SIG_IGN);
         
+        // Ensure clean environment for bcftools in child process
+        // Reset any potential state corruption from fork()
+        fflush(stdout);
+        fflush(stderr);
+        
         // Run bcftools
         int status = bcftools_dispatch(argc1, argv1);
         
