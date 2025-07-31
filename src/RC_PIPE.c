@@ -6,7 +6,38 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <errno.h>
 #include "bcftools.RBCFLIB.h"
+
+// Global flag to track if SIGPIPE has been handled
+static int sigpipe_handled = 0;
+
+// Helper: Setup SIGPIPE handling for pipeline operations
+static void setup_sigpipe_handling(void) {
+    if (!sigpipe_handled) {
+        // Ignore SIGPIPE globally - we'll handle EPIPE errors locally
+        // This prevents the process from being terminated by SIGPIPE
+        signal(SIGPIPE, SIG_IGN);
+        sigpipe_handled = 1;
+        
+        if (getenv("RBCFLIB_DEBUG") != NULL) {
+            Rprintf("SIGPIPE handling set to SIG_IGN\n");
+        }
+    }
+}
+
+// Helper: Safe close with SIGPIPE protection
+static void safe_close_fd(int fd) {
+    if (fd >= 0 && fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
+        // Close might trigger SIGPIPE if there's buffered data and the other end is closed
+        // But we've set SIGPIPE to SIG_IGN, so this should just return an error
+        if (close(fd) == -1 && errno == EPIPE) {
+            if (getenv("RBCFLIB_DEBUG") != NULL) {
+                Rprintf("EPIPE error on close(fd=%d) - expected when other end closed early\n", fd);
+            }
+        }
+    }
+}
 
 // Helper: convert SEXP of strings to char** (NULL-terminated)
 static char **sexp_to_argv(SEXP args, SEXP command, int *argc_out) {
@@ -66,6 +97,9 @@ SEXP RC_bcftools_pipe(
     SEXP res = R_NilValue, cmd = R_NilValue;
     int do_capture_stdout, do_capture_stderr;
     
+    // Setup SIGPIPE handling before any pipe operations
+    setup_sigpipe_handling();
+    
     // Extract capture flags before the fork
     do_capture_stdout = asLogical(capture_stdout);
     do_capture_stderr = asLogical(capture_stderr);
@@ -80,16 +114,16 @@ SEXP RC_bcftools_pipe(
         std_out = CHAR(STRING_ELT(stdout_file, 0));
         fd_stdout = open(std_out, O_WRONLY|O_CREAT|O_TRUNC, 0666);
         if (fd_stdout == -1) {
-            close(pipefd[0]);
-            close(pipefd[1]);
+            safe_close_fd(pipefd[0]);
+            safe_close_fd(pipefd[1]);
             error("Could not open stdout file for writing: %s", std_out);
         }
     } else {
         // Redirect to /dev/null if we don't want to capture stdout
         fd_stdout = open("/dev/null", O_WRONLY);
         if (fd_stdout == -1) {
-            close(pipefd[0]);
-            close(pipefd[1]);
+            safe_close_fd(pipefd[0]);
+            safe_close_fd(pipefd[1]);
             error("Could not open /dev/null for writing");
         }
     }
@@ -171,6 +205,9 @@ SEXP RC_bcftools_pipe(
             bcftools_set_stderr(fd_stderr);
         }
         
+        // Additional SIGPIPE protection in child process
+        signal(SIGPIPE, SIG_IGN);
+        
         // Run bcftools
         int status = bcftools_dispatch(argc1, argv1);
         
@@ -179,7 +216,7 @@ SEXP RC_bcftools_pipe(
         bcftools_close_stderr();
         free_argv(argv1);
         free_argv(argv2);
-        close(pipefd[1]); // Close after running
+        safe_close_fd(pipefd[1]); // Close after running
         exit(status);
     }
 
@@ -226,6 +263,9 @@ SEXP RC_bcftools_pipe(
             bcftools_set_stderr(fd_stderr);
         }
         
+        // Additional SIGPIPE protection in child process
+        signal(SIGPIPE, SIG_IGN);
+        
         // Run bcftools
         int status = bcftools_dispatch(argc2, argv2);
         
@@ -234,13 +274,13 @@ SEXP RC_bcftools_pipe(
         bcftools_close_stderr();
         free_argv(argv1);
         free_argv(argv2);
-        close(pipefd[0]); // Close after running
+        safe_close_fd(pipefd[0]); // Close after running
         exit(status);
     }
 
     // Parent: close pipe ends immediately
-    close(pipefd[0]);
-    close(pipefd[1]);
+    safe_close_fd(pipefd[0]);
+    safe_close_fd(pipefd[1]);
     
     // Wait for children to finish
     int status1, status2;
@@ -266,8 +306,8 @@ SEXP RC_bcftools_pipe(
     // Clean up parent resources
     free_argv(argv1);
     free_argv(argv2);
-    if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) close(fd_stdout);
-    if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) close(fd_stderr);
+    if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) safe_close_fd(fd_stdout);
+    if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) safe_close_fd(fd_stderr);
     
     // Create result
     PROTECT(res = allocVector(INTSXP, 2));
@@ -312,6 +352,9 @@ SEXP RC_bcftools_pipeline(
     int fd_stdout = -1, fd_stderr = -1;
     SEXP res = R_NilValue, cmd = R_NilValue;
     int do_capture_stdout, do_capture_stderr;
+    
+    // Setup SIGPIPE handling before any pipe operations
+    setup_sigpipe_handling();
     
     // Check for valid number of commands
     if (num_commands < 1) {
@@ -477,6 +520,9 @@ SEXP RC_bcftools_pipeline(
                 }
             }
             
+            // Additional SIGPIPE protection in child process
+            signal(SIGPIPE, SIG_IGN);
+            
             // Run bcftools
             int status = bcftools_dispatch(argc_values[i], argv_values[i]);
               
@@ -492,8 +538,8 @@ SEXP RC_bcftools_pipeline(
     
     // Parent: close all pipe ends
     for (int i = 0; i < num_commands - 1; i++) {
-        close(pipes[i][0]);
-        close(pipes[i][1]);
+        safe_close_fd(pipes[i][0]);
+        safe_close_fd(pipes[i][1]);
     }
     
     // Wait for all children to finish
@@ -532,8 +578,8 @@ SEXP RC_bcftools_pipeline(
         free_argv(argv_values[i]);
     }
     free(argv_values);
-    if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) close(fd_stdout);
-    if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) close(fd_stderr);
+    if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) safe_close_fd(fd_stdout);
+    if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) safe_close_fd(fd_stderr);
     
     // Create result
     PROTECT(res = allocVector(INTSXP, num_commands));
