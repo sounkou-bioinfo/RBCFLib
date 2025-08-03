@@ -22,9 +22,9 @@ CFLAGS="-Wall -g -O2 -fvisibility=hidden -fPIC -D_FILE_OFFSET_BITS=64"
 # remove assert by defining NDEBUG
 CPPFLAGS="${R_CPPFLAGS} -DNDEBUG"
 
-HTSLIB_DIR="${THISDir}/src/htslib-1.21"
-HTS_FILE="${THISDir}/src/htslib-1.21/libhts.a"
-BCFTOOLS_DIR="${THISDir}/src/bcftools-1.21"
+HTSLIB_DIR="${THISDir}/src/htslib-1.22"
+HTS_FILE="${THISDir}/src/htslib-1.22/libhts.a"
+BCFTOOLS_DIR="${THISDir}/src/bcftools-1.22"
 
 # Check for CHOLMOD
 HAVE_CHOLMOD="no"
@@ -74,7 +74,7 @@ if grep -wq "#define HAVE_LIBDEFLATE 1" config.h;then
 fi
 # bcfools static library build against htlslib static library
 echo "----------Configuring BCFtools in $BCFTOOLS_DIR-----------------"
-cd ../bcftools-1.21
+cd  ${BCFTOOLS_DIR} || exit
 echo " copying bundled makefiles"
 rm -f config.mk config.mk.in 
 

@@ -1,0 +1,29 @@
+HTSLIB_DIR=$(CURDIR)/htslib-1.22
+BCFTOOLS_DIR=$(CURDIR)/bcftools-1.22
+
+# Check for CHOLMOD
+HAVE_CHOLMOD=no
+# Check for GSL
+HAVE_GSL=yes
+
+ifeq ($(HAVE_CHOLMOD),yes)
+  ifeq ($(HAVE_GSL),yes)
+    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include -DHAVE_CHOLMOD  -DNDEBUG -DUSE_GSL 
+    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate  -lgsl -lgslcblas -lm 
+  else
+    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include -DHAVE_CHOLMOD  -DNDEBUG -DUSE_GSL 
+    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate 
+  endif
+else
+  ifeq ($(HAVE_GSL),yes)
+    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include  -DNDEBUG -DUSE_GSL
+    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate -lgsl -lgslcblas -lm 
+  else
+    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include  -DNDEBUG -DUSE_GSL
+    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate
+  endif
+endif
+
+.PHONY: all
+
+all: $(SHLIB)
