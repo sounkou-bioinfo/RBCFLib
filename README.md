@@ -59,7 +59,7 @@ BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
 results <- BCFToolsPipeline(
     "view", c("-r", "chr21", "-Ob", vcfFile),
     "view", c("--no-version"),
-    "query", c("--output", "tt.txt", "-f", "%CHROM\\t%POS\\t%REF\\t%ALT\\n")
+    "query", c( "-f", "%CHROM\\t%POS\\t%REF\\t%ALT\\n")
 )
 print(results$stdout)
 ```
