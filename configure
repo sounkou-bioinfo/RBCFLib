@@ -92,6 +92,7 @@ sed -e \
 #-- run import script
 echo "----------Running Import script-----------------"
 ${RSCRIPT} ${importScript} ${PWD} ${PWD}
+${MAKE} -f Makefile version.h  CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}" 
 ${MAKE} -f Makefile libRbcftools.a  CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}" 
 cd ..
 echo "---- RUN BCFtoolsScore import script ----"
