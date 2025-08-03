@@ -1,6 +1,6 @@
 #include "RBCFLib.h"
-#include <htslib/hts.h>
-#include <htslib/faidx.h>
+#include "htslib/hts.h"
+#include "htslib/faidx.h"
 
 /* Function declarations */
 SEXP RC_HTSLibVersion(void);
