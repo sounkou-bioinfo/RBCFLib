@@ -217,12 +217,21 @@ SEXP RC_bcftools_pipeline(
         if (pids[i] == 0) {
             // Child process for command i
             
+            // CRITICAL: Isolate child process to prevent R state corruption
+            // Create new process group to isolate from parent
+            setpgid(0, 0);
+            
+            // Signal protection - ensure child doesn't interfere with parent
+            signal(SIGINT, SIG_DFL);
+            signal(SIGTERM, SIG_DFL);
+            signal(SIGPIPE, SIG_IGN);
+            
             // Setup stdin (for all but first command)
             if (i > 0) {
                 // Take input from previous pipe
                 if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
                     perror("dup2 stdin");
-                    exit(1);
+                    _exit(1);  // Use _exit instead of exit
                 }
             }
             
@@ -231,14 +240,14 @@ SEXP RC_bcftools_pipeline(
                 // Pipe output to next command
                 if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
                     perror("dup2 stdout");
-                    exit(1);
+                    _exit(1);  // Use _exit instead of exit
                 }
                 bcftools_set_stdout(pipes[i][1]);
             } else {
                 // Last command - write to file or stdout
                 if (dup2(fd_stdout, STDOUT_FILENO) == -1) {
                     perror("dup2 stdout");
-                    exit(1);
+                    _exit(1);  // Use _exit instead of exit
                 }
                 bcftools_set_stdout(fd_stdout);
             }
@@ -247,7 +256,7 @@ SEXP RC_bcftools_pipeline(
             if (do_capture_stderr) {
                 if (dup2(fd_stderr, STDERR_FILENO) == -1) {
                     perror("dup2 stderr");
-                    exit(1);
+                    _exit(1);  // Use _exit instead of exit
                 }
                 bcftools_set_stderr(fd_stderr);
             }
@@ -280,7 +289,9 @@ SEXP RC_bcftools_pipeline(
             }
             free(argv_values);
             
-            exit(status);
+            // CRITICAL: Use _exit() instead of exit() to prevent cleanup
+            // that could corrupt the parent R process state
+            _exit(status);
         }
     }
     
