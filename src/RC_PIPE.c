@@ -325,6 +325,7 @@ SEXP RC_bcftools_pipeline(
         free_argv(argv_values[i]);
     }
     free(argv_values);
+
     if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) safe_close_fd(fd_stdout);
     if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) safe_close_fd(fd_stderr);
     
