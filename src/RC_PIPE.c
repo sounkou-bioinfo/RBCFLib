@@ -1,4 +1,5 @@
 #include <Rinternals.h>
+#include <R.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
@@ -328,7 +329,6 @@ SEXP RC_bcftools_pipeline(
 
     if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) safe_close_fd(fd_stdout);
     if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) safe_close_fd(fd_stderr);
-    
     // Create result
     PROTECT(res = allocVector(INTSXP, num_commands));
     for (int i = 0; i < num_commands; i++) {

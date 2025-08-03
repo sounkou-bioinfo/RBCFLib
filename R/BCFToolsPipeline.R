@@ -197,11 +197,15 @@ BCFToolsPipeline <- function(...,
 
         result <- tryCatch(
             {
-                readLines(file_path)
+                con <- file(file_path, "r", encoding = "UTF-8")
+                on.exit(close(con), add = TRUE)
+                readLines(con)
             },
             error = function(e) {
                 # Handle binary output by reading as raw if text reading fails
-                readBin(file_path, what = "raw", n = file.info(file_path)$size)
+                con <- file(file_path, "rb")
+                on.exit(close(con), add = TRUE)
+                readBin(con, what = "raw", n = file.info(file_path)$size)
             }
         )
 
