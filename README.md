@@ -52,7 +52,8 @@ BCFToolsVersion()
 
 # Run a bcftools command (example: view a VCF file)
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
-BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
+results <- BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
+print(results$stdout)
 
 # Create a pipeline of multiple bcftools commands
 # Note: The input file can be included in the first command's arguments
@@ -68,8 +69,8 @@ print(results$stdout)
 
 The following features are planned for future development:
 
-*   **Enhanced `bcftools` Wrapping:**
-    *   [ ] more plugins for basic statistics
+* **Enhanced `bcftools` Wrapping:**
+  *   [ ] more plugins for basic statistics
 *   **Direct BCF/VCF Data Manipulation in R:**
     *   [ ] Develop functions for reading/scanning BCF/VCF files into R data structures ? (e.g., data frames or similar).
     *   [ ] Minimal streaming like rbcf and vcfppR
