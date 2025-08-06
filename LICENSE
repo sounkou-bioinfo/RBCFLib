@@ -1,6 +1,3 @@
-YEAR: 2025
-COPYRIGHT HOLDER: Sounkou Mahamane Toure
-
 MIT License
 
 Copyright (c) 2025 Sounkou Mahamane Toure
@@ -24,5 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Note: This package includes components with different licenses:
-- htslib: See the included htslib license details in src/htslib-1.21/
-- bcftools: See the included bcftools license details in src/bcftools-1.21/
+
+- htslib: See the included htslib license details in src/htslib-1.22/
+- bcftools: See the included bcftools license details in src/bcftools-1.22/
