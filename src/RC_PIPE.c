@@ -11,9 +11,13 @@
 #include "bcftools.RBCFLIB.h"
 
 // Global flag to track if SIGPIPE has been handled
+// FIX ME: this is a global state, should be managed
+// should probably be removed
 static int sigpipe_handled = 0;
 
 // Helper: Setup SIGPIPE handling for pipeline operations
+// this is needed to prevent subprocesses getting terminated by SIGPIPE
+// which is may be captured by R
 static void setup_sigpipe_handling(void) {
     if (!sigpipe_handled) {
         // Ignore SIGPIPE globally - we'll handle EPIPE errors locally
@@ -288,9 +292,8 @@ SEXP RC_bcftools_pipeline(
                 free_argv(argv_values[j]);
             }
             free(argv_values);
-            
-            // CRITICAL: Use _exit() instead of exit() to prevent cleanup
-            // that could corrupt the parent R process state
+            // use _exit to avoid R finalization code
+ 
             _exit(status);
         }
     }
@@ -347,7 +350,7 @@ SEXP RC_bcftools_pipeline(
     }
     
     // Set attribute with combined command
-    setAttrib(res, install("command"), cmd);
+    setAttrib(res, Rf_install("command"), cmd);
     
     UNPROTECT(2);
     return res;

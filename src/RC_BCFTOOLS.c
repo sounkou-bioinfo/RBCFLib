@@ -109,7 +109,7 @@ SEXP RC_bcftools_run(
   }
   // Wrap status as integer with 'command' attribute
   SEXP res = PROTECT(ScalarInteger(status));
-  setAttrib(res, install("command"), cmd);
+  setAttrib(res, Rf_install("command"), cmd);
   UNPROTECT(2);
   return res;
 }
