@@ -1,8 +1,13 @@
 HTSLIB_DIR=$(CURDIR)/htslib-1.22
 BCFTOOLS_DIR=$(CURDIR)/bcftools-1.22
 
-# Hide unused symbols from external libraries
-PKG_LIBS_EXTRA=-Wl,--exclude-libs,ALL
+# Platform-specific linker flags
+UNAME := $(shell uname)
+ifeq ($(UNAME), Linux)
+  PKG_LIBS_EXTRA=-Wl,--exclude-libs,ALL
+else
+  PKG_LIBS_EXTRA=
+endif
 
 # Check for CHOLMOD
 HAVE_CHOLMOD=@HAVE_CHOLMOD@

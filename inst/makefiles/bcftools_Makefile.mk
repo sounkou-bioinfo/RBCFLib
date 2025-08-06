@@ -26,7 +26,12 @@ CC       = gcc
 AR       = ar
 RANLIB   = ranlib
 CPPFLAGS =
-CFLAGS   = -g -Wall -O2 -fPIC -Wno-alloc-size-larger-than
+# Conditional compiler flags based on compiler type
+ifeq ($(CC),gcc)
+  CFLAGS   = -g -Wall -O2 -fPIC -Wno-alloc-size-larger-than
+else
+  CFLAGS   = -g -Wall -O2 -fPIC
+endif
 LDFLAGS  =
 LIBS     =
 
