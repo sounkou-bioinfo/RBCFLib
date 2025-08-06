@@ -26,12 +26,7 @@ CC       = gcc
 AR       = ar
 RANLIB   = ranlib
 CPPFLAGS =
-# Conditional compiler flags based on compiler type
-ifeq ($(CC),gcc)
-  CFLAGS   = -g -Wall -O2 -fPIC -Wno-alloc-size-larger-than
-else
-  CFLAGS   = -g -Wall -O2 -fPIC
-endif
+CFLAGS   = -g -Wall -O2 -fPIC -Wno-alloc-size-larger-than
 LDFLAGS  =
 LIBS     =
 
@@ -92,7 +87,7 @@ ALL_LIBS     = -lz $(DL_LIBS) $(LIBS)
 all: $(PROGRAMS) $(TEST_PROGRAMS) plugins
 
 EXTRA_CPPFLAGS =
-GSL_LIBS       =
+GSL_LIBS       = @GSL_LIBS@
 
 # On windows, plugins need to be fully linked.  This adds the extra libraries
 # needed.  Defined here so config.mk can override it.
@@ -112,7 +107,7 @@ endif
 
 include config.mk
 
-PACKAGE_VERSION = 1.21
+PACKAGE_VERSION = 1.22
 
 # If building from a Git repository, replace $(PACKAGE_VERSION) with the Git
 # description of the working tree: either a release tag with the same value
