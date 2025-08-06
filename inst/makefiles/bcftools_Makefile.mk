@@ -26,7 +26,7 @@ CC       = gcc
 AR       = ar
 RANLIB   = ranlib
 CPPFLAGS =
-CFLAGS   = -g -Wall -O2 -fPIC
+CFLAGS   = -g -Wall -O2 -fPIC -Wno-alloc-size-larger-than
 LDFLAGS  =
 LIBS     =
 
