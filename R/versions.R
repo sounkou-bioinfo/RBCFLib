@@ -5,7 +5,7 @@
 #' @return A character string with the htslib version
 #' @export
 HTSLibVersion <- function() {
-    .Call(RC_HTSLibVersion)
+  .Call(RC_HTSLibVersion)
 }
 
 #' Get bcftools Version
@@ -15,5 +15,5 @@ HTSLibVersion <- function() {
 #' @return A character string with the bcftools version
 #' @export
 BCFToolsVersion <- function() {
-    .Call(RC_BCFToolsVersion)
+  .Call(RC_BCFToolsVersion)
 }

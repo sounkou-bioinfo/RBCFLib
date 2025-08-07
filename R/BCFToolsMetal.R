@@ -31,138 +31,145 @@
 #' }
 #'
 #' @export
-BCFToolsMetal <- function(InputFileNames,
-                          WeightsFile = NULL,
-                          Scheme = NULL,
-                          Heterogeneity = NULL,
-                          OutlierThreshold = NULL,
-                          FreqImputation = NULL,
-                          FreqImputationMinMAF = NULL,
-                          SampleName = NULL,
-                          IncludeFilter = NULL,
-                          ExcludeFilter = NULL,
-                          OutputFile = NULL,
-                          OutputType = NULL,
-                          NumThreads = NULL,
-                          WriteIndex = FALSE,
-                          CatchStdout = TRUE,
-                          CatchStderr = TRUE,
-                          SaveStdout = NULL) {
-    # Validate required parameters
-    if (missing(InputFileNames)) {
-        stop("InputFileNames is required")
-    }
+BCFToolsMetal <- function(
+  InputFileNames,
+  WeightsFile = NULL,
+  Scheme = NULL,
+  Heterogeneity = NULL,
+  OutlierThreshold = NULL,
+  FreqImputation = NULL,
+  FreqImputationMinMAF = NULL,
+  SampleName = NULL,
+  IncludeFilter = NULL,
+  ExcludeFilter = NULL,
+  OutputFile = NULL,
+  OutputType = NULL,
+  NumThreads = NULL,
+  WriteIndex = FALSE,
+  CatchStdout = TRUE,
+  CatchStderr = TRUE,
+  SaveStdout = NULL
+) {
+  # Validate required parameters
+  if (missing(InputFileNames)) {
+    stop("InputFileNames is required")
+  }
 
-    # Initialize arguments vector
-    args <- character()
+  # Initialize arguments vector
+  args <- character()
 
-    # Build the command arguments
-    if (!is.null(WeightsFile)) {
-        args <- c(args, "--weights", WeightsFile)
-    }
+  # Build the command arguments
+  if (!is.null(WeightsFile)) {
+    args <- c(args, "--weights", WeightsFile)
+  }
 
-    if (!is.null(Scheme)) {
-        args <- c(args, "--scheme", Scheme)
-    }
+  if (!is.null(Scheme)) {
+    args <- c(args, "--scheme", Scheme)
+  }
 
-    if (!is.null(Heterogeneity)) {
-        args <- c(args, "--heterogeneity", Heterogeneity)
-    }
+  if (!is.null(Heterogeneity)) {
+    args <- c(args, "--heterogeneity", Heterogeneity)
+  }
 
-    if (!is.null(OutlierThreshold)) {
-        args <- c(args, "--outlier", as.character(OutlierThreshold))
-    }
+  if (!is.null(OutlierThreshold)) {
+    args <- c(args, "--outlier", as.character(OutlierThreshold))
+  }
 
-    if (!is.null(FreqImputation)) {
-        args <- c(args, "--freq-imputation", FreqImputation)
-    }
+  if (!is.null(FreqImputation)) {
+    args <- c(args, "--freq-imputation", FreqImputation)
+  }
 
-    if (!is.null(FreqImputationMinMAF)) {
-        args <- c(args, "--freq-imputation-min-maf", as.character(FreqImputationMinMAF))
-    }
-
-    if (!is.null(SampleName)) {
-        args <- c(args, "--sample-name", SampleName)
-    }
-
-    if (!is.null(IncludeFilter)) {
-        args <- c(args, "--include", IncludeFilter)
-    }
-
-    if (!is.null(ExcludeFilter)) {
-        args <- c(args, "--exclude", ExcludeFilter)
-    }
-
-    if (!is.null(OutputFile)) {
-        args <- c(args, "--output-file", OutputFile)
-    }
-
-    if (!is.null(OutputType)) {
-        args <- c(args, "--output-type", OutputType)
-    }
-
-    if (!is.null(NumThreads)) {
-        args <- c(args, "--threads", as.character(NumThreads))
-    }
-
-    if (is.logical(WriteIndex) && WriteIndex) {
-        args <- c(args, "--write-index")
-    } else if (is.character(WriteIndex)) {
-        args <- c(args, paste0("--write-index=", WriteIndex))
-    }
-
-    # Add input files as last arguments
-    if (is.character(InputFileNames)) {
-        if (length(InputFileNames) == 1) {
-            args <- c(args, InputFileNames)
-        } else {
-            args <- c(args, InputFileNames)
-        }
-    }
-
-    # Create temporary files for stderr (and stdout if needed)
-    stderrFile <- tempfile("bcftools_stderr_")
-    stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else SaveStdout
-
-    # Call the C function
-    status <- .Call(
-        RC_bcftools_metal,
-        args,
-        CatchStdout,
-        CatchStderr,
-        stdoutFile,
-        stderrFile
+  if (!is.null(FreqImputationMinMAF)) {
+    args <- c(
+      args,
+      "--freq-imputation-min-maf",
+      as.character(FreqImputationMinMAF)
     )
+  }
 
-    # Process the results
-    command <- attr(status, "command")
+  if (!is.null(SampleName)) {
+    args <- c(args, "--sample-name", SampleName)
+  }
 
-    # Read captured output if needed
-    stdout <- NULL
-    if (CatchStdout && file.exists(stdoutFile)) {
-        stdout <- readLines(stdoutFile, warn = FALSE)
-        if (!is.null(SaveStdout)) {
-            # If we saved to a user-specified file, don't delete it
-            if (length(stdout) == 0) stdout <- NULL
-        } else {
-            # Clean up temp file
-            unlink(stdoutFile)
-        }
+  if (!is.null(IncludeFilter)) {
+    args <- c(args, "--include", IncludeFilter)
+  }
+
+  if (!is.null(ExcludeFilter)) {
+    args <- c(args, "--exclude", ExcludeFilter)
+  }
+
+  if (!is.null(OutputFile)) {
+    args <- c(args, "--output-file", OutputFile)
+  }
+
+  if (!is.null(OutputType)) {
+    args <- c(args, "--output-type", OutputType)
+  }
+
+  if (!is.null(NumThreads)) {
+    args <- c(args, "--threads", as.character(NumThreads))
+  }
+
+  if (is.logical(WriteIndex) && WriteIndex) {
+    args <- c(args, "--write-index")
+  } else if (is.character(WriteIndex)) {
+    args <- c(args, paste0("--write-index=", WriteIndex))
+  }
+
+  # Add input files as last arguments
+  if (is.character(InputFileNames)) {
+    if (length(InputFileNames) == 1) {
+      args <- c(args, InputFileNames)
+    } else {
+      args <- c(args, InputFileNames)
     }
+  }
 
-    stderr <- NULL
-    if (CatchStderr && file.exists(stderrFile)) {
-        stderr <- readLines(stderrFile, warn = FALSE)
-        # Clean up temp file
-        unlink(stderrFile)
-        if (length(stderr) == 0) stderr <- NULL
+  # Create temporary files for stderr (and stdout if needed)
+  stderrFile <- tempfile("bcftools_stderr_")
+  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+    SaveStdout
+
+  # Call the C function
+  status <- .Call(
+    RC_bcftools_metal,
+    args,
+    CatchStdout,
+    CatchStderr,
+    stdoutFile,
+    stderrFile
+  )
+
+  # Process the results
+  command <- attr(status, "command")
+
+  # Read captured output if needed
+  stdout <- NULL
+  if (CatchStdout && file.exists(stdoutFile)) {
+    stdout <- readLines(stdoutFile, warn = FALSE)
+    if (!is.null(SaveStdout)) {
+      # If we saved to a user-specified file, don't delete it
+      if (length(stdout) == 0) stdout <- NULL
+    } else {
+      # Clean up temp file
+      unlink(stdoutFile)
     }
+  }
 
-    # Return results
-    list(
-        status = status,
-        stdout = stdout,
-        stderr = stderr,
-        command = command
-    )
+  stderr <- NULL
+  if (CatchStderr && file.exists(stderrFile)) {
+    stderr <- readLines(stderrFile, warn = FALSE)
+    # Clean up temp file
+    unlink(stderrFile)
+    if (length(stderr) == 0) stderr <- NULL
+  }
+
+  # Return results
+  list(
+    status = status,
+    stdout = stdout,
+    stderr = stderr,
+    command = command
+  )
 }

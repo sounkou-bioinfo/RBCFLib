@@ -37,160 +37,163 @@
 #' }
 #'
 #' @export
-BCFToolsScore <- function(InputFileName,
-                          ScoresFile = NULL,
-                          SamplesFile = NULL,
-                          Regions = NULL,
-                          RegionsFile = NULL,
-                          Targets = NULL,
-                          TargetsFile = NULL,
-                          Samples = NULL,
-                          Format = NULL,
-                          ScoresColumn = NULL,
-                          OutputFile = NULL,
-                          OutputType = NULL,
-                          OutputColumns = NULL,
-                          NumThreads = NULL,
-                          WriteIndex = FALSE,
-                          TSV = FALSE,
-                          IncludeFilter = NULL,
-                          ExcludeFilter = NULL,
-                          VariantID = FALSE,
-                          QScoreThreshold = NULL,
-                          CatchStdout = TRUE,
-                          CatchStderr = TRUE,
-                          SaveStdout = NULL) {
-    # Validate required parameters
-    if (missing(InputFileName)) {
-        stop("InputFileName is required")
+BCFToolsScore <- function(
+  InputFileName,
+  ScoresFile = NULL,
+  SamplesFile = NULL,
+  Regions = NULL,
+  RegionsFile = NULL,
+  Targets = NULL,
+  TargetsFile = NULL,
+  Samples = NULL,
+  Format = NULL,
+  ScoresColumn = NULL,
+  OutputFile = NULL,
+  OutputType = NULL,
+  OutputColumns = NULL,
+  NumThreads = NULL,
+  WriteIndex = FALSE,
+  TSV = FALSE,
+  IncludeFilter = NULL,
+  ExcludeFilter = NULL,
+  VariantID = FALSE,
+  QScoreThreshold = NULL,
+  CatchStdout = TRUE,
+  CatchStderr = TRUE,
+  SaveStdout = NULL
+) {
+  # Validate required parameters
+  if (missing(InputFileName)) {
+    stop("InputFileName is required")
+  }
+
+  # Initialize arguments vector
+  args <- character()
+
+  # Build the command arguments
+  if (!is.null(ScoresFile)) {
+    args <- c(args, "--scores", ScoresFile)
+  }
+
+  if (!is.null(SamplesFile)) {
+    args <- c(args, "--samples-file", SamplesFile)
+  }
+
+  if (!is.null(Regions)) {
+    args <- c(args, "--regions", Regions)
+  }
+
+  if (!is.null(RegionsFile)) {
+    args <- c(args, "--regions-file", RegionsFile)
+  }
+
+  if (!is.null(Targets)) {
+    args <- c(args, "--targets", Targets)
+  }
+
+  if (!is.null(TargetsFile)) {
+    args <- c(args, "--targets-file", TargetsFile)
+  }
+
+  if (!is.null(Samples)) {
+    args <- c(args, "--samples", Samples)
+  }
+
+  if (!is.null(Format)) {
+    args <- c(args, "--format", Format)
+  }
+
+  if (!is.null(ScoresColumn)) {
+    args <- c(args, "--score-column", as.character(ScoresColumn))
+  }
+
+  if (!is.null(OutputFile)) {
+    args <- c(args, "--output-file", OutputFile)
+  }
+
+  if (!is.null(OutputType)) {
+    args <- c(args, "--output-type", OutputType)
+  }
+
+  if (!is.null(OutputColumns)) {
+    args <- c(args, "--columns", OutputColumns)
+  }
+
+  if (!is.null(NumThreads)) {
+    args <- c(args, "--threads", as.character(NumThreads))
+  }
+
+  if (is.logical(WriteIndex) && WriteIndex) {
+    args <- c(args, "--write-index")
+  }
+
+  if (TSV) {
+    args <- c(args, "--tsv")
+  }
+
+  if (!is.null(IncludeFilter)) {
+    args <- c(args, "--include", IncludeFilter)
+  }
+
+  if (!is.null(ExcludeFilter)) {
+    args <- c(args, "--exclude", ExcludeFilter)
+  }
+
+  if (VariantID) {
+    args <- c(args, "--use-id")
+  }
+
+  if (!is.null(QScoreThreshold)) {
+    args <- c(args, "--q-score-thr", as.character(QScoreThreshold))
+  }
+
+  # Add input file as last argument
+  args <- c(args, InputFileName)
+
+  # Create temporary files for stderr (and stdout if needed)
+  stderrFile <- tempfile("bcftools_stderr_")
+  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+    SaveStdout
+
+  # Call the C function
+  status <- .Call(
+    RC_bcftools_score,
+    args,
+    CatchStdout,
+    CatchStderr,
+    stdoutFile,
+    stderrFile
+  )
+
+  # Process the results
+  command <- attr(status, "command")
+
+  # Read captured output if needed
+  stdout <- NULL
+  if (CatchStdout && file.exists(stdoutFile)) {
+    stdout <- readLines(stdoutFile, warn = FALSE)
+    if (!is.null(SaveStdout)) {
+      # If we saved to a user-specified file, don't delete it
+      if (length(stdout) == 0) stdout <- NULL
+    } else {
+      # Clean up temp file
+      unlink(stdoutFile)
     }
+  }
 
-    # Initialize arguments vector
-    args <- character()
+  stderr <- NULL
+  if (CatchStderr && file.exists(stderrFile)) {
+    stderr <- readLines(stderrFile, warn = FALSE)
+    # Clean up temp file
+    unlink(stderrFile)
+    if (length(stderr) == 0) stderr <- NULL
+  }
 
-    # Build the command arguments
-    if (!is.null(ScoresFile)) {
-        args <- c(args, "--scores", ScoresFile)
-    }
-
-    if (!is.null(SamplesFile)) {
-        args <- c(args, "--samples-file", SamplesFile)
-    }
-
-    if (!is.null(Regions)) {
-        args <- c(args, "--regions", Regions)
-    }
-
-    if (!is.null(RegionsFile)) {
-        args <- c(args, "--regions-file", RegionsFile)
-    }
-
-    if (!is.null(Targets)) {
-        args <- c(args, "--targets", Targets)
-    }
-
-    if (!is.null(TargetsFile)) {
-        args <- c(args, "--targets-file", TargetsFile)
-    }
-
-    if (!is.null(Samples)) {
-        args <- c(args, "--samples", Samples)
-    }
-
-    if (!is.null(Format)) {
-        args <- c(args, "--format", Format)
-    }
-
-    if (!is.null(ScoresColumn)) {
-        args <- c(args, "--score-column", as.character(ScoresColumn))
-    }
-
-    if (!is.null(OutputFile)) {
-        args <- c(args, "--output-file", OutputFile)
-    }
-
-    if (!is.null(OutputType)) {
-        args <- c(args, "--output-type", OutputType)
-    }
-
-    if (!is.null(OutputColumns)) {
-        args <- c(args, "--columns", OutputColumns)
-    }
-
-    if (!is.null(NumThreads)) {
-        args <- c(args, "--threads", as.character(NumThreads))
-    }
-
-    if (is.logical(WriteIndex) && WriteIndex) {
-        args <- c(args, "--write-index")
-    }
-
-    if (TSV) {
-        args <- c(args, "--tsv")
-    }
-
-    if (!is.null(IncludeFilter)) {
-        args <- c(args, "--include", IncludeFilter)
-    }
-
-    if (!is.null(ExcludeFilter)) {
-        args <- c(args, "--exclude", ExcludeFilter)
-    }
-
-    if (VariantID) {
-        args <- c(args, "--use-id")
-    }
-
-    if (!is.null(QScoreThreshold)) {
-        args <- c(args, "--q-score-thr", as.character(QScoreThreshold))
-    }
-
-    # Add input file as last argument
-    args <- c(args, InputFileName)
-
-    # Create temporary files for stderr (and stdout if needed)
-    stderrFile <- tempfile("bcftools_stderr_")
-    stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else SaveStdout
-
-    # Call the C function
-    status <- .Call(
-        RC_bcftools_score,
-        args,
-        CatchStdout,
-        CatchStderr,
-        stdoutFile,
-        stderrFile
-    )
-
-    # Process the results
-    command <- attr(status, "command")
-
-    # Read captured output if needed
-    stdout <- NULL
-    if (CatchStdout && file.exists(stdoutFile)) {
-        stdout <- readLines(stdoutFile, warn = FALSE)
-        if (!is.null(SaveStdout)) {
-            # If we saved to a user-specified file, don't delete it
-            if (length(stdout) == 0) stdout <- NULL
-        } else {
-            # Clean up temp file
-            unlink(stdoutFile)
-        }
-    }
-
-    stderr <- NULL
-    if (CatchStderr && file.exists(stderrFile)) {
-        stderr <- readLines(stderrFile, warn = FALSE)
-        # Clean up temp file
-        unlink(stderrFile)
-        if (length(stderr) == 0) stderr <- NULL
-    }
-
-    # Return results
-    list(
-        status = status,
-        stdout = stdout,
-        stderr = stderr,
-        command = command
-    )
+  # Return results
+  list(
+    status = status,
+    stdout = stdout,
+    stderr = stderr,
+    command = command
+  )
 }

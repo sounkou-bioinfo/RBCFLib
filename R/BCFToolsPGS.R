@@ -45,194 +45,200 @@
 #' If the package was not compiled with CHOLMOD support, an error will be thrown.
 #'
 #' @export
-BCFToolsPGS <- function(InputFileName,
-                        LDMatrix,
-                        Regions = NULL,
-                        RegionsFile = NULL,
-                        Targets = NULL,
-                        TargetsFile = NULL,
-                        Prior = NULL,
-                        LDScoreTag = NULL,
-                        QScoreThreshold = NULL,
-                        MaxFileSize = NULL,
-                        MaxChunkSize = NULL,
-                        AverageEffects = FALSE,
-                        AverageLDScore = NULL,
-                        ExpectedRatio = NULL,
-                        MAFThreshold = NULL,
-                        NoNormalize = FALSE,
-                        SampleNames = NULL,
-                        SamplesFile = NULL,
-                        IncludeFilter = NULL,
-                        ExcludeFilter = NULL,
-                        OutputFile = NULL,
-                        OutputType = NULL,
-                        NumThreads = NULL,
-                        WriteIndex = FALSE,
-                        CatchStdout = TRUE,
-                        CatchStderr = TRUE,
-                        SaveStdout = NULL) {
-    # Validate required parameters
-    if (missing(InputFileName)) {
-        stop("InputFileName is required")
+BCFToolsPGS <- function(
+  InputFileName,
+  LDMatrix,
+  Regions = NULL,
+  RegionsFile = NULL,
+  Targets = NULL,
+  TargetsFile = NULL,
+  Prior = NULL,
+  LDScoreTag = NULL,
+  QScoreThreshold = NULL,
+  MaxFileSize = NULL,
+  MaxChunkSize = NULL,
+  AverageEffects = FALSE,
+  AverageLDScore = NULL,
+  ExpectedRatio = NULL,
+  MAFThreshold = NULL,
+  NoNormalize = FALSE,
+  SampleNames = NULL,
+  SamplesFile = NULL,
+  IncludeFilter = NULL,
+  ExcludeFilter = NULL,
+  OutputFile = NULL,
+  OutputType = NULL,
+  NumThreads = NULL,
+  WriteIndex = FALSE,
+  CatchStdout = TRUE,
+  CatchStderr = TRUE,
+  SaveStdout = NULL
+) {
+  # Validate required parameters
+  if (missing(InputFileName)) {
+    stop("InputFileName is required")
+  }
+
+  if (missing(LDMatrix)) {
+    stop("LDMatrix is required")
+  }
+
+  # Initialize arguments vector
+  args <- character()
+
+  # Build the command arguments
+  args <- c(args, "--ldgm", LDMatrix)
+
+  if (!is.null(Regions)) {
+    args <- c(args, "--regions", Regions)
+  }
+
+  if (!is.null(RegionsFile)) {
+    args <- c(args, "--regions-file", RegionsFile)
+  }
+
+  if (!is.null(Targets)) {
+    args <- c(args, "--targets", Targets)
+  }
+
+  if (!is.null(TargetsFile)) {
+    args <- c(args, "--targets-file", TargetsFile)
+  }
+
+  if (!is.null(Prior)) {
+    args <- c(args, "--prior", Prior)
+  }
+
+  if (!is.null(LDScoreTag)) {
+    args <- c(args, "--lds-tag", LDScoreTag)
+  }
+
+  if (!is.null(QScoreThreshold)) {
+    args <- c(args, "--q-score-thr", as.character(QScoreThreshold))
+  }
+
+  if (!is.null(MaxFileSize)) {
+    args <- c(args, "--max-file-size", as.character(MaxFileSize))
+  }
+
+  if (!is.null(MaxChunkSize)) {
+    args <- c(args, "--max-chunk-size", as.character(MaxChunkSize))
+  }
+
+  if (AverageEffects) {
+    args <- c(args, "--avg-effects")
+  }
+
+  if (!is.null(AverageLDScore)) {
+    args <- c(args, "--avg-lds", as.character(AverageLDScore))
+  }
+
+  if (!is.null(ExpectedRatio)) {
+    args <- c(args, "--er", as.character(ExpectedRatio))
+  }
+
+  if (!is.null(MAFThreshold)) {
+    args <- c(args, "--min-maf", as.character(MAFThreshold))
+  }
+
+  if (NoNormalize) {
+    args <- c(args, "--no-normalize")
+  }
+
+  if (!is.null(SampleNames)) {
+    args <- c(args, "--samples", SampleNames)
+  }
+
+  if (!is.null(SamplesFile)) {
+    args <- c(args, "--samples-file", SamplesFile)
+  }
+
+  if (!is.null(IncludeFilter)) {
+    args <- c(args, "--include", IncludeFilter)
+  }
+
+  if (!is.null(ExcludeFilter)) {
+    args <- c(args, "--exclude", ExcludeFilter)
+  }
+
+  if (!is.null(OutputFile)) {
+    args <- c(args, "--output-file", OutputFile)
+  }
+
+  if (!is.null(OutputType)) {
+    args <- c(args, "--output-type", OutputType)
+  }
+
+  if (!is.null(NumThreads)) {
+    args <- c(args, "--threads", as.character(NumThreads))
+  }
+
+  if (is.logical(WriteIndex) && WriteIndex) {
+    args <- c(args, "--write-index")
+  } else if (is.character(WriteIndex)) {
+    args <- c(args, paste0("--write-index=", WriteIndex))
+  }
+
+  # Add input file as last argument
+  args <- c(args, InputFileName)
+
+  # Create temporary files for stderr (and stdout if needed)
+  stderrFile <- tempfile("bcftools_stderr_")
+  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+    SaveStdout
+
+  # Call the C function
+  status <- tryCatch(
+    {
+      .Call(
+        RC_bcftools_pgs,
+        args,
+        CatchStdout,
+        CatchStderr,
+        stdoutFile,
+        stderrFile
+      )
+    },
+    error = function(e) {
+      if (grepl("CHOLMOD", e$message)) {
+        stop(
+          "BCFTools was compiled without CHOLMOD support. Please install CHOLMOD and recompile.",
+          call. = FALSE
+        )
+      }
+      stop(e)
     }
+  )
 
-    if (missing(LDMatrix)) {
-        stop("LDMatrix is required")
+  # Process the results
+  command <- attr(status, "command")
+
+  # Read captured output if needed
+  stdout <- NULL
+  if (CatchStdout && file.exists(stdoutFile)) {
+    stdout <- readLines(stdoutFile, warn = FALSE)
+    if (!is.null(SaveStdout)) {
+      # If we saved to a user-specified file, don't delete it
+      if (length(stdout) == 0) stdout <- NULL
+    } else {
+      # Clean up temp file
+      unlink(stdoutFile)
     }
+  }
 
-    # Initialize arguments vector
-    args <- character()
+  stderr <- NULL
+  if (CatchStderr && file.exists(stderrFile)) {
+    stderr <- readLines(stderrFile, warn = FALSE)
+    # Clean up temp file
+    unlink(stderrFile)
+    if (length(stderr) == 0) stderr <- NULL
+  }
 
-    # Build the command arguments
-    args <- c(args, "--ldgm", LDMatrix)
-
-    if (!is.null(Regions)) {
-        args <- c(args, "--regions", Regions)
-    }
-
-    if (!is.null(RegionsFile)) {
-        args <- c(args, "--regions-file", RegionsFile)
-    }
-
-    if (!is.null(Targets)) {
-        args <- c(args, "--targets", Targets)
-    }
-
-    if (!is.null(TargetsFile)) {
-        args <- c(args, "--targets-file", TargetsFile)
-    }
-
-    if (!is.null(Prior)) {
-        args <- c(args, "--prior", Prior)
-    }
-
-    if (!is.null(LDScoreTag)) {
-        args <- c(args, "--lds-tag", LDScoreTag)
-    }
-
-    if (!is.null(QScoreThreshold)) {
-        args <- c(args, "--q-score-thr", as.character(QScoreThreshold))
-    }
-
-    if (!is.null(MaxFileSize)) {
-        args <- c(args, "--max-file-size", as.character(MaxFileSize))
-    }
-
-    if (!is.null(MaxChunkSize)) {
-        args <- c(args, "--max-chunk-size", as.character(MaxChunkSize))
-    }
-
-    if (AverageEffects) {
-        args <- c(args, "--avg-effects")
-    }
-
-    if (!is.null(AverageLDScore)) {
-        args <- c(args, "--avg-lds", as.character(AverageLDScore))
-    }
-
-    if (!is.null(ExpectedRatio)) {
-        args <- c(args, "--er", as.character(ExpectedRatio))
-    }
-
-    if (!is.null(MAFThreshold)) {
-        args <- c(args, "--min-maf", as.character(MAFThreshold))
-    }
-
-    if (NoNormalize) {
-        args <- c(args, "--no-normalize")
-    }
-
-    if (!is.null(SampleNames)) {
-        args <- c(args, "--samples", SampleNames)
-    }
-
-    if (!is.null(SamplesFile)) {
-        args <- c(args, "--samples-file", SamplesFile)
-    }
-
-    if (!is.null(IncludeFilter)) {
-        args <- c(args, "--include", IncludeFilter)
-    }
-
-    if (!is.null(ExcludeFilter)) {
-        args <- c(args, "--exclude", ExcludeFilter)
-    }
-
-    if (!is.null(OutputFile)) {
-        args <- c(args, "--output-file", OutputFile)
-    }
-
-    if (!is.null(OutputType)) {
-        args <- c(args, "--output-type", OutputType)
-    }
-
-    if (!is.null(NumThreads)) {
-        args <- c(args, "--threads", as.character(NumThreads))
-    }
-
-    if (is.logical(WriteIndex) && WriteIndex) {
-        args <- c(args, "--write-index")
-    } else if (is.character(WriteIndex)) {
-        args <- c(args, paste0("--write-index=", WriteIndex))
-    }
-
-    # Add input file as last argument
-    args <- c(args, InputFileName)
-
-    # Create temporary files for stderr (and stdout if needed)
-    stderrFile <- tempfile("bcftools_stderr_")
-    stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else SaveStdout
-
-    # Call the C function
-    status <- tryCatch(
-        {
-            .Call(
-                RC_bcftools_pgs,
-                args,
-                CatchStdout,
-                CatchStderr,
-                stdoutFile,
-                stderrFile
-            )
-        },
-        error = function(e) {
-            if (grepl("CHOLMOD", e$message)) {
-                stop("BCFTools was compiled without CHOLMOD support. Please install CHOLMOD and recompile.", call. = FALSE)
-            }
-            stop(e)
-        }
-    )
-
-    # Process the results
-    command <- attr(status, "command")
-
-    # Read captured output if needed
-    stdout <- NULL
-    if (CatchStdout && file.exists(stdoutFile)) {
-        stdout <- readLines(stdoutFile, warn = FALSE)
-        if (!is.null(SaveStdout)) {
-            # If we saved to a user-specified file, don't delete it
-            if (length(stdout) == 0) stdout <- NULL
-        } else {
-            # Clean up temp file
-            unlink(stdoutFile)
-        }
-    }
-
-    stderr <- NULL
-    if (CatchStderr && file.exists(stderrFile)) {
-        stderr <- readLines(stderrFile, warn = FALSE)
-        # Clean up temp file
-        unlink(stderrFile)
-        if (length(stderr) == 0) stderr <- NULL
-    }
-
-    # Return results
-    list(
-        status = status,
-        stdout = stdout,
-        stderr = stderr,
-        command = command
-    )
+  # Return results
+  list(
+    status = status,
+    stdout = stdout,
+    stderr = stderr,
+    command = command
+  )
 }

@@ -60,181 +60,214 @@
 #' }
 #'
 #' @export
-BCFToolsPipeline <- function(...,
-                             catchStdout = TRUE,
-                             catchStderr = TRUE,
-                             saveStdout = NULL) {
-    # List of valid bcftools commands
-    validCommands <- c(
-        "version", "view", "index", "query", "call", "mpileup", "concat",
-        "merge", "norm", "stats", "annotate", "cnv", "consensus",
-        "convert", "csq", "filter", "gtcheck", "plugin", "roh",
-        "isec", "reheader", "sort", "head", "help", "polysomy"
-    )
+BCFToolsPipeline <- function(
+  ...,
+  catchStdout = TRUE,
+  catchStderr = TRUE,
+  saveStdout = NULL
+) {
+  # List of valid bcftools commands
+  validCommands <- c(
+    "version",
+    "view",
+    "index",
+    "query",
+    "call",
+    "mpileup",
+    "concat",
+    "merge",
+    "norm",
+    "stats",
+    "annotate",
+    "cnv",
+    "consensus",
+    "convert",
+    "csq",
+    "filter",
+    "gtcheck",
+    "plugin",
+    "roh",
+    "isec",
+    "reheader",
+    "sort",
+    "head",
+    "help",
+    "polysomy"
+  )
 
-    # Commands that don't support standard output redirection with -o option
-    # Based on the pysam implementation and BCFToolsRun.R
-    # head is for samtools, maybe we will wrap it too
-    EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats")
+  # Commands that don't support standard output redirection with -o option
+  # Based on the pysam implementation and BCFToolsRun.R
+  # head is for samtools, maybe we will wrap it too
+  EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats")
 
-    # Collect arguments
-    # TODO this is brittle, we should make a proper DSL
-    args <- list(...)
-    if (length(args) < 2 || length(args) %% 2 != 0) {
-        stop("Arguments must be pairs of command and argument vectors")
+  # Collect arguments
+  # TODO this is brittle, we should make a proper DSL
+  args <- list(...)
+  if (length(args) < 2 || length(args) %% 2 != 0) {
+    stop("Arguments must be pairs of command and argument vectors")
+  }
+
+  n_commands <- length(args) / 2
+  commands <- vector("list", n_commands)
+  command_args <- vector("list", n_commands)
+
+  # Process each command-args pair
+  for (i in 1:n_commands) {
+    cmd_idx <- (i - 1) * 2 + 1
+    args_idx <- cmd_idx + 1
+
+    # Get command
+    command <- args[[cmd_idx]]
+    if (!is.character(command) || length(command) != 1) {
+      stop(sprintf("Command %d must be a single character string", i))
     }
 
-    n_commands <- length(args) / 2
-    commands <- vector("list", n_commands)
-    command_args <- vector("list", n_commands)
-
-    # Process each command-args pair
-    for (i in 1:n_commands) {
-        cmd_idx <- (i - 1) * 2 + 1
-        args_idx <- cmd_idx + 1
-
-        # Get command
-        command <- args[[cmd_idx]]
-        if (!is.character(command) || length(command) != 1) {
-            stop(sprintf("Command %d must be a single character string", i))
-        }
-
-        if (!command %in% validCommands) {
-            stop(sprintf(
-                "'%s' is not a recognized bcftools command. Valid commands are: %s",
-                command, paste(validCommands, collapse = ", ")
-            ))
-        }
-
-        # Get arguments
-        cmd_args <- args[[args_idx]]
-        if (!is.character(cmd_args)) {
-            stop(sprintf("Arguments for command %d must be a character vector", i))
-        }
-
-        # Store command and args
-        commands[[i]] <- command
-        command_args[[i]] <- cmd_args
+    if (!command %in% validCommands) {
+      stop(sprintf(
+        "'%s' is not a recognized bcftools command. Valid commands are: %s",
+        command,
+        paste(validCommands, collapse = ", ")
+      ))
     }
 
-    # Validate -o/--output arguments in pipeline
-    # Function to check if arguments contain output option
-    has_output_option <- function(args) {
-        for (arg in args) {
-            if (arg == "-o" || arg == "--output" || arg == "--output-file" ||
-                startsWith(arg, "-o=") || startsWith(arg, "--output=") || startsWith(arg, "--output-file=")) {
-                return(TRUE)
-            }
-        }
-        return(FALSE)
+    # Get arguments
+    cmd_args <- args[[args_idx]]
+    if (!is.character(cmd_args)) {
+      stop(sprintf("Arguments for command %d must be a character vector", i))
     }
 
-    # Check each command for output options
-    for (i in 1:n_commands) {
-        cmd <- commands[[i]]
-        args <- command_args[[i]]
+    # Store command and args
+    commands[[i]] <- command
+    command_args[[i]] <- cmd_args
+  }
 
-        if (has_output_option(args)) {
-            # Only the last command can have output option
-            if (i < n_commands) {
-                stop(sprintf(
-                    "Command %d ('%s') contains -o/--output/--output-file option, but only the last command in a pipeline can specify output",
-                    i, cmd
-                ))
-            }
+  # Validate -o/--output arguments in pipeline
+  # Function to check if arguments contain output option
+  has_output_option <- function(args) {
+    for (arg in args) {
+      if (
+        arg == "-o" ||
+          arg == "--output" ||
+          arg == "--output-file" ||
+          startsWith(arg, "-o=") ||
+          startsWith(arg, "--output=") ||
+          startsWith(arg, "--output-file=")
+      ) {
+        return(TRUE)
+      }
+    }
+    return(FALSE)
+  }
 
-            # Check if the command supports output option
-            if (cmd %in% EXCLUDED_COMMANDS) {
-                stop(sprintf(
-                    "Command '%s' does not support -o/--output/--output-file option. Commands that don't support output redirection: %s",
-                    cmd, paste(EXCLUDED_COMMANDS, collapse = ", ")
-                ))
-            }
-        }
+  # Check each command for output options
+  for (i in 1:n_commands) {
+    cmd <- commands[[i]]
+    args <- command_args[[i]]
+
+    if (has_output_option(args)) {
+      # Only the last command can have output option
+      if (i < n_commands) {
+        stop(sprintf(
+          "Command %d ('%s') contains -o/--output/--output-file option, but only the last command in a pipeline can specify output",
+          i,
+          cmd
+        ))
+      }
+
+      # Check if the command supports output option
+      if (cmd %in% EXCLUDED_COMMANDS) {
+        stop(sprintf(
+          "Command '%s' does not support -o/--output/--output-file option. Commands that don't support output redirection: %s",
+          cmd,
+          paste(EXCLUDED_COMMANDS, collapse = ", ")
+        ))
+      }
+    }
+  }
+
+  # Validate output parameters
+  if (!is.logical(catchStdout) || length(catchStdout) != 1) {
+    stop("'catchStdout' must be a logical value")
+  }
+
+  if (!is.logical(catchStderr) || length(catchStderr) != 1) {
+    stop("'catchStderr' must be a logical value")
+  }
+
+  if (!is.null(saveStdout) && !is.character(saveStdout)) {
+    stop("'saveStdout' must be NULL or a character string")
+  }
+
+  # Enforce output capture in interactive mode for safety
+  if (interactive()) {
+    if (!catchStderr || !catchStdout) {
+      stop("catchStdout and catchStderr must be TRUE in interactive mode")
+    }
+  }
+
+  # Create temporary files for stdout/stderr capture if needed
+  stdout_file <- if (is.null(saveStdout)) tempfile() else saveStdout
+  stderr_file <- tempfile()
+
+  # Call the C function
+  status <- .Call(
+    RC_bcftools_pipeline,
+    as.list(commands),
+    command_args,
+    as.integer(n_commands),
+    catchStdout,
+    catchStderr,
+    stdout_file,
+    stderr_file,
+    PACKAGE = "RBCFLib"
+  )
+
+  # Function to collect output from file (handles both text and binary)
+  collect_output <- function(file_path) {
+    if (!file.exists(file_path) || file.info(file_path)$size == 0) {
+      return(character(0))
     }
 
-    # Validate output parameters
-    if (!is.logical(catchStdout) || length(catchStdout) != 1) {
-        stop("'catchStdout' must be a logical value")
-    }
-
-    if (!is.logical(catchStderr) || length(catchStderr) != 1) {
-        stop("'catchStderr' must be a logical value")
-    }
-
-    if (!is.null(saveStdout) && !is.character(saveStdout)) {
-        stop("'saveStdout' must be NULL or a character string")
-    }
-
-    # Enforce output capture in interactive mode for safety
-    if (interactive()) {
-        if (!catchStderr || !catchStdout) {
-            stop("catchStdout and catchStderr must be TRUE in interactive mode")
-        }
-    }
-
-    # Create temporary files for stdout/stderr capture if needed
-    stdout_file <- if (is.null(saveStdout)) tempfile() else saveStdout
-    stderr_file <- tempfile()
-
-    # Call the C function
-    status <- .Call(RC_bcftools_pipeline,
-        as.list(commands),
-        command_args,
-        as.integer(n_commands),
-        catchStdout,
-        catchStderr,
-        stdout_file,
-        stderr_file,
-        PACKAGE = "RBCFLib"
-    )
-
-    # Function to collect output from file (handles both text and binary)
-    collect_output <- function(file_path) {
-        if (!file.exists(file_path) || file.info(file_path)$size == 0) {
-            return(character(0))
-        }
-
-        result <- tryCatch(
-            {
-                con <- file(file_path, "r", encoding = "UTF-8")
-                on.exit(close(con), add = TRUE)
-                readLines(con)
-            },
-            error = function(e) {
-                # Handle binary output by reading as raw if text reading fails
-                con <- file(file_path, "rb")
-                on.exit(close(con), add = TRUE)
-                readBin(con, what = "raw", n = file.info(file_path)$size)
-            }
-        )
-
-        return(result)
-    }
-
-    # Read captured output if needed
-    stdout_lines <- NULL
-    stderr_lines <- NULL
-
-    # Only read stdout content if catchStdout is TRUE AND saveStdout is NULL
-    # This matches BCFToolsRun behavior
-    if (catchStdout && is.null(saveStdout)) {
-        stdout_lines <- collect_output(stdout_file)
-        file.remove(stdout_file)
-    }
-
-    if (catchStderr) {
-        stderr_lines <- collect_output(stderr_file)
-        file.remove(stderr_file)
-    }
-
-    # Build the result
-    result <- list(
-        status = status,
-        stdout = stdout_lines,
-        stderr = stderr_lines,
-        command = attr(status, "command")
+    result <- tryCatch(
+      {
+        con <- file(file_path, "r", encoding = "UTF-8")
+        on.exit(close(con), add = TRUE)
+        readLines(con)
+      },
+      error = function(e) {
+        # Handle binary output by reading as raw if text reading fails
+        con <- file(file_path, "rb")
+        on.exit(close(con), add = TRUE)
+        readBin(con, what = "raw", n = file.info(file_path)$size)
+      }
     )
 
     return(result)
+  }
+
+  # Read captured output if needed
+  stdout_lines <- NULL
+  stderr_lines <- NULL
+
+  # Only read stdout content if catchStdout is TRUE AND saveStdout is NULL
+  # This matches BCFToolsRun behavior
+  if (catchStdout && is.null(saveStdout)) {
+    stdout_lines <- collect_output(stdout_file)
+    file.remove(stdout_file)
+  }
+
+  if (catchStderr) {
+    stderr_lines <- collect_output(stderr_file)
+    file.remove(stderr_file)
+  }
+
+  # Build the result
+  result <- list(
+    status = status,
+    stdout = stdout_lines,
+    stderr = stderr_lines,
+    command = attr(status, "command")
+  )
+
+  return(result)
 }

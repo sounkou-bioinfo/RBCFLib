@@ -4,10 +4,10 @@
 #' @return Path to the generated .fai index file
 #' @export
 FaidxIndexFasta <- function(fasta_path) {
-    if (!file.exists(fasta_path)) {
-        stop("FASTA file does not exist: ", fasta_path)
-    }
-    .Call(RC_FaidxIndexFasta, fasta_path)
+  if (!file.exists(fasta_path)) {
+    stop("FASTA file does not exist: ", fasta_path)
+  }
+  .Call(RC_FaidxIndexFasta, fasta_path)
 }
 
 #' Fetch a sequence region from a FASTA file using htslib faidx
@@ -19,13 +19,19 @@ FaidxIndexFasta <- function(fasta_path) {
 #' @return Character vector of the fetched sequence
 #' @export
 FaidxFetchRegion <- function(fasta_path, seqname, start, end) {
-    if (!file.exists(fasta_path)) {
-        stop("FASTA file does not exist: ", fasta_path)
-    }
-    if (!file.exists(paste0(fasta_path, ".fai"))) {
-        FaidxIndexFasta(fasta_path)
-    }
-    .Call(RC_FaidxFetchRegion, fasta_path, seqname, as.integer(start), as.integer(end))
+  if (!file.exists(fasta_path)) {
+    stop("FASTA file does not exist: ", fasta_path)
+  }
+  if (!file.exists(paste0(fasta_path, ".fai"))) {
+    FaidxIndexFasta(fasta_path)
+  }
+  .Call(
+    RC_FaidxFetchRegion,
+    fasta_path,
+    seqname,
+    as.integer(start),
+    as.integer(end)
+  )
 }
 
 #' Download human reference genomes (GRCh37 and GRCh38)
@@ -57,153 +63,238 @@ FaidxFetchRegion <- function(fasta_path, seqname, start, end) {
 #' @return Named list with paths to downloaded files
 #' @export
 DownloadHumanReferenceGenomes <- function(
-    grch37_dir = file.path(Sys.getenv("HOME"), "GRCh37"),
-    grch38_dir = file.path(Sys.getenv("HOME"), "GRCh38"),
-    urls = list(
-        grch37_fasta = "http://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/human_g1k_v37.fasta.gz",
-        grch38_fasta = "http://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz",
-        grch37_cytoband = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz",
-        grch38_cytoband = "http://hgdownload.cse.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz",
-        grch37_chain = "http://hgdownload.cse.ucsc.edu/goldenpath/hg18/liftOver/hg18ToHg19.over.chain.gz",
-        grch38_chain_18 = "http://hgdownload.cse.ucsc.edu/goldenpath/hg18/liftOver/hg18ToHg38.over.chain.gz",
-        grch38_chain_19 = "http://hgdownload.cse.ucsc.edu/goldenpath/hg19/liftOver/hg19ToHg38.over.chain.gz"
-    ),
-    cytoband = FALSE,
-    chain = FALSE,
-    method = "wget",
-    extra = getOption("download.file.extra")) {
-    dir.create(grch37_dir, showWarnings = FALSE, recursive = TRUE)
-    dir.create(grch38_dir, showWarnings = FALSE, recursive = TRUE)
+  grch37_dir = file.path(Sys.getenv("HOME"), "GRCh37"),
+  grch38_dir = file.path(Sys.getenv("HOME"), "GRCh38"),
+  urls = list(
+    grch37_fasta = "http://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/human_g1k_v37.fasta.gz",
+    grch38_fasta = "http://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz",
+    grch37_cytoband = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz",
+    grch38_cytoband = "http://hgdownload.cse.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz",
+    grch37_chain = "http://hgdownload.cse.ucsc.edu/goldenpath/hg18/liftOver/hg18ToHg19.over.chain.gz",
+    grch38_chain_18 = "http://hgdownload.cse.ucsc.edu/goldenpath/hg18/liftOver/hg18ToHg38.over.chain.gz",
+    grch38_chain_19 = "http://hgdownload.cse.ucsc.edu/goldenpath/hg19/liftOver/hg19ToHg38.over.chain.gz"
+  ),
+  cytoband = FALSE,
+  chain = FALSE,
+  method = "wget",
+  extra = getOption("download.file.extra")
+) {
+  dir.create(grch37_dir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(grch38_dir, showWarnings = FALSE, recursive = TRUE)
 
-    # GRCh37
-    grch37_fasta_gz <- file.path(grch37_dir, "human_g1k_v37.fasta.gz")
-    grch37_fasta <- file.path(grch37_dir, "human_g1k_v37.fasta")
-    grch37_fai <- paste0(grch37_fasta, ".fai")
+  # GRCh37
+  grch37_fasta_gz <- file.path(grch37_dir, "human_g1k_v37.fasta.gz")
+  grch37_fasta <- file.path(grch37_dir, "human_g1k_v37.fasta")
+  grch37_fai <- paste0(grch37_fasta, ".fai")
 
-    if (!file.exists(grch37_fasta)) {
-        tryCatch(
-            {
-                download.file(urls$grch37_fasta, grch37_fasta_gz, mode = "wb", method = method, extra = extra)
-                DecompressFile(grch37_fasta_gz, grch37_fasta)
-            },
-            error = function(e) {
-                warning(paste("Error downloading/decompressing GRCh37 reference:", e$message, "\nContinuing with execution..."))
-            }
+  if (!file.exists(grch37_fasta)) {
+    tryCatch(
+      {
+        download.file(
+          urls$grch37_fasta,
+          grch37_fasta_gz,
+          mode = "wb",
+          method = method,
+          extra = extra
         )
-    }
-    if (file.exists(grch37_fasta) && !file.exists(grch37_fai)) {
-        tryCatch(
-            {
-                FaidxIndexFasta(grch37_fasta)
-            },
-            error = function(e) {
-                warning(paste("Error indexing GRCh37 reference:", e$message, "\nContinuing with execution..."))
-            }
-        )
-    }
-
-    # GRCh38
-    grch38_fasta_gz <- file.path(grch38_dir, "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz")
-    grch38_fasta <- file.path(grch38_dir, "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna")
-    grch38_fai <- paste0(grch38_fasta, ".fai")
-
-    if (!file.exists(grch38_fasta)) {
-        tryCatch(
-            {
-                download.file(urls$grch38_fasta, grch38_fasta_gz, mode = "wb", method = method, extra = extra)
-                DecompressFile(grch38_fasta_gz, grch38_fasta)
-            },
-            error = function(e) {
-                warning(paste("Error downloading/decompressing GRCh38 reference:", e$message, "\nContinuing with execution..."))
-            }
-        )
-    }
-    if (file.exists(grch38_fasta) && !file.exists(grch38_fai)) {
-        tryCatch(
-            {
-                FaidxIndexFasta(grch38_fasta)
-            },
-            error = function(e) {
-                warning(paste("Error indexing GRCh38 reference:", e$message, "\nContinuing with execution..."))
-            }
-        )
-    }
-
-    # Optionally download cytoband and chain files
-    cytoband_files <- NULL
-    chain_files <- NULL
-    if (cytoband) {
-        cytoband_files <- list(
-            grch37 = file.path(grch37_dir, "cytoBand.txt.gz"),
-            grch38 = file.path(grch38_dir, "cytoBand.txt.gz")
-        )
-        if (!file.exists(cytoband_files$grch37)) {
-            tryCatch(
-                {
-                    download.file(urls$grch37_cytoband, cytoband_files$grch37, mode = "wb", method = method, extra = extra)
-                },
-                error = function(e) {
-                    warning(paste("Error downloading GRCh37 cytoband file:", e$message, "\nContinuing with execution..."))
-                }
-            )
-        }
-        if (!file.exists(cytoband_files$grch38)) {
-            tryCatch(
-                {
-                    download.file(urls$grch38_cytoband, cytoband_files$grch38, mode = "wb", method = method, extra = extra)
-                },
-                error = function(e) {
-                    warning(paste("Error downloading GRCh38 cytoband file:", e$message, "\nContinuing with execution..."))
-                }
-            )
-        }
-    }
-    if (chain) {
-        chain_files <- list(
-            grch37 = file.path(grch37_dir, "hg18ToHg19.over.chain.gz"),
-            grch38_18 = file.path(grch38_dir, "hg18ToHg38.over.chain.gz"),
-            grch38_19 = file.path(grch38_dir, "hg19ToHg38.over.chain.gz")
-        )
-        if (!file.exists(chain_files$grch37)) {
-            tryCatch(
-                {
-                    download.file(urls$grch37_chain, chain_files$grch37, mode = "wb", method = method, extra = extra)
-                },
-                error = function(e) {
-                    warning(paste("Error downloading GRCh37 chain file:", e$message, "\nContinuing with execution..."))
-                }
-            )
-        }
-        if (!file.exists(chain_files$grch38_18)) {
-            tryCatch(
-                {
-                    download.file(urls$grch38_chain_18, chain_files$grch38_18, mode = "wb", method = method, extra = extra)
-                },
-                error = function(e) {
-                    warning(paste("Error downloading GRCh38 chain file (hg18):", e$message, "\nContinuing with execution..."))
-                }
-            )
-        }
-        if (!file.exists(chain_files$grch38_19)) {
-            tryCatch(
-                {
-                    download.file(urls$grch38_chain_19, chain_files$grch38_19, mode = "wb", method = method, extra = extra)
-                },
-                error = function(e) {
-                    warning(paste("Error downloading GRCh38 chain file (hg19):", e$message, "\nContinuing with execution..."))
-                }
-            )
-        }
-    }
-
-    list(
-        grch37_fasta = grch37_fasta,
-        grch37_fai = grch37_fai,
-        grch38_fasta = grch38_fasta,
-        grch38_fai = grch38_fai,
-        cytoband = cytoband_files,
-        chain = chain_files
+        DecompressFile(grch37_fasta_gz, grch37_fasta)
+      },
+      error = function(e) {
+        warning(paste(
+          "Error downloading/decompressing GRCh37 reference:",
+          e$message,
+          "\nContinuing with execution..."
+        ))
+      }
     )
+  }
+  if (file.exists(grch37_fasta) && !file.exists(grch37_fai)) {
+    tryCatch(
+      {
+        FaidxIndexFasta(grch37_fasta)
+      },
+      error = function(e) {
+        warning(paste(
+          "Error indexing GRCh37 reference:",
+          e$message,
+          "\nContinuing with execution..."
+        ))
+      }
+    )
+  }
+
+  # GRCh38
+  grch38_fasta_gz <- file.path(
+    grch38_dir,
+    "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz"
+  )
+  grch38_fasta <- file.path(
+    grch38_dir,
+    "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
+  )
+  grch38_fai <- paste0(grch38_fasta, ".fai")
+
+  if (!file.exists(grch38_fasta)) {
+    tryCatch(
+      {
+        download.file(
+          urls$grch38_fasta,
+          grch38_fasta_gz,
+          mode = "wb",
+          method = method,
+          extra = extra
+        )
+        DecompressFile(grch38_fasta_gz, grch38_fasta)
+      },
+      error = function(e) {
+        warning(paste(
+          "Error downloading/decompressing GRCh38 reference:",
+          e$message,
+          "\nContinuing with execution..."
+        ))
+      }
+    )
+  }
+  if (file.exists(grch38_fasta) && !file.exists(grch38_fai)) {
+    tryCatch(
+      {
+        FaidxIndexFasta(grch38_fasta)
+      },
+      error = function(e) {
+        warning(paste(
+          "Error indexing GRCh38 reference:",
+          e$message,
+          "\nContinuing with execution..."
+        ))
+      }
+    )
+  }
+
+  # Optionally download cytoband and chain files
+  cytoband_files <- NULL
+  chain_files <- NULL
+  if (cytoband) {
+    cytoband_files <- list(
+      grch37 = file.path(grch37_dir, "cytoBand.txt.gz"),
+      grch38 = file.path(grch38_dir, "cytoBand.txt.gz")
+    )
+    if (!file.exists(cytoband_files$grch37)) {
+      tryCatch(
+        {
+          download.file(
+            urls$grch37_cytoband,
+            cytoband_files$grch37,
+            mode = "wb",
+            method = method,
+            extra = extra
+          )
+        },
+        error = function(e) {
+          warning(paste(
+            "Error downloading GRCh37 cytoband file:",
+            e$message,
+            "\nContinuing with execution..."
+          ))
+        }
+      )
+    }
+    if (!file.exists(cytoband_files$grch38)) {
+      tryCatch(
+        {
+          download.file(
+            urls$grch38_cytoband,
+            cytoband_files$grch38,
+            mode = "wb",
+            method = method,
+            extra = extra
+          )
+        },
+        error = function(e) {
+          warning(paste(
+            "Error downloading GRCh38 cytoband file:",
+            e$message,
+            "\nContinuing with execution..."
+          ))
+        }
+      )
+    }
+  }
+  if (chain) {
+    chain_files <- list(
+      grch37 = file.path(grch37_dir, "hg18ToHg19.over.chain.gz"),
+      grch38_18 = file.path(grch38_dir, "hg18ToHg38.over.chain.gz"),
+      grch38_19 = file.path(grch38_dir, "hg19ToHg38.over.chain.gz")
+    )
+    if (!file.exists(chain_files$grch37)) {
+      tryCatch(
+        {
+          download.file(
+            urls$grch37_chain,
+            chain_files$grch37,
+            mode = "wb",
+            method = method,
+            extra = extra
+          )
+        },
+        error = function(e) {
+          warning(paste(
+            "Error downloading GRCh37 chain file:",
+            e$message,
+            "\nContinuing with execution..."
+          ))
+        }
+      )
+    }
+    if (!file.exists(chain_files$grch38_18)) {
+      tryCatch(
+        {
+          download.file(
+            urls$grch38_chain_18,
+            chain_files$grch38_18,
+            mode = "wb",
+            method = method,
+            extra = extra
+          )
+        },
+        error = function(e) {
+          warning(paste(
+            "Error downloading GRCh38 chain file (hg18):",
+            e$message,
+            "\nContinuing with execution..."
+          ))
+        }
+      )
+    }
+    if (!file.exists(chain_files$grch38_19)) {
+      tryCatch(
+        {
+          download.file(
+            urls$grch38_chain_19,
+            chain_files$grch38_19,
+            mode = "wb",
+            method = method,
+            extra = extra
+          )
+        },
+        error = function(e) {
+          warning(paste(
+            "Error downloading GRCh38 chain file (hg19):",
+            e$message,
+            "\nContinuing with execution..."
+          ))
+        }
+      )
+    }
+  }
+
+  list(
+    grch37_fasta = grch37_fasta,
+    grch37_fai = grch37_fai,
+    grch38_fasta = grch38_fasta,
+    grch38_fai = grch38_fai,
+    cytoband = cytoband_files,
+    chain = chain_files
+  )
 }
 
 #' Decompress a compressed file
@@ -218,62 +309,81 @@ DownloadHumanReferenceGenomes <- function(
 #' @param block_size Size of data chunks to process at once (in bytes, default: 1e8)
 #' @return Path to the decompressed file
 #' @export
-DecompressFile <- function(input_file, output_file = NULL, remove_input = FALSE, block_size = 1e8) {
-    if (!file.exists(input_file)) {
-        stop("Input file does not exist: ", input_file)
-    }
+DecompressFile <- function(
+  input_file,
+  output_file = NULL,
+  remove_input = FALSE,
+  block_size = 1e8
+) {
+  if (!file.exists(input_file)) {
+    stop("Input file does not exist: ", input_file)
+  }
 
-    # Determine the file type based on extension
-    ext <- tolower(tools::file_ext(input_file))
+  # Determine the file type based on extension
+  ext <- tolower(tools::file_ext(input_file))
 
-    # Create output filename if not provided
-    if (is.null(output_file)) {
-        output_file <- sub(paste0("\\.", ext, "$"), "", input_file)
-    }
+  # Create output filename if not provided
+  if (is.null(output_file)) {
+    output_file <- sub(paste0("\\.", ext, "$"), "", input_file)
+  }
 
-    # Choose the appropriate connection function based on file extension
-    if (ext == "gz") {
-        conn_fun <- gzfile
-    } else if (ext == "bz2") {
-        conn_fun <- bzfile
-    } else if (ext == "xz") {
-        conn_fun <- xzfile
-    } else {
-        stop("Unsupported file extension: ", ext, ". Supported extensions are .gz, .bz2, and .xz")
-    }
-
-    # Use tryCatch to handle potential connection errors
-    tryCatch(
-        {
-            # Open connections and decompress
-            input_conn <- conn_fun(input_file, "rb")
-            on.exit(if (!is.null(input_conn) && isOpen(input_conn)) close(input_conn), add = TRUE)
-
-            output_conn <- file(output_file, "wb")
-            on.exit(if (!is.null(output_conn) && isOpen(output_conn)) close(output_conn), add = TRUE)
-
-            # Read and write in chunks
-            data <- readBin(input_conn, "raw", n = block_size)
-            while (length(data) > 0) {
-                writeBin(data, output_conn)
-                data <- readBin(input_conn, "raw", n = block_size)
-            }
-
-            # Close connections explicitly (on.exit will handle this as a fallback)
-            close(input_conn)
-            close(output_conn)
-        },
-        error = function(e) {
-            # Log the error but continue without failing
-            warning(paste("Connection error during decompression:", e$message, "\nContinuing with execution..."))
-        }
+  # Choose the appropriate connection function based on file extension
+  if (ext == "gz") {
+    conn_fun <- gzfile
+  } else if (ext == "bz2") {
+    conn_fun <- bzfile
+  } else if (ext == "xz") {
+    conn_fun <- xzfile
+  } else {
+    stop(
+      "Unsupported file extension: ",
+      ext,
+      ". Supported extensions are .gz, .bz2, and .xz"
     )
+  }
 
-    # Remove input file if requested
-    if (remove_input && file.exists(input_file)) {
-        file.remove(input_file)
+  # Use tryCatch to handle potential connection errors
+  tryCatch(
+    {
+      # Open connections and decompress
+      input_conn <- conn_fun(input_file, "rb")
+      on.exit(
+        if (!is.null(input_conn) && isOpen(input_conn)) close(input_conn),
+        add = TRUE
+      )
+
+      output_conn <- file(output_file, "wb")
+      on.exit(
+        if (!is.null(output_conn) && isOpen(output_conn)) close(output_conn),
+        add = TRUE
+      )
+
+      # Read and write in chunks
+      data <- readBin(input_conn, "raw", n = block_size)
+      while (length(data) > 0) {
+        writeBin(data, output_conn)
+        data <- readBin(input_conn, "raw", n = block_size)
+      }
+
+      # Close connections explicitly (on.exit will handle this as a fallback)
+      close(input_conn)
+      close(output_conn)
+    },
+    error = function(e) {
+      # Log the error but continue without failing
+      warning(paste(
+        "Connection error during decompression:",
+        e$message,
+        "\nContinuing with execution..."
+      ))
     }
+  )
 
-    # Return the output file path even if there was an error
-    return(output_file)
+  # Remove input file if requested
+  if (remove_input && file.exists(input_file)) {
+    file.remove(input_file)
+  }
+
+  # Return the output file path even if there was an error
+  return(output_file)
 }

@@ -36,168 +36,171 @@
 #' }
 #'
 #' @export
-BCFToolsLiftover <- function(InputFileName,
-                             ChainFile,
-                             FastaRef = NULL,
-                             Regions = NULL,
-                             RegionsFile = NULL,
-                             Targets = NULL,
-                             TargetsFile = NULL,
-                             FlipTag = NULL,
-                             SwapTag = NULL,
-                             DropTags = NULL,
-                             ACTags = NULL,
-                             AFTags = NULL,
-                             DSTags = NULL,
-                             GTTags = NULL,
-                             ESTags = NULL,
-                             Tags = NULL,
-                             OutputFile = NULL,
-                             OutputType = NULL,
-                             NumThreads = NULL,
-                             WriteIndex = FALSE,
-                             CatchStdout = TRUE,
-                             CatchStderr = TRUE,
-                             SaveStdout = NULL) {
-    # Validate required parameters
-    if (missing(InputFileName)) {
-        stop("InputFileName is required")
+BCFToolsLiftover <- function(
+  InputFileName,
+  ChainFile,
+  FastaRef = NULL,
+  Regions = NULL,
+  RegionsFile = NULL,
+  Targets = NULL,
+  TargetsFile = NULL,
+  FlipTag = NULL,
+  SwapTag = NULL,
+  DropTags = NULL,
+  ACTags = NULL,
+  AFTags = NULL,
+  DSTags = NULL,
+  GTTags = NULL,
+  ESTags = NULL,
+  Tags = NULL,
+  OutputFile = NULL,
+  OutputType = NULL,
+  NumThreads = NULL,
+  WriteIndex = FALSE,
+  CatchStdout = TRUE,
+  CatchStderr = TRUE,
+  SaveStdout = NULL
+) {
+  # Validate required parameters
+  if (missing(InputFileName)) {
+    stop("InputFileName is required")
+  }
+
+  if (missing(ChainFile)) {
+    stop("ChainFile is required")
+  }
+
+  # Initialize arguments vector
+  args <- character()
+
+  # Build the command arguments
+  args <- c(args, "--chain", ChainFile)
+
+  if (!is.null(FastaRef)) {
+    args <- c(args, "--fasta-ref", FastaRef)
+  }
+
+  if (!is.null(Regions)) {
+    args <- c(args, "--regions", Regions)
+  }
+
+  if (!is.null(RegionsFile)) {
+    args <- c(args, "--regions-file", RegionsFile)
+  }
+
+  if (!is.null(Targets)) {
+    args <- c(args, "--targets", Targets)
+  }
+
+  if (!is.null(TargetsFile)) {
+    args <- c(args, "--targets-file", TargetsFile)
+  }
+
+  if (!is.null(FlipTag)) {
+    args <- c(args, "--flip-tag", FlipTag)
+  }
+
+  if (!is.null(SwapTag)) {
+    args <- c(args, "--swap-tag", SwapTag)
+  }
+
+  if (!is.null(DropTags)) {
+    args <- c(args, "--drop-tags", DropTags)
+  }
+
+  if (!is.null(ACTags)) {
+    args <- c(args, "--ac-tags", ACTags)
+  }
+
+  if (!is.null(AFTags)) {
+    args <- c(args, "--af-tags", AFTags)
+  }
+
+  if (!is.null(DSTags)) {
+    args <- c(args, "--ds-tags", DSTags)
+  }
+
+  if (!is.null(GTTags)) {
+    args <- c(args, "--gt-tags", GTTags)
+  }
+
+  if (!is.null(ESTags)) {
+    args <- c(args, "--es-tags", ESTags)
+  }
+
+  if (!is.null(Tags)) {
+    if (is.character(Tags)) {
+      for (tag in Tags) {
+        args <- c(args, "--tags", tag)
+      }
     }
+  }
 
-    if (missing(ChainFile)) {
-        stop("ChainFile is required")
+  if (!is.null(OutputFile)) {
+    args <- c(args, "--output-file", OutputFile)
+  }
+
+  if (!is.null(OutputType)) {
+    args <- c(args, "--output-type", OutputType)
+  }
+
+  if (!is.null(NumThreads)) {
+    args <- c(args, "--threads", as.character(NumThreads))
+  }
+
+  if (is.logical(WriteIndex) && WriteIndex) {
+    args <- c(args, "--write-index")
+  } else if (is.character(WriteIndex)) {
+    args <- c(args, paste0("--write-index=", WriteIndex))
+  }
+
+  # Add input file as last argument
+  args <- c(args, InputFileName)
+
+  # Create temporary files for stderr (and stdout if needed)
+  stderrFile <- tempfile("bcftools_stderr_")
+  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+    SaveStdout
+
+  # Call the C function
+  status <- .Call(
+    RC_bcftools_liftover,
+    args,
+    CatchStdout,
+    CatchStderr,
+    stdoutFile,
+    stderrFile
+  )
+
+  # Process the results
+  command <- attr(status, "command")
+
+  # Read captured output if needed
+  stdout <- NULL
+  if (CatchStdout && file.exists(stdoutFile)) {
+    stdout <- readLines(stdoutFile, warn = FALSE)
+    if (!is.null(SaveStdout)) {
+      # If we saved to a user-specified file, don't delete it
+      if (length(stdout) == 0) stdout <- NULL
+    } else {
+      # Clean up temp file
+      unlink(stdoutFile)
     }
+  }
 
-    # Initialize arguments vector
-    args <- character()
+  stderr <- NULL
+  if (CatchStderr && file.exists(stderrFile)) {
+    stderr <- readLines(stderrFile, warn = FALSE)
+    # Clean up temp file
+    unlink(stderrFile)
+    if (length(stderr) == 0) stderr <- NULL
+  }
 
-    # Build the command arguments
-    args <- c(args, "--chain", ChainFile)
-
-    if (!is.null(FastaRef)) {
-        args <- c(args, "--fasta-ref", FastaRef)
-    }
-
-    if (!is.null(Regions)) {
-        args <- c(args, "--regions", Regions)
-    }
-
-    if (!is.null(RegionsFile)) {
-        args <- c(args, "--regions-file", RegionsFile)
-    }
-
-    if (!is.null(Targets)) {
-        args <- c(args, "--targets", Targets)
-    }
-
-    if (!is.null(TargetsFile)) {
-        args <- c(args, "--targets-file", TargetsFile)
-    }
-
-    if (!is.null(FlipTag)) {
-        args <- c(args, "--flip-tag", FlipTag)
-    }
-
-    if (!is.null(SwapTag)) {
-        args <- c(args, "--swap-tag", SwapTag)
-    }
-
-    if (!is.null(DropTags)) {
-        args <- c(args, "--drop-tags", DropTags)
-    }
-
-    if (!is.null(ACTags)) {
-        args <- c(args, "--ac-tags", ACTags)
-    }
-
-    if (!is.null(AFTags)) {
-        args <- c(args, "--af-tags", AFTags)
-    }
-
-    if (!is.null(DSTags)) {
-        args <- c(args, "--ds-tags", DSTags)
-    }
-
-    if (!is.null(GTTags)) {
-        args <- c(args, "--gt-tags", GTTags)
-    }
-
-    if (!is.null(ESTags)) {
-        args <- c(args, "--es-tags", ESTags)
-    }
-
-    if (!is.null(Tags)) {
-        if (is.character(Tags)) {
-            for (tag in Tags) {
-                args <- c(args, "--tags", tag)
-            }
-        }
-    }
-
-    if (!is.null(OutputFile)) {
-        args <- c(args, "--output-file", OutputFile)
-    }
-
-    if (!is.null(OutputType)) {
-        args <- c(args, "--output-type", OutputType)
-    }
-
-    if (!is.null(NumThreads)) {
-        args <- c(args, "--threads", as.character(NumThreads))
-    }
-
-    if (is.logical(WriteIndex) && WriteIndex) {
-        args <- c(args, "--write-index")
-    } else if (is.character(WriteIndex)) {
-        args <- c(args, paste0("--write-index=", WriteIndex))
-    }
-
-    # Add input file as last argument
-    args <- c(args, InputFileName)
-
-    # Create temporary files for stderr (and stdout if needed)
-    stderrFile <- tempfile("bcftools_stderr_")
-    stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else SaveStdout
-
-    # Call the C function
-    status <- .Call(
-        RC_bcftools_liftover,
-        args,
-        CatchStdout,
-        CatchStderr,
-        stdoutFile,
-        stderrFile
-    )
-
-    # Process the results
-    command <- attr(status, "command")
-
-    # Read captured output if needed
-    stdout <- NULL
-    if (CatchStdout && file.exists(stdoutFile)) {
-        stdout <- readLines(stdoutFile, warn = FALSE)
-        if (!is.null(SaveStdout)) {
-            # If we saved to a user-specified file, don't delete it
-            if (length(stdout) == 0) stdout <- NULL
-        } else {
-            # Clean up temp file
-            unlink(stdoutFile)
-        }
-    }
-
-    stderr <- NULL
-    if (CatchStderr && file.exists(stderrFile)) {
-        stderr <- readLines(stderrFile, warn = FALSE)
-        # Clean up temp file
-        unlink(stderrFile)
-        if (length(stderr) == 0) stderr <- NULL
-    }
-
-    # Return results
-    list(
-        status = status,
-        stdout = stdout,
-        stderr = stderr,
-        command = command
-    )
+  # Return results
+  list(
+    status = status,
+    stdout = stdout,
+    stderr = stderr,
+    command = command
+  )
 }

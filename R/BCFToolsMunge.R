@@ -61,162 +61,162 @@
 #' }
 #'
 #' @export
-BCFToolsMunge <- function(InputFileName,
-                          Columns = NULL,
-                          ColumnsFile = NULL,
-                          FastaRef = NULL,
-                          FaiFile = NULL,
-                          CacheSize = NULL,
-                          IffyTag = NULL,
-                          MismatchTag = NULL,
-                          SampleName = NULL,
-                          NumSamples = NULL,
-                          NumCases = NULL,
-                          EffSampleSize = NULL,
-                          NoVersion = FALSE,
-                          OutputFile = NULL,
-                          OutputType = NULL,
-                          NumThreads = NULL,
-                          WriteIndex = FALSE,
-                          CatchStdout = TRUE,
-                          CatchStderr = TRUE,
-                          SaveStdout = NULL) {
-    # Validate essential parameters
-    if (missing(InputFileName)) {
-        stop("InputFileName is required")
+BCFToolsMunge <- function(
+  InputFileName,
+  Columns = NULL,
+  ColumnsFile = NULL,
+  FastaRef = NULL,
+  FaiFile = NULL,
+  CacheSize = NULL,
+  IffyTag = NULL,
+  MismatchTag = NULL,
+  SampleName = NULL,
+  NumSamples = NULL,
+  NumCases = NULL,
+  EffSampleSize = NULL,
+  NoVersion = FALSE,
+  OutputFile = NULL,
+  OutputType = NULL,
+  NumThreads = NULL,
+  WriteIndex = FALSE,
+  CatchStdout = TRUE,
+  CatchStderr = TRUE,
+  SaveStdout = NULL
+) {
+  # Validate essential parameters
+  if (missing(InputFileName)) {
+    stop("InputFileName is required")
+  }
+
+  if (is.null(Columns) && is.null(ColumnsFile)) {
+    stop("Either Columns or ColumnsFile must be provided")
+  }
+
+  if (!is.null(Columns) && !is.null(ColumnsFile)) {
+    stop("Only one of Columns or ColumnsFile should be provided, not both")
+  }
+
+  if (is.null(FastaRef) && is.null(FaiFile)) {
+    stop("Either FastaRef or FaiFile must be provided")
+  }
+
+  # Initialize arguments vector
+  args <- character()
+
+  # Build the command arguments
+  if (!is.null(Columns)) {
+    args <- c(args, "-c", Columns)
+  }
+
+  if (!is.null(ColumnsFile)) {
+    args <- c(args, "--columns-file", ColumnsFile)
+  }
+
+  if (!is.null(FastaRef)) {
+    args <- c(args, "-f", FastaRef)
+  }
+
+  if (!is.null(FaiFile)) {
+    args <- c(args, "--fai", FaiFile)
+  }
+
+  if (!is.null(CacheSize)) {
+    args <- c(args, "--set-cache-size", as.character(CacheSize))
+  }
+
+  if (!is.null(IffyTag)) {
+    args <- c(args, "--iffy-tag", IffyTag)
+  }
+
+  if (!is.null(MismatchTag)) {
+    args <- c(args, "--mismatch-tag", MismatchTag)
+  }
+
+  if (!is.null(SampleName)) {
+    args <- c(args, "-s", SampleName)
+  }
+
+  if (!is.null(NumSamples)) {
+    args <- c(args, "--ns", as.character(NumSamples))
+  }
+
+  if (!is.null(NumCases)) {
+    args <- c(args, "--nc", as.character(NumCases))
+  }
+
+  if (!is.null(EffSampleSize)) {
+    args <- c(args, "--ne", as.character(EffSampleSize))
+  }
+
+  if (NoVersion) {
+    args <- c(args, "--no-version")
+  }
+
+  if (!is.null(OutputFile)) {
+    args <- c(args, "-o", OutputFile)
+  }
+
+  if (!is.null(OutputType)) {
+    args <- c(args, "-O", OutputType)
+  }
+
+  if (!is.null(NumThreads)) {
+    args <- c(args, "--threads", as.character(NumThreads))
+  }
+
+  if (is.logical(WriteIndex) && WriteIndex) {
+    args <- c(args, "-W")
+  } else if (is.character(WriteIndex)) {
+    args <- c(args, paste0("-W=", WriteIndex))
+  }
+
+  # Add input file as last argument
+  args <- c(args, InputFileName)
+
+  # Create temporary files for stderr (and stdout if needed)
+  stderrFile <- tempfile("bcftools_stderr_")
+  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+    SaveStdout
+
+  # Call the C function
+  status <- .Call(
+    RC_bcftools_munge,
+    args,
+    CatchStdout,
+    CatchStderr,
+    stdoutFile,
+    stderrFile
+  )
+
+  # Process the results
+  command <- attr(status, "command")
+
+  # Read captured output if needed
+  stdout <- NULL
+  if (CatchStdout && file.exists(stdoutFile)) {
+    stdout <- readLines(stdoutFile, warn = FALSE)
+    if (!is.null(SaveStdout)) {
+      # If we saved to a user-specified file, don't delete it
+      if (length(stdout) == 0) stdout <- NULL
+    } else {
+      # Clean up temp file
+      unlink(stdoutFile)
     }
+  }
 
-    if (is.null(Columns) && is.null(ColumnsFile)) {
-        stop("Either Columns or ColumnsFile must be provided")
-    }
+  stderr <- NULL
+  if (CatchStderr && file.exists(stderrFile)) {
+    stderr <- readLines(stderrFile, warn = FALSE)
+    # Clean up temp file
+    unlink(stderrFile)
+    if (length(stderr) == 0) stderr <- NULL
+  }
 
-    if (!is.null(Columns) && !is.null(ColumnsFile)) {
-        stop("Only one of Columns or ColumnsFile should be provided, not both")
-    }
-
-    if (is.null(FastaRef) && is.null(FaiFile)) {
-        stop("Either FastaRef or FaiFile must be provided")
-    }
-
-    # Initialize arguments vector
-    args <- character()
-
-
-    # Build the command arguments
-    if (!is.null(Columns)) {
-        args <- c(args, "-c", Columns)
-    }
-
-    if (!is.null(ColumnsFile)) {
-        args <- c(args, "--columns-file", ColumnsFile)
-    }
-
-    if (!is.null(FastaRef)) {
-        args <- c(args, "-f", FastaRef)
-    }
-
-
-
-    if (!is.null(FaiFile)) {
-        args <- c(args, "--fai", FaiFile)
-    }
-
-    if (!is.null(CacheSize)) {
-        args <- c(args, "--set-cache-size", as.character(CacheSize))
-    }
-
-    if (!is.null(IffyTag)) {
-        args <- c(args, "--iffy-tag", IffyTag)
-    }
-
-    if (!is.null(MismatchTag)) {
-        args <- c(args, "--mismatch-tag", MismatchTag)
-    }
-
-    if (!is.null(SampleName)) {
-        args <- c(args, "-s", SampleName)
-    }
-
-    if (!is.null(NumSamples)) {
-        args <- c(args, "--ns", as.character(NumSamples))
-    }
-
-    if (!is.null(NumCases)) {
-        args <- c(args, "--nc", as.character(NumCases))
-    }
-
-    if (!is.null(EffSampleSize)) {
-        args <- c(args, "--ne", as.character(EffSampleSize))
-    }
-
-    if (NoVersion) {
-        args <- c(args, "--no-version")
-    }
-
-    if (!is.null(OutputFile)) {
-        args <- c(args, "-o", OutputFile)
-    }
-
-    if (!is.null(OutputType)) {
-        args <- c(args, "-O", OutputType)
-    }
-
-    if (!is.null(NumThreads)) {
-        args <- c(args, "--threads", as.character(NumThreads))
-    }
-
-    if (is.logical(WriteIndex) && WriteIndex) {
-        args <- c(args, "-W")
-    } else if (is.character(WriteIndex)) {
-        args <- c(args, paste0("-W=", WriteIndex))
-    }
-
-    # Add input file as last argument
-    args <- c(args, InputFileName)
-
-    # Create temporary files for stderr (and stdout if needed)
-    stderrFile <- tempfile("bcftools_stderr_")
-    stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else SaveStdout
-
-    # Call the C function
-    status <- .Call(
-        RC_bcftools_munge,
-        args,
-        CatchStdout,
-        CatchStderr,
-        stdoutFile,
-        stderrFile
-    )
-
-    # Process the results
-    command <- attr(status, "command")
-
-    # Read captured output if needed
-    stdout <- NULL
-    if (CatchStdout && file.exists(stdoutFile)) {
-        stdout <- readLines(stdoutFile, warn = FALSE)
-        if (!is.null(SaveStdout)) {
-            # If we saved to a user-specified file, don't delete it
-            if (length(stdout) == 0) stdout <- NULL
-        } else {
-            # Clean up temp file
-            unlink(stdoutFile)
-        }
-    }
-
-    stderr <- NULL
-    if (CatchStderr && file.exists(stderrFile)) {
-        stderr <- readLines(stderrFile, warn = FALSE)
-        # Clean up temp file
-        unlink(stderrFile)
-        if (length(stderr) == 0) stderr <- NULL
-    }
-
-    # Return results
-    list(
-        status = status,
-        stdout = stdout,
-        stderr = stderr,
-        command = command
-    )
+  # Return results
+  list(
+    status = status,
+    stdout = stdout,
+    stderr = stderr,
+    command = command
+  )
 }

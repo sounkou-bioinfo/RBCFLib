@@ -23,12 +23,12 @@
 #'
 #' @export
 BCFToolsCLIPath <- function(cli = c("RBcftools", "BCFToolsCli")) {
-    cli <- match.arg(cli)
-    cli_path <- system.file("bin", cli, package = "RBCFLib")
+  cli <- match.arg(cli)
+  cli_path <- system.file("bin", cli, package = "RBCFLib")
 
-    if (cli_path == "") {
-        stop("CLI executable not found. Please reinstall RBCFLib.")
-    }
+  if (cli_path == "") {
+    stop("CLI executable not found. Please reinstall RBCFLib.")
+  }
 
-    return(cli_path)
+  return(cli_path)
 }
