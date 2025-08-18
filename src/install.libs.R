@@ -78,3 +78,9 @@ if (dir.exists(plugins_dir)) {
     }
   }
 }
+
+# remove  libexec directory if it exists
+libexec_dir <- file.path(R_PACKAGE_DIR, "libexec")
+if (dir.exists(libexec_dir)) {
+  unlink(libexec_dir, recursive = TRUE, force = TRUE)
+}
