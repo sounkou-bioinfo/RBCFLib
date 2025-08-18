@@ -180,7 +180,7 @@ PLUGIN_LIBS = $(W32_PLUGIN_LIBS)
 # from the application they will be loaded into.
 DL_LIBS =
 else
-PLUGIN_FLAGS = -fPIC -shared -Wl,--export-dynamic
+PLUGIN_FLAGS = -fPIC -shared
 ifeq "$(PLATFORM)" "default"
 # Configure was used and has already added -ldl to $(LIBS) if necessary
 DL_LIBS =
@@ -203,7 +203,7 @@ vcfplugin.o: EXTRA_CPPFLAGS += -DPLUGINPATH='"$(pluginpath)"'
 	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS)
 
 %.so: %.c version.h version.c
-	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -fvisibility=default -o $@ version.c $< $(LIBS)
+	$(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(LIBS)
 
 -include $(PLUGINM)
 

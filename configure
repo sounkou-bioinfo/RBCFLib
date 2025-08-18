@@ -12,13 +12,10 @@ R_CPPFLAGS=`"${R_HOME}/bin/R" CMD config CPPFLAGS`
 R_CFLAGS=`"${R_HOME}/bin/R" CMD config CFLAGS`
 R_CPICFLAGS=`"${R_HOME}/bin/R" CMD config CPICFLAGS`
 HTSLIB_BUNDLED_MK=${THISDir}/inst/makefiles/htscodecs_bundled.mk
-BCFTOOLS_CONFIG_MK_IN=${THISDir}/inst/makefiles/bcftools_config.mk.in
-BCFTOOLS_MAKEFILE=${THISDir}/inst/makefiles/bcftools_Makefile
 RSCRIPT="${R_HOME}/bin/Rscript"
-importScript="${THISDir}/tools/Import.R"
 # -fPIC is ensential for shared lib
 # CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -fPIC -D_FILE_OFFSET_BITS=64"
-CFLAGS="-Wall -g -O2 -fvisibility=hidden -fPIC -D_FILE_OFFSET_BITS=64"
+CFLAGS="-Wall -g -O2 -fPIC -D_FILE_OFFSET_BITS=64"
 # remove assert by defining NDEBUG
 CPPFLAGS="${R_CPPFLAGS} -DNDEBUG"
 
@@ -65,7 +62,11 @@ cd $HTSLIB_DIR
 ## copy file instead of symbolic linking
 rm -f htscodecs.mk && cp "${HTSLIB_BUNDLED_MK}" htscodecs.mk
 
-${MAKE} libhts.a CC="${CC}" CPPFLAGS="${CPPFLAGS}"  AR="${AR}" RANLIB="${RANLIB}"
+export CC="${CC}"
+export CPPFLAGS="${CPPFLAGS}"
+export AR="${AR}"
+export RANLIB="${RANLIB}"
+${MAKE} libhts.a
 
 EXTRA_LIBS="-lz -lm -lbz2 -llzma -lcurl"
 
@@ -102,16 +103,19 @@ fi
     LIBS="${EXTRA_LIBS}"
 
 # Build the bcftools executable and plugins with dependency flags
-BUILD_FLAGS="CC=${CC} AR=${AR} RANLIB=${RANLIB}"
+export CC="${CC}"
+export AR="${AR}"
+export RANLIB="${RANLIB}"
 if [ "$HAVE_CHOLMOD" = "yes" ]; then
-    BUILD_FLAGS="${BUILD_FLAGS} HAVE_CHOLMOD=1 CHOLMOD_LIBS='${CHOLMOD_LIBS}'"
+    export HAVE_CHOLMOD=1
+    export CHOLMOD_LIBS="${CHOLMOD_LIBS}"
 fi
 if [ "$HAVE_GSL" = "yes" ]; then
-    BUILD_FLAGS="${BUILD_FLAGS} USE_GPL=1 GSL_LIBS='${GSL_LIBS}'"
+    export USE_GPL=1
+    export GSL_LIBS="${GSL_LIBS}"
 fi
 
-${MAKE} -f Makefile bcftools ${BUILD_FLAGS}
-${MAKE} -f Makefile plugins ${BUILD_FLAGS}
+${MAKE} -f Makefile plugins
 
 cd ${THISDir} || exit
 echo "Create Makevars file"
