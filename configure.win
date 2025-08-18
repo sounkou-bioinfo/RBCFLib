@@ -43,14 +43,16 @@ fi
 HAVE_GSL="no"
 USE_GPL=""
 GSL_LIBS=""
+GSL_CFLAGS=""
 
 if pkg-config --exists gsl; then
   echo "Found GSL via pkg-config"
   HAVE_GSL="yes"
   USE_GPL="1"
   GSL_LIBS=$(pkg-config --libs gsl)
+  GSL_CFLAGS=$(pkg-config --cflags gsl)
   # Add -DUSE_GSL to CPPFLAGS when GSL is available
-  CPPFLAGS="${CPPFLAGS} -DUSE_GSL"
+  CPPFLAGS="${CPPFLAGS} -DUSE_GSL ${GSL_CFLAGS}"
 else
   echo "GSL not found via pkg-config, polysomy functionality will be disabled"
 fi
