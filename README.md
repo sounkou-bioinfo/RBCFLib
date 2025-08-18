@@ -22,7 +22,6 @@ For more details on these methods, refer to the BCFTools Score documentation: ht
 
 -   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
 -   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()`
--   **Command-Line Interfaces:** Use the package's functions as command-line tools via the scripts in `inst/bin/`.
 
 **Installation**
 
@@ -51,8 +50,6 @@ BCFToolsVersion()
 # Run a bcftools command - executes as subprocess with full error handling
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 results <- BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
-print(results$stdout)
-
 # Create a pipeline of multiple bcftools commands - efficient C-managed piping
 # The commands are executed as connected subprocesses with automatic pipe management
 results <- BCFToolsPipeline(
