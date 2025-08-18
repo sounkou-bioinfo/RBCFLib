@@ -6,9 +6,15 @@ ifdef HAVE_CHOLMOD
     endif
     plugins/pgs.so: plugins/pgs.c
 	    $(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS) $(LIBS) $(CHOLMOD_LIBS)
+    plugins/pgs.dll: plugins/pgs.c
+	    $(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS) $(LIBS) $(CHOLMOD_LIBS)
 else
     # Create a dummy target if CHOLMOD is not available
     plugins/pgs.so:
 	    @echo "Warning: pgs plugin requires CHOLMOD library, skipping build"
 	    @touch $@
+    plugins/pgs.dll:
+	    @echo "Warning: pgs plugin requires CHOLMOD library, skipping build"
+	    @touch $@
+		
 endif

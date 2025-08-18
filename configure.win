@@ -155,6 +155,10 @@ export RANLIB="${RANLIB}"
 if [ "$HAVE_CHOLMOD" = "yes" ]; then
     export HAVE_CHOLMOD=1
     export CHOLMOD_LIBS="${CHOLMOD_LIBS}"
+    echo "Exporting HAVE_CHOLMOD=1 for plugin build"
+else
+    unset HAVE_CHOLMOD
+    echo "HAVE_CHOLMOD not set - PGS plugin will be skipped"
 fi
 if [ "$HAVE_GSL" = "yes" ]; then
     export USE_GPL=1
