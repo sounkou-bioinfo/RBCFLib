@@ -55,28 +55,25 @@ if (file.exists(bcftools_exe)) {
   }
 }
 
-## Copy bcftools plugins to inst/bin/bcftools/plugins
+## Copy bcftools plugins to inst/bin/plugins (not bcftools/plugins since bcftools is a file)
 plugins_dir <- "bcftools-1.22/plugins"
 if (dir.exists(plugins_dir)) {
-  plugins_dest <- file.path(R_PACKAGE_DIR, "bin", "bcftools", "plugins")
+  plugins_dest <- file.path(R_PACKAGE_DIR, "bin", "plugins")
   dir.create(plugins_dest, recursive = TRUE, showWarnings = FALSE)
   
-  # Only copy .so files if the destination is actually a directory
-  if (dir.exists(plugins_dest)) {
-    # Copy all .so files (plugins)
-    plugin_files <- list.files(plugins_dir, pattern = "\\.so$", full.names = TRUE)
-    if (length(plugin_files) > 0) {
-      # Copy each plugin file individually to avoid file.copy issues
-      for (plugin_file in plugin_files) {
-        plugin_name <- basename(plugin_file)
-        dest_file <- file.path(plugins_dest, plugin_name)
-        file.copy(plugin_file, dest_file, overwrite = TRUE)
-      }
-      # Make plugins executable on Unix systems
-      if (.Platform$OS.type == "unix") {
-        for (plugin in list.files(plugins_dest, pattern = "\\.so$", full.names = TRUE)) {
-          Sys.chmod(plugin, mode = "0755")
-        }
+  # Copy all .so files (plugins)
+  plugin_files <- list.files(plugins_dir, pattern = "\\.so$", full.names = TRUE)
+  if (length(plugin_files) > 0) {
+    # Copy each plugin file individually
+    for (plugin_file in plugin_files) {
+      plugin_name <- basename(plugin_file)
+      dest_file <- file.path(plugins_dest, plugin_name)
+      file.copy(plugin_file, dest_file, overwrite = TRUE)
+    }
+    # Make plugins executable on Unix systems
+    if (.Platform$OS.type == "unix") {
+      for (plugin in list.files(plugins_dest, pattern = "\\.so$", full.names = TRUE)) {
+        Sys.chmod(plugin, mode = "0755")
       }
     }
   }

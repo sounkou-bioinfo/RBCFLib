@@ -241,15 +241,15 @@ SEXP RC_bcftools_pipeline(
             // Get the bcftools binary path and derive plugins directory
             const char *bcftools_path = BCFToolsBinaryPath();
             if (bcftools_path != NULL) {
-                // Extract directory from bcftools path and append bcftools/plugins
+                // Extract directory from bcftools path and append plugins
                 char *bcftools_dir = strdup(bcftools_path);
                 char *last_slash = strrchr(bcftools_dir, '/');
                 if (last_slash != NULL) {
                     *last_slash = '\0'; // Remove bcftools binary name
                     
-                    // Create plugins path: <bin_dir>/bcftools/plugins
+                    // Create plugins path: <bin_dir>/plugins
                     char plugins_path[1024];
-                    snprintf(plugins_path, sizeof(plugins_path), "%s/bcftools/plugins", bcftools_dir);
+                    snprintf(plugins_path, sizeof(plugins_path), "%s/plugins", bcftools_dir);
                     
                     // Set BCFTOOLS_PLUGINS environment variable
                     setenv("BCFTOOLS_PLUGINS", plugins_path, 1);
