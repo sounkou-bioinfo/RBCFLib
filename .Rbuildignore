@@ -29,3 +29,5 @@ DONTCHECKMEIN.R
 ^.*\.\.Rcheck.*$
 ^Makefile$
 ^.*\.devcontainer
+^src/bcftools-1\.22/htslib-1\.22/test
+^src/bcftools-1\.22/test
