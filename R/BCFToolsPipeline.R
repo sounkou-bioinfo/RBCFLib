@@ -33,17 +33,17 @@
 #' # Pipeline of three commands: view, filter, annotate
 #' vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 #' result <- BCFToolsPipeline(
-#'     "view", c("-r", "chr1:1000-2000", vcfFile),
-#'     "view", c("-i", "QUAL>20"),
-#'     "annotate", c("-x", "INFO")
+#'   "view", c("-r", "chr1:1000-2000", vcfFile),
+#'   "view", c("-i", "QUAL>20"),
+#'   "annotate", c("-x", "INFO")
 #' )
 #'
 #' # Filter, sort and output to file (only last command has -o)
 #' outFile <- tempfile(fileext = ".vcf.gz")
 #' BCFToolsPipeline(
-#'     "view", c("-i", "'DP>30'", vcfFile),
-#'     "sort", character(),
-#'     "view", c("-Oz", "-o", outFile)
+#'   "view", c("-i", "'DP>30'", vcfFile),
+#'   "sort", character(),
+#'   "view", c("-Oz", "-o", outFile)
 #' )
 #'
 #' # INVALID: -o in non-final command (will throw error)
@@ -61,11 +61,10 @@
 #'
 #' @export
 BCFToolsPipeline <- function(
-  ...,
-  catchStdout = TRUE,
-  catchStderr = TRUE,
-  saveStdout = NULL
-) {
+    ...,
+    catchStdout = TRUE,
+    catchStderr = TRUE,
+    saveStdout = NULL) {
   # List of valid bcftools commands
   validCommands <- c(
     "version",
@@ -92,13 +91,13 @@ BCFToolsPipeline <- function(
     "sort",
     "head",
     "help",
-    "polysomy"
+    "+GTisec", "+GTsubset", "+ad-bias", "+add-variantkey", "+af-dist", "+allele-length", "+blup", "+check-ploidy", "+check-sparsity", "+color-chrs", "+contrast", "+counts", "+dosage", "+fill-AN-AC", "+fill-from-fasta", "+fill-tags", "+fixploidy", "+fixref", "+frameshifts", "+guess-ploidy", "+gvcfz", "+impute-info", "+indel-stats", "+isecGT", "+liftover", "+mendelian2", "+metal", "+missing2ref", "+munge", "+parental-origin", "+prune", "+remove-overlaps", "+scatter", "+score", "+setGT", "+smpl-stats", "+split", "+split-vep", "+tag2tag", "+trio-dnm2", "+trio-stats", "+trio-switch-rate", "+variant-distance", "+variantkey-hex", "+vcf2table", "+vrfs"
   )
 
   # Commands that don't support standard output redirection with -o option
   # Based on the pysam implementation and BCFToolsRun.R
   # head is for samtools, maybe we will wrap it too
-  EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats")
+  EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats", "+guess-ploidy")
 
   # Collect arguments
   # TODO this is brittle, we should make a proper DSL
