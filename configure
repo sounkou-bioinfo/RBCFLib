@@ -53,13 +53,11 @@ if command -v gsl-config >/dev/null 2>&1; then
   
   # Test if we can actually link against the same GSL function that bcftools tests for
   echo "Testing if gsl_multifit_gradient function is available..."
-  if echo '#include <gsl/gsl_multifit_nlin.h>
-int main() { 
-  gsl_multifit_fdfsolver *s = gsl_multifit_fdfsolver_alloc(NULL, 0, 0);
-  gsl_multifit_gradient(NULL, NULL, NULL); 
-  return 0; 
+  if echo 'char gsl_multifit_gradient (void);
+int main (void) { 
+  return gsl_multifit_gradient (); 
 }' | \
-     ${CC} ${CFLAGS} $(gsl-config --cflags) -x c - $(gsl-config --libs) -o /dev/null 2>/dev/null; then
+     ${CC} ${CFLAGS} $(gsl-config --cflags) -x c - -lgsl -lgslcblas -lm -o /dev/null 2>/dev/null; then
     HAVE_GSL="yes"
     USE_GPL="1"
     GSL_LIBS=$(gsl-config --libs)
@@ -141,8 +139,7 @@ fi
     ${BCFTOOLS_CONFIGURE_FLAGS} \
     CFLAGS="${CFLAGS}" \
     CPPFLAGS="${CPPFLAGS}" \
-    LDFLAGS="${LDFLAGS}" \
-    LIBS="${EXTRA_LIBS}"
+    LDFLAGS="${LDFLAGS}"
 
 # Build the bcftools executable and plugins with dependency flags
 export CC="${CC}"
