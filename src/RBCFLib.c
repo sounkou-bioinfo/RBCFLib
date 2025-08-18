@@ -20,21 +20,25 @@ static char *cached_bcftools_path = NULL;
  */
 const char* BCFToolsBinaryPath(void) {
     if (cached_bcftools_path == NULL) {
-        // Use system.file to get the bin directory  
-        SEXP call = PROTECT(lang3(install("system.file"),
-                                 mkString("bin"),
-                                 ScalarString(mkChar("package")), 
-                                 mkString("RBCFLib")));
-        SEXP pkg_dir = PROTECT(eval(call, R_GlobalEnv));
+        // Construct the call: system.file("bin", "bcftools", package = "RBCFLib")
+        SEXP call, result;
         
-        if (TYPEOF(pkg_dir) == STRSXP && length(pkg_dir) > 0) {
-            const char *bin_dir = CHAR(STRING_ELT(pkg_dir, 0));
-            // Construct path: <bin_dir>/bcftools
-            size_t path_len = strlen(bin_dir) + strlen("/bcftools") + 1;
-            cached_bcftools_path = (char*)malloc(path_len);
-            if (cached_bcftools_path != NULL) {
-                snprintf(cached_bcftools_path, path_len, "%s/bcftools", bin_dir);
-            }
+        // Create the call with positional and named arguments
+        PROTECT(call = allocVector(LANGSXP, 4));
+        SETCAR(call, install("system.file"));
+        SETCADR(call, mkString("bin"));
+        SETCADDR(call, mkString("bcftools"));
+        
+        // Create named argument package = "RBCFLib"
+        SEXP cdddr_call = CDDDR(call);
+        SETCAR(cdddr_call, mkString("RBCFLib"));
+        SET_TAG(cdddr_call, install("package"));
+        
+        result = PROTECT(eval(call, R_GlobalEnv));
+        
+        if (TYPEOF(result) == STRSXP && length(result) > 0) {
+            const char *path_str = CHAR(STRING_ELT(result, 0));
+            cached_bcftools_path = strdup(path_str);
         }
         UNPROTECT(2);
         
