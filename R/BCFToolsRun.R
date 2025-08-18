@@ -74,7 +74,9 @@ BCFToolsRun <- function(
     "sort",
     "head",
     "help",
-    "polysomy"
+    "polysomy",
+    # plugin commands
+    "+GTisec","+GTsubset","+ad-bias","+add-variantkey","+af-dist","+allele-length","+blup","+check-ploidy","+check-sparsity","+color-chrs","+contrast","+counts","+dosage","+fill-AN-AC","+fill-from-fasta","+fill-tags","+fixploidy","+fixref","+frameshifts","+guess-ploidy","+gvcfz","+impute-info","+indel-stats","+isecGT","+liftover","+mendelian2","+metal","+missing2ref","+munge","+parental-origin","+prune","+remove-overlaps","+scatter","+score","+setGT","+smpl-stats","+split","+split-vep","+tag2tag","+trio-dnm2","+trio-stats","+trio-switch-rate","+variant-distance","+variantkey-hex","+vcf2table","+vrfs"
   )
 
   # Input validation
