@@ -46,9 +46,18 @@ GSL_CFLAGS=""
 
 if command -v gsl-config >/dev/null 2>&1; then
   echo "Found GSL via gsl-config"
+  echo "GSL version: $(gsl-config --version)"
+  echo "GSL libs: $(gsl-config --libs)"
+  echo "GSL cflags: $(gsl-config --cflags)"
+  
   # Test if we can actually link against the same GSL function that bcftools tests for
+  echo "Testing if gsl_multifit_gradient function is available..."
   if echo '#include <gsl/gsl_multifit_nlin.h>
-int main() { void *p = gsl_multifit_gradient; return 0; }' | \
+int main() { 
+  gsl_multifit_fdfsolver *s = gsl_multifit_fdfsolver_alloc(NULL, 0, 0);
+  gsl_multifit_gradient(NULL, NULL, NULL); 
+  return 0; 
+}' | \
      ${CC} ${CFLAGS} $(gsl-config --cflags) -x c - $(gsl-config --libs) -o /dev/null 2>/dev/null; then
     HAVE_GSL="yes"
     USE_GPL="1"
@@ -59,10 +68,13 @@ int main() { void *p = gsl_multifit_gradient; return 0; }' | \
     echo "GSL linking test passed - polysomy functionality will be enabled"
   else
     echo "GSL found but linking test failed - polysomy functionality will be disabled"
-    echo "This may be due to GSL version incompatibility"
+    echo "This may be due to GSL version incompatibility (GSL 2.x removes gsl_multifit_gradient)"
+    echo "Either configure with --disable-libgsl or resolve this error to build bcftools."
   fi
 else
   echo "gsl-config not found, polysomy functionality will be disabled"
+  echo "WARNING: GSL development files not found. Install libgsl-dev (Debian/Ubuntu) or gsl-devel (RPM-based) for polysomy support."
+  echo "Continuing with --disable-libgsl to prevent build failure."
 fi
 
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
@@ -97,11 +109,15 @@ BCFTOOLS_PLUGIN_DIR="plugins"
 # Add CHOLMOD and GSL flags if available  
 BCFTOOLS_CONFIGURE_FLAGS="--prefix=${BCFTOOLS_PREFIX}"
 
+echo "HAVE_GSL status: ${HAVE_GSL}"
 if [ "$HAVE_GSL" = "yes" ]; then
+    echo "Enabling GSL in bcftools configure with --enable-libgsl"
     BCFTOOLS_CONFIGURE_FLAGS="${BCFTOOLS_CONFIGURE_FLAGS} --enable-libgsl"
 else
+    echo "Disabling GSL in bcftools configure with --disable-libgsl"
     BCFTOOLS_CONFIGURE_FLAGS="${BCFTOOLS_CONFIGURE_FLAGS} --disable-libgsl"
 fi
+echo "Final bcftools configure flags: ${BCFTOOLS_CONFIGURE_FLAGS}"
 
 # Add CHOLMOD flags to CPPFLAGS and LIBS for plugin compilation
 if [ "$HAVE_CHOLMOD" = "yes" ]; then
