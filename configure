@@ -30,11 +30,19 @@ HAVE_CHOLMOD="no"
 CHOLMOD_CPPFLAGS=""
 CHOLMOD_LIBS=""
 
-if pkg-config --exists cholmod; then
+if pkg-config --exists cholmod 2>/dev/null; then
   echo "Found CHOLMOD via pkg-config"
-  HAVE_CHOLMOD="yes"
-  CHOLMOD_CPPFLAGS=$(pkg-config --cflags cholmod)
-  CHOLMOD_LIBS=$(pkg-config --libs cholmod)
+  # Test if we can actually compile with CHOLMOD
+  if echo '#include <cholmod.h>
+int main() { cholmod_common c; return 0; }' | \
+     ${CC} ${CFLAGS} $(pkg-config --cflags cholmod 2>/dev/null) -x c - $(pkg-config --libs cholmod 2>/dev/null) -o /dev/null 2>/dev/null; then
+    HAVE_CHOLMOD="yes"
+    CHOLMOD_CPPFLAGS=$(pkg-config --cflags cholmod)
+    CHOLMOD_LIBS=$(pkg-config --libs cholmod)
+    echo "CHOLMOD linking test passed - BCFToolsPGS will be enabled"
+  else
+    echo "CHOLMOD found via pkg-config but linking test failed - BCFToolsPGS will be disabled"
+  fi
 else
   echo "CHOLMOD not found via pkg-config, BCFToolsPGS will be disabled"
 fi
