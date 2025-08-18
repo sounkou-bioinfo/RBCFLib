@@ -82,7 +82,7 @@ BCFTOOLS_PREFIX="${THISDir}/inst/bin"
 BCFTOOLS_PLUGIN_DIR="plugins"
 
 # Add CHOLMOD and GSL flags if available  
-BCFTOOLS_CONFIGURE_FLAGS="--prefix=${BCFTOOLS_PREFIX} --with-bcf-plugin-dir=${BCFTOOLS_PLUGIN_DIR}"
+BCFTOOLS_CONFIGURE_FLAGS="--prefix=${BCFTOOLS_PREFIX}"
 
 if [ "$HAVE_GSL" = "yes" ]; then
     BCFTOOLS_CONFIGURE_FLAGS="${BCFTOOLS_CONFIGURE_FLAGS} --enable-libgsl"
