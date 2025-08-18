@@ -20,15 +20,20 @@ CFLAGS="-Wall -g -O2 -D_FILE_OFFSET_BITS=64"
 CPPFLAGS="${R_CPPFLAGS} -DNDEBUG"
 LDFLAGS="${R_LDFLAGS}"
 
+# Initialize all variables to prevent unbound variable errors
+HAVE_CHOLMOD="no"
+CHOLMOD_CPPFLAGS=""
+CHOLMOD_LIBS=""
+HAVE_GSL="no"
+USE_GPL=""
+GSL_LIBS=""
+GSL_CFLAGS=""
+
 HTSLIB_DIR="${THISDir}/src/bcftools-1.22/htslib-1.22"
 HTS_FILE="${THISDir}/src/bcftools-1.22/libhts.a"
 BCFTOOLS_DIR="${THISDir}/src/bcftools-1.22"
 
 # Check for CHOLMOD
-HAVE_CHOLMOD="no"
-CHOLMOD_CPPFLAGS=""
-CHOLMOD_LIBS=""
-
 if pkg-config --exists cholmod 2>/dev/null; then
   echo "Found CHOLMOD via pkg-config"
   # Test if we can actually compile with CHOLMOD
@@ -47,11 +52,6 @@ else
 fi
 
 # Check for GSL
-HAVE_GSL="no"
-USE_GPL=""
-GSL_LIBS=""
-GSL_CFLAGS=""
-
 if command -v gsl-config >/dev/null 2>&1; then
   echo "Found GSL via gsl-config"
   echo "GSL version: $(gsl-config --version)"
@@ -155,10 +155,6 @@ export RANLIB="${RANLIB}"
 if [ "$HAVE_CHOLMOD" = "yes" ]; then
     export HAVE_CHOLMOD=1
     export CHOLMOD_LIBS="${CHOLMOD_LIBS}"
-    echo "Exporting HAVE_CHOLMOD=1 for plugin build"
-else
-    unset HAVE_CHOLMOD
-    echo "HAVE_CHOLMOD not set - PGS plugin will be skipped"
 fi
 if [ "$HAVE_GSL" = "yes" ]; then
     export USE_GPL=1
