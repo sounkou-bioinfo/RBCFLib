@@ -2,7 +2,6 @@
 
 export(BCFToolsBLUP)
 export(BCFToolsBinaryPath)
-export(BCFToolsCLIPath)
 export(BCFToolsLiftover)
 export(BCFToolsMetal)
 export(BCFToolsMunge)

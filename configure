@@ -114,7 +114,7 @@ if [ "$HAVE_GSL" = "yes" ]; then
     export USE_GPL=1
     export GSL_LIBS="${GSL_LIBS}"
 fi
-
+${MAKE} -f Makefile bcftools
 ${MAKE} -f Makefile plugins
 
 cd ${THISDir} || exit
