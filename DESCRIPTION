@@ -24,6 +24,6 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 SystemRequirements: 
-    GNU make, pkg-config
+    GNU make, pkg-config, libgsl
 Suggests:
     tinytest
