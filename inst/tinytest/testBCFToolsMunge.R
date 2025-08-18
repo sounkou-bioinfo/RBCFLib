@@ -121,13 +121,18 @@ expect_identical(
 
 # Test 5: Test with non-existent input file
 nonexistentFile <- tempfile(fileext = ".tsv")
-expect_error(
-  BCFToolsMunge(
-    InputFileName = nonexistentFile,
-    Columns = "PLINK",
-    FastaRef = fastaRef
-  ),
-  "Could not open .* No such file or directory"
+test_nonexistent <- BCFToolsMunge(
+  InputFileName = nonexistentFile,
+  Columns = "PLINK",
+  FastaRef = fastaRef
+)
+expect_true(
+  as.integer(test_nonexistent$status) != 0,
+  "BCFToolsMunge should return non-zero exit status for non-existent file"
+)
+expect_true(
+  any(grepl("Could not open.*No such file or directory", test_nonexistent$stderr)),
+  "BCFToolsMunge should report 'Could not open' error in stderr for non-existent file"
 )
 
 # Clean up temp files
