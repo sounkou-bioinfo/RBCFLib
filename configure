@@ -11,6 +11,7 @@ RANLIB=`"${R_HOME}/bin/R" CMD config RANLIB`
 R_CPPFLAGS=`"${R_HOME}/bin/R" CMD config CPPFLAGS`
 R_CFLAGS=`"${R_HOME}/bin/R" CMD config CFLAGS`
 R_CPICFLAGS=`"${R_HOME}/bin/R" CMD config CPICFLAGS`
+R_LDFLAGS=`"${R_HOME}/bin/R" CMD config LDFLAGS`
 HTSLIB_BUNDLED_MK=${THISDir}/inst/makefiles/htscodecs_bundled.mk
 RSCRIPT="${R_HOME}/bin/Rscript"
 # -fPIC is ensential for shared lib
@@ -18,6 +19,7 @@ RSCRIPT="${R_HOME}/bin/Rscript"
 CFLAGS="-Wall -g -O2 -fPIC -D_FILE_OFFSET_BITS=64"
 # remove assert by defining NDEBUG
 CPPFLAGS="${R_CPPFLAGS} -DNDEBUG"
+LDFLAGS="${R_LDFLAGS}"
 
 HTSLIB_DIR="${THISDir}/src/bcftools-1.22/htslib-1.22"
 HTS_FILE="${THISDir}/src/bcftools-1.22/libhts.a"
@@ -93,6 +95,11 @@ fi
 if [ "$HAVE_CHOLMOD" = "yes" ]; then
     CPPFLAGS="${CPPFLAGS} ${CHOLMOD_CPPFLAGS}"
     EXTRA_LIBS="${EXTRA_LIBS} ${CHOLMOD_LIBS}"
+fi
+
+# Add GSL libraries to EXTRA_LIBS for plugin compilation
+if [ "$HAVE_GSL" = "yes" ]; then
+    EXTRA_LIBS="${EXTRA_LIBS} ${GSL_LIBS}"
 fi
 
 ./configure \
