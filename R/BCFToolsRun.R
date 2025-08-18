@@ -192,17 +192,21 @@ BCFToolsRun <- function(
     }
   }
 
-  # Call the C function, which returns an integer with 'command' attribute
-  res_int <- .Call(
-    RC_bcftools_run,
-    command,
-    working_args[[1]],
+  # Call the C function using the unified pipeline interface
+  pipeline_result <- .Call(
+    RC_bcftools_pipeline,
+    list(command),           # Single command wrapped in list
+    list(working_args[[1]]), # Single args list wrapped in list  
+    1L,                      # Number of commands = 1
     catchStdout,
     catchStderr,
     stdoutFile,
-    stderrFile,
-    isUsage
+    stderrFile
   )
+  
+  # Extract the single exit code and command attribute
+  res_int <- pipeline_result[1]
+  attr(res_int, "command") <- attr(pipeline_result, "command")
 
   # Extract command attribute
   cmd <- attr(res_int, "command") # Function to collect output from file

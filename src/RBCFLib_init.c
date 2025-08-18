@@ -8,14 +8,7 @@
 static const R_CallMethodDef CallEntries[] = {
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
-    {"RC_bcftools_run", (DL_FUNC) &RC_bcftools_run, 7},
     {"RC_bcftools_pipeline", (DL_FUNC) &RC_bcftools_pipeline, 7},
-    {"RC_bcftools_munge", (DL_FUNC) &RC_bcftools_munge, 5},
-    {"RC_bcftools_score", (DL_FUNC) &RC_bcftools_score, 5},
-    {"RC_bcftools_liftover", (DL_FUNC) &RC_bcftools_liftover, 5},
-    {"RC_bcftools_metal", (DL_FUNC) &RC_bcftools_metal, 5},
-    {"RC_bcftools_pgs", (DL_FUNC) &RC_bcftools_pgs, 5},
-    {"RC_bcftools_blup", (DL_FUNC) &RC_bcftools_blup, 5},
     {"RC_FaidxIndexFasta", (DL_FUNC) &RC_FaidxIndexFasta, 1},
     {"RC_FaidxFetchRegion", (DL_FUNC) &RC_FaidxFetchRegion, 4},
     {NULL, NULL, 0}

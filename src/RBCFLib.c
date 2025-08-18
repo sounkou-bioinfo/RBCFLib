@@ -2,6 +2,8 @@
 #include "htslib/hts.h"
 #include "htslib/faidx.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /* Function declarations */
 SEXP RC_HTSLibVersion(void);
@@ -18,25 +20,27 @@ static char *cached_bcftools_path = NULL;
  */
 const char* BCFToolsBinaryPath(void) {
     if (cached_bcftools_path == NULL) {
-        // Call R function to get the path
-        SEXP r_path = R_FindSymbol("BCFToolsBinaryPath", "", NULL);
-        if (r_path == R_UnboundValue) {
-            error("Cannot find BCFToolsBinaryPath function");
+        // Use system.file to get the bin directory  
+        SEXP call = PROTECT(lang3(install("system.file"),
+                                 mkString("bin"),
+                                 ScalarString(mkChar("package")), 
+                                 mkString("RBCFLib")));
+        SEXP pkg_dir = PROTECT(eval(call, R_GlobalEnv));
+        
+        if (TYPEOF(pkg_dir) == STRSXP && length(pkg_dir) > 0) {
+            const char *bin_dir = CHAR(STRING_ELT(pkg_dir, 0));
+            // Construct path: <bin_dir>/bcftools
+            size_t path_len = strlen(bin_dir) + strlen("/bcftools") + 1;
+            cached_bcftools_path = (char*)malloc(path_len);
+            if (cached_bcftools_path != NULL) {
+                snprintf(cached_bcftools_path, path_len, "%s/bcftools", bin_dir);
+            }
         }
+        UNPROTECT(2);
         
-        // Call the function
-        SEXP result = PROTECT(eval(lang1(r_path), R_GlobalEnv));
-        
-        // Extract the string and cache it
-        if (TYPEOF(result) == STRSXP && length(result) > 0) {
-            const char *path_str = CHAR(STRING_ELT(result, 0));
-            cached_bcftools_path = strdup(path_str);
-        } else {
-            UNPROTECT(1);
-            error("BCFToolsBinaryPath did not return a valid path");
+        if (cached_bcftools_path == NULL) {
+            error("Failed to get bcftools binary path");
         }
-        
-        UNPROTECT(1);
     }
     
     return cached_bcftools_path;

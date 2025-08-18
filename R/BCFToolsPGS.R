@@ -187,17 +187,21 @@ BCFToolsPGS <- function(
   stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
     SaveStdout
 
-  # Call the C function
+  # Call the unified pipeline C function
   status <- tryCatch(
     {
-      .Call(
-        RC_bcftools_pgs,
-        args,
+      pipeline_result <- .Call(
+        RC_bcftools_pipeline,
+        list("+pgs"),           # Plugin command wrapped in list
+        list(args),             # Args wrapped in list
+        1L,                     # Number of commands = 1
         CatchStdout,
         CatchStderr,
         stdoutFile,
         stderrFile
       )
+      # Extract the single exit code
+      pipeline_result[1]
     },
     error = function(e) {
       if (grepl("CHOLMOD", e$message)) {

@@ -167,18 +167,21 @@ BCFToolsBLUP <- function(
   stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
     SaveStdout
 
-  # Call the C function
-  status <- .Call(
-    RC_bcftools_blup,
-    args,
+  # Call the unified pipeline C function
+  pipeline_result <- .Call(
+    RC_bcftools_pipeline,
+    list("+blup"),          # Plugin command wrapped in list
+    list(args),             # Args wrapped in list
+    1L,                     # Number of commands = 1
     CatchStdout,
     CatchStderr,
     stdoutFile,
     stderrFile
   )
-
-  # Process the results
-  command <- attr(status, "command")
+  
+  # Extract the single exit code and command attribute
+  status <- pipeline_result[1]
+  command <- attr(pipeline_result, "command")
 
   # Read captured output if needed
   stdout <- NULL
