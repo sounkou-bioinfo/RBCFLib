@@ -45,16 +45,16 @@ USE_GPL=""
 GSL_LIBS=""
 GSL_CFLAGS=""
 
-if pkg-config --exists gsl; then
-  echo "Found GSL via pkg-config"
+if command -v gsl-config >/dev/null 2>&1; then
+  echo "Found GSL via gsl-config"
   # Test if we can actually link against GSL functions
   if echo '#include <gsl/gsl_multifit.h>
 int main() { void *p = gsl_multifit_gradient; return 0; }' | \
-     ${CC} ${CFLAGS} $(pkg-config --cflags gsl) -x c - $(pkg-config --libs gsl) -o /dev/null 2>/dev/null; then
+     ${CC} ${CFLAGS} $(gsl-config --cflags) -x c - $(gsl-config --libs) -o /dev/null 2>/dev/null; then
     HAVE_GSL="yes"
     USE_GPL="1"
-    GSL_LIBS=$(pkg-config --libs gsl)
-    GSL_CFLAGS=$(pkg-config --cflags gsl)
+    GSL_LIBS=$(gsl-config --libs)
+    GSL_CFLAGS=$(gsl-config --cflags)
     # Add -DUSE_GSL to CPPFLAGS when GSL is available
     CPPFLAGS="${CPPFLAGS} -DUSE_GSL ${GSL_CFLAGS}"
     echo "GSL linking test passed - polysomy functionality will be enabled"
@@ -63,7 +63,7 @@ int main() { void *p = gsl_multifit_gradient; return 0; }' | \
     echo "This may be due to GSL version incompatibility"
   fi
 else
-  echo "GSL not found via pkg-config, polysomy functionality will be disabled"
+  echo "gsl-config not found, polysomy functionality will be disabled"
 fi
 
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
