@@ -47,9 +47,9 @@ GSL_CFLAGS=""
 
 if command -v gsl-config >/dev/null 2>&1; then
   echo "Found GSL via gsl-config"
-  # Test if we can actually link against GSL functions
+  # Test if we can actually link against the same GSL function that bcftools tests for
   if echo '#include <gsl/gsl_multifit_nlin.h>
-int main() { void *p = gsl_multifit_fdfsolver_alloc; return 0; }' | \
+int main() { void *p = gsl_multifit_gradient; return 0; }' | \
      ${CC} ${CFLAGS} $(gsl-config --cflags) -x c - $(gsl-config --libs) -o /dev/null 2>/dev/null; then
     HAVE_GSL="yes"
     USE_GPL="1"
