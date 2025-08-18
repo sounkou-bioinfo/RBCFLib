@@ -100,6 +100,8 @@ BCFTOOLS_CONFIGURE_FLAGS="--prefix=${BCFTOOLS_PREFIX}"
 
 if [ "$HAVE_GSL" = "yes" ]; then
     BCFTOOLS_CONFIGURE_FLAGS="${BCFTOOLS_CONFIGURE_FLAGS} --enable-libgsl"
+else
+    BCFTOOLS_CONFIGURE_FLAGS="${BCFTOOLS_CONFIGURE_FLAGS} --disable-libgsl"
 fi
 
 # Add CHOLMOD flags to CPPFLAGS and LIBS for plugin compilation
