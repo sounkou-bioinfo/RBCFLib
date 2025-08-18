@@ -16,7 +16,7 @@ Description:
     and Binary Call Format (BCF). The package includes utility functions for 
     reading, writing, and manipulating VCF/BCF files, as well as for performing 
     common operations such as filtering and merging VCF/BCF files.
-License: MIT + file LICENSE
+License: MIT
 URL: https://github.com/sounkou-bioinfo/RBCFLib
 BugReports: https://github.com/sounkou-bioinfo/RBCFLib/issues
 Imports: utils
