@@ -19,7 +19,7 @@ RSCRIPT="${R_HOME}/bin/Rscript"
 CFLAGS="-Wall -g -O2 -fPIC -D_FILE_OFFSET_BITS=64"
 # remove assert by defining NDEBUG
 CPPFLAGS="${R_CPPFLAGS} -DNDEBUG"
-LDFLAGS="${R_LDFLAGS}"
+LDFLAGS="${LDFLAGS} ${R_LDFLAGS}"
 
 HTSLIB_DIR="${THISDir}/src/bcftools-1.22/htslib-1.22"
 HTS_FILE="${THISDir}/src/bcftools-1.22/libhts.a"
