@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <errno.h>
-#include "bcftools.RBCFLIB.h"
+#include "RBCFLib.h"
 
 // Global flag to track if SIGPIPE has been handled
 // FIX ME: this is a global state, should be managed
@@ -53,7 +53,14 @@ static char **sexp_to_argv(SEXP args, SEXP command, int *argc_out) {
         error("Memory allocation failed");
     }
     
-    argv[0] = strdup("bcftools");
+    // Get the bcftools binary path
+    const char *bcftools_path = BCFToolsBinaryPath();
+    if (bcftools_path == NULL) {
+        free(argv);
+        error("BCFTools binary path not found");
+    }
+    
+    argv[0] = strdup(bcftools_path);
     argv[1] = strdup(CHAR(STRING_ELT(command, 0)));
     for (int i = 0; i < nargs; i++)
         argv[i + 2] = strdup(CHAR(STRING_ELT(args, i)));
@@ -230,6 +237,30 @@ SEXP RC_bcftools_pipeline(
             signal(SIGTERM, SIG_DFL);
             signal(SIGPIPE, SIG_IGN);
             
+            // Set up BCFTOOLS_PLUGINS environment variable
+            // Get the bcftools binary path and derive plugins directory
+            const char *bcftools_path = BCFToolsBinaryPath();
+            if (bcftools_path != NULL) {
+                // Extract directory from bcftools path and append bcftools/plugins
+                char *bcftools_dir = strdup(bcftools_path);
+                char *last_slash = strrchr(bcftools_dir, '/');
+                if (last_slash != NULL) {
+                    *last_slash = '\0'; // Remove bcftools binary name
+                    
+                    // Create plugins path: <bin_dir>/bcftools/plugins
+                    char plugins_path[1024];
+                    snprintf(plugins_path, sizeof(plugins_path), "%s/bcftools/plugins", bcftools_dir);
+                    
+                    // Set BCFTOOLS_PLUGINS environment variable
+                    setenv("BCFTOOLS_PLUGINS", plugins_path, 1);
+                    
+                    if (getenv("RBCFLIB_DEBUG") != NULL) {
+                        fprintf(stderr, "Set BCFTOOLS_PLUGINS=%s\n", plugins_path);
+                    }
+                }
+                free(bcftools_dir);
+            }
+            
             // Setup stdin (for all but first command)
             if (i > 0) {
                 // Take input from previous pipe
@@ -246,14 +277,12 @@ SEXP RC_bcftools_pipeline(
                     perror("dup2 stdout");
                     _exit(1);  // Use _exit instead of exit
                 }
-                bcftools_set_stdout(pipes[i][1]);
             } else {
                 // Last command - write to file or stdout
                 if (dup2(fd_stdout, STDOUT_FILENO) == -1) {
                     perror("dup2 stdout");
                     _exit(1);  // Use _exit instead of exit
                 }
-                bcftools_set_stdout(fd_stdout);
             }
             
             // Setup stderr (common to all commands)
@@ -262,7 +291,6 @@ SEXP RC_bcftools_pipeline(
                     perror("dup2 stderr");
                     _exit(1);  // Use _exit instead of exit
                 }
-                bcftools_set_stderr(fd_stderr);
             }
             
             // Close all pipe ends not needed by this process
@@ -284,17 +312,20 @@ SEXP RC_bcftools_pipeline(
             // Additional SIGPIPE protection in child process
             signal(SIGPIPE, SIG_IGN);
             
-            // Run bcftools
-            int status = bcftools_dispatch(argc_values[i], argv_values[i]);
-              
-            // Free all argv arrays
+            // Run bcftools using execv
+            execv(argv_values[i][0], argv_values[i]);
+            
+            // If execv returns, it means it failed
+            perror("execv failed");
+            
+            // Free all argv arrays before exit
             for (int j = 0; j < num_commands; j++) {
                 free_argv(argv_values[j]);
             }
             free(argv_values);
             // use _exit to avoid R finalization code
  
-            _exit(status);
+            _exit(1);
         }
     }
     

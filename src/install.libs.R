@@ -3,7 +3,7 @@
 files <- Sys.glob(paste0("*", SHLIB_EXT))
 
 ## Also copy the bcftools static library
-files <- c(files, dir("bcftools-1.21/", pattern = "a$", full.names = TRUE))
+files <- c(files, dir("bcftools-1.22/", pattern = "a$", full.names = TRUE))
 
 ## Create destination directory
 dest <- file.path(R_PACKAGE_DIR, paste0("libs", R_ARCH))
@@ -42,3 +42,34 @@ htslib_libs <- c(
 htslib_libs_dest <- file.path(R_PACKAGE_DIR, paste0("libs", R_ARCH))
 dir.create(htslib_libs_dest, recursive = TRUE, showWarnings = FALSE)
 file.copy(htslib_libs, htslib_libs_dest, overwrite = TRUE)
+
+## Copy bcftools executable to inst/bin
+bcftools_exe <- "bcftools-1.22/bcftools"
+if (file.exists(bcftools_exe)) {
+  bin_dest <- file.path(R_PACKAGE_DIR, "bin")
+  dir.create(bin_dest, recursive = TRUE, showWarnings = FALSE)
+  file.copy(bcftools_exe, file.path(bin_dest, "bcftools"), overwrite = TRUE)
+  # Make executable on Unix systems
+  if (.Platform$OS.type == "unix") {
+    Sys.chmod(file.path(bin_dest, "bcftools"), mode = "0755")
+  }
+}
+
+## Copy bcftools plugins to inst/bin/bcftools/plugins
+plugins_dir <- "bcftools-1.22/plugins"
+if (dir.exists(plugins_dir)) {
+  plugins_dest <- file.path(R_PACKAGE_DIR, "bin", "bcftools", "plugins")
+  dir.create(plugins_dest, recursive = TRUE, showWarnings = FALSE)
+  
+  # Copy all .so files (plugins)
+  plugin_files <- list.files(plugins_dir, pattern = "\\.so$", full.names = TRUE)
+  if (length(plugin_files) > 0) {
+    file.copy(plugin_files, plugins_dest, overwrite = TRUE)
+    # Make plugins executable on Unix systems
+    if (.Platform$OS.type == "unix") {
+      for (plugin in list.files(plugins_dest, pattern = "\\.so$", full.names = TRUE)) {
+        Sys.chmod(plugin, mode = "0755")
+      }
+    }
+  }
+}

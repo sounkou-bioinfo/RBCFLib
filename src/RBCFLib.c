@@ -1,6 +1,7 @@
 #include "RBCFLib.h"
 #include "htslib/hts.h"
 #include "htslib/faidx.h"
+#include <string.h>
 
 /* Function declarations */
 SEXP RC_HTSLibVersion(void);
@@ -8,6 +9,38 @@ SEXP RC_BCFToolsVersion(void);
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);
 SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
 extern char *bcftools_version(void);
+
+/* Binary path storage */
+static char *cached_bcftools_path = NULL;
+
+/* 
+ * Function to get bcftools binary path
+ */
+const char* BCFToolsBinaryPath(void) {
+    if (cached_bcftools_path == NULL) {
+        // Call R function to get the path
+        SEXP r_path = R_FindSymbol("BCFToolsBinaryPath", "", NULL);
+        if (r_path == R_UnboundValue) {
+            error("Cannot find BCFToolsBinaryPath function");
+        }
+        
+        // Call the function
+        SEXP result = PROTECT(eval(lang1(r_path), R_GlobalEnv));
+        
+        // Extract the string and cache it
+        if (TYPEOF(result) == STRSXP && length(result) > 0) {
+            const char *path_str = CHAR(STRING_ELT(result, 0));
+            cached_bcftools_path = strdup(path_str);
+        } else {
+            UNPROTECT(1);
+            error("BCFToolsBinaryPath did not return a valid path");
+        }
+        
+        UNPROTECT(1);
+    }
+    
+    return cached_bcftools_path;
+}
 
 /* Function implementations */
 /* 

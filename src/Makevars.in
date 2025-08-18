@@ -1,5 +1,5 @@
-HTSLIB_DIR=$(CURDIR)/htslib-1.22
-BCFTOOLS_DIR=$(CURDIR)/bcftools-1.22
+HTSLIB_DIR=$(CURDIR)
+BCFTOOLS_VERSION_DIR=$(CURDIR)/bcftools-1.22
 
 # Platform-specific linker flags
 UNAME := $(shell uname)
@@ -9,27 +9,17 @@ else
   PKG_LIBS_EXTRA=
 endif
 
-# Check for CHOLMOD
+# Check for CHOLMOD (still needed for any cholmod-dependent code)
 HAVE_CHOLMOD=@HAVE_CHOLMOD@
-# Check for GSL
-HAVE_GSL=@HAVE_GSL@
 
+# Base flags - minimal for version functions and HTSlib only
+PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_VERSION_DIR) @EXTRA_CPPFLAGS@
+PKG_LIBS=$(HTSLIB_DIR)/libhts.a @EXTRA_LIBS@ $(PKG_LIBS_EXTRA)
+
+# Add CHOLMOD support if available (for any remaining cholmod dependencies)
 ifeq ($(HAVE_CHOLMOD),yes)
-  ifeq ($(HAVE_GSL),yes)
-    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include -DHAVE_CHOLMOD @EXTRA_CPPFLAGS@ @CHOLMOD_CPPFLAGS@
-    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a @EXTRA_LIBS@ @CHOLMOD_LIBS@ @GSL_LIBS@ $(PKG_LIBS_EXTRA)
-  else
-    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include -DHAVE_CHOLMOD @EXTRA_CPPFLAGS@ @CHOLMOD_CPPFLAGS@
-    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a @EXTRA_LIBS@ @CHOLMOD_LIBS@ $(PKG_LIBS_EXTRA)
-  endif
-else
-  ifeq ($(HAVE_GSL),yes)
-    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include @EXTRA_CPPFLAGS@
-    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a @EXTRA_LIBS@ @GSL_LIBS@ $(PKG_LIBS_EXTRA)
-  else
-    PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(CURDIR)/BCFToolsScore -I$(HTSLIB_DIR)/htslib -I$(BCFTOOLS_DIR) -I$(BCFTOOLS_DIR) -I../inst/include @EXTRA_CPPFLAGS@
-    PKG_LIBS=$(BCFTOOLS_DIR)/libRbcftools.a $(HTSLIB_DIR)/libhts.a @EXTRA_LIBS@ $(PKG_LIBS_EXTRA)
-  endif
+  PKG_CPPFLAGS += -DHAVE_CHOLMOD @CHOLMOD_CPPFLAGS@
+  PKG_LIBS += @CHOLMOD_LIBS@
 endif
 
 .PHONY: all

@@ -32,7 +32,5 @@ DONTCHECKMEIN.R
 ^src/bcftools.*/test/.*$
 ^src/bcftools.*/*/*/tests/.*$
 ^src/.*/libbcftools.a
-^src/bcftools-1.21/htslib-1.21/.*$
-^src/bcftools-1.22/htslib-1.22/.*$
-^src/htslib-1.21/htscodecs/tests/.*$
-^src/htslib-1.22/htscodecs/tests/.*$
+^src/bcftools-1.22//*/test/.*$
+^src/bcftools-1.22/.*/.*/test/.*$

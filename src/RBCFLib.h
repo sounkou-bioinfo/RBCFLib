@@ -2,6 +2,10 @@
 #define RBCFLIB_H
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
+
+/* Binary path function */
+const char* BCFToolsBinaryPath(void);
+
 /* Version function declarations */
 SEXP RC_HTSLibVersion(void);
 SEXP RC_BCFToolsVersion(void);

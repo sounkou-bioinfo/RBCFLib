@@ -22,8 +22,8 @@ CFLAGS="-Wall -g -O2 -fvisibility=hidden -fPIC -D_FILE_OFFSET_BITS=64"
 # remove assert by defining NDEBUG
 CPPFLAGS="${R_CPPFLAGS} -DNDEBUG"
 
-HTSLIB_DIR="${THISDir}/src/htslib-1.22"
-HTS_FILE="${THISDir}/src/htslib-1.22/libhts.a"
+HTSLIB_DIR="${THISDir}/src/bcftools-1.22/htslib-1.22"
+HTS_FILE="${THISDir}/src/bcftools-1.22/libhts.a"
 BCFTOOLS_DIR="${THISDir}/src/bcftools-1.22"
 
 # Check for CHOLMOD
@@ -72,32 +72,49 @@ EXTRA_LIBS="-lz -lm -lbz2 -llzma -lcurl"
 if grep -wq "#define HAVE_LIBDEFLATE 1" config.h;then
     EXTRA_LIBS="${EXTRA_LIBS} -ldeflate"
 fi
-# bcfools static library build against htlslib static library
+
+# bcftools static library build against htslib static library
 echo "----------Configuring BCFtools in $BCFTOOLS_DIR-----------------"
 cd  ${BCFTOOLS_DIR} || exit
-echo " copying bundled makefiles"
-rm -f config.mk config.mk.in 
 
-sed -e "s|@HTSDIR@|${HTSLIB_DIR}|g" \
-		    -e "s|@HTSLIB_CPPFLAGS@|-I${HTSLIB_DIR}|g" \
-		    -e "s|@HTSLIB@|${HTS_FILE}|g" \
-		    -e "s|@HTSLIB_LDFLAGS@|-L${HTSLIB_DIR}|g" \
-		    -e "s|@USE_GPL@|${USE_GPL}|g" \
-		    -e "s|@GSL_LIBS@|${GSL_LIBS}|g" \
-            "${BCFTOOLS_CONFIG_MK_IN}"  > config.mk.in
+# Configure bcftools with proper installation directory and plugin paths
+BCFTOOLS_PREFIX="${THISDir}/inst/bin"
+BCFTOOLS_PLUGIN_DIR="${THISDir}/inst/bin/bcftools/plugins"
 
-sed -e \
-    '/^prefix/,/^PLUGIN_EXT/d;s/@Hsource@//;s/@Hinstall@/#/;s#@HTSDIR@#htslib#g;s/@HTSLIB_CPPFLAGS@/-I$$(HTSDIR)/g;' \
-    config.mk.in > config.mk
-#-- run import script
-echo "----------Running Import script-----------------"
-${RSCRIPT} ${importScript} ${PWD} ${PWD}
-${MAKE} -f Makefile version.h  CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}" 
-${MAKE} -f Makefile libRbcftools.a  CC="${CC}" CPPFLAGS="${CPPFLAGS}" AR="${AR}" RANLIB="${RANLIB}" 
-cd ..
-echo "---- RUN BCFtoolsScore import script ----"
-${RSCRIPT} ${importScript} ${PWD}/BCFToolsScore ${PWD}/BCFToolsScore
-echo "Create Makevar file"
+# Add CHOLMOD and GSL flags if available
+BCFTOOLS_CONFIGURE_FLAGS="--prefix=${BCFTOOLS_PREFIX} --with-bcf-plugin-dir=${BCFTOOLS_PLUGIN_DIR} --with-bcf-plugin-path=${BCFTOOLS_PLUGIN_DIR}"
+
+if [ "$HAVE_GSL" = "yes" ]; then
+    BCFTOOLS_CONFIGURE_FLAGS="${BCFTOOLS_CONFIGURE_FLAGS} --enable-libgsl"
+fi
+
+# Add CHOLMOD flags to CPPFLAGS and LIBS for plugin compilation
+if [ "$HAVE_CHOLMOD" = "yes" ]; then
+    CPPFLAGS="${CPPFLAGS} ${CHOLMOD_CPPFLAGS}"
+    EXTRA_LIBS="${EXTRA_LIBS} ${CHOLMOD_LIBS}"
+fi
+
+./configure \
+    ${BCFTOOLS_CONFIGURE_FLAGS} \
+    CFLAGS="${CFLAGS}" \
+    CPPFLAGS="${CPPFLAGS}" \
+    LDFLAGS="${LDFLAGS}" \
+    LIBS="${EXTRA_LIBS}"
+
+# Build the bcftools executable and plugins with dependency flags
+BUILD_FLAGS="CC=${CC} AR=${AR} RANLIB=${RANLIB}"
+if [ "$HAVE_CHOLMOD" = "yes" ]; then
+    BUILD_FLAGS="${BUILD_FLAGS} HAVE_CHOLMOD=1 CHOLMOD_LIBS='${CHOLMOD_LIBS}'"
+fi
+if [ "$HAVE_GSL" = "yes" ]; then
+    BUILD_FLAGS="${BUILD_FLAGS} USE_GPL=1 GSL_LIBS='${GSL_LIBS}'"
+fi
+
+${MAKE} -f Makefile bcftools ${BUILD_FLAGS}
+${MAKE} -f Makefile plugins ${BUILD_FLAGS}
+
+cd ${THISDir} || exit
+echo "Create Makevars file"
 sed \
     -e "s|@EXTRA_CPPFLAGS@|${CPPFLAGS}|g" \
     -e "s|@EXTRA_LIBS@|${EXTRA_LIBS}|g" \
@@ -107,4 +124,4 @@ sed \
     -e "s|@HAVE_GSL@|${HAVE_GSL}|g" \
     -e "s|@GSL_LIBS@|${GSL_LIBS}|g" \
     -e "s|@USE_GPL@|${USE_GPL}|g" \
-    Makevars.in > Makevars
+    src/Makevars.in > src/Makevars
