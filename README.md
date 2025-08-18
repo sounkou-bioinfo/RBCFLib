@@ -49,7 +49,7 @@ BCFToolsVersion()
 
 # Run a bcftools command - executes as subprocess with full error handling
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
-results <- BCFToolsRun("view", c("-i" , ' ALT == "A" ' , vcfFile))
+results <- BCFToolsRun("+vcf2table", vcfFile)
 # Create a pipeline of multiple bcftools commands - efficient C-managed piping
 # The commands are executed as connected subprocesses with automatic pipe management
 results <- BCFToolsPipeline(
