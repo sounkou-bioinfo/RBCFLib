@@ -97,10 +97,16 @@ if [ "$HAVE_CHOLMOD" = "yes" ]; then
     EXTRA_LIBS="${EXTRA_LIBS} ${CHOLMOD_LIBS}"
 fi
 
+# Add GSL libraries to EXTRA_LIBS for plugin compilation
+if [ "$HAVE_GSL" = "yes" ]; then
+    EXTRA_LIBS="${EXTRA_LIBS} ${GSL_LIBS}"
+fi
+
 ./configure \
     ${BCFTOOLS_CONFIGURE_FLAGS} \
     CFLAGS="${CFLAGS}" \
     CPPFLAGS="${CPPFLAGS}" \
+    LDFLAGS="${LDFLAGS}" \
     LIBS="${EXTRA_LIBS}"
 
 # Build the bcftools executable and plugins with dependency flags
