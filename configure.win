@@ -101,7 +101,6 @@ fi
     ${BCFTOOLS_CONFIGURE_FLAGS} \
     CFLAGS="${CFLAGS}" \
     CPPFLAGS="${CPPFLAGS}" \
-    LDFLAGS="${LDFLAGS}" \
     LIBS="${EXTRA_LIBS}"
 
 # Build the bcftools executable and plugins with dependency flags
