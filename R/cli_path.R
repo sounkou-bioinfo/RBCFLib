@@ -20,7 +20,7 @@
 #'
 #' @export
 BCFToolsBinaryPath <- function() {
-  bcftools_path <- system.file("bin", "bin", "bcftools", package = "RBCFLib")
+  bcftools_path <- system.file("bin", "bcftools", package = "RBCFLib")
   
   if (bcftools_path == "") {
     stop("bcftools binary not found. Please reinstall RBCFLib.")
