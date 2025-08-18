@@ -104,6 +104,12 @@ if [ "$HAVE_GSL" = "yes" ]; then
     EXTRA_LIBS="${EXTRA_LIBS} ${GSL_LIBS}"
 fi
 
+# Ensure GSL flags are available for bcftools configure
+if [ "$HAVE_GSL" = "yes" ]; then
+    export GSL_CFLAGS="${GSL_CFLAGS}"
+    export GSL_LIBS="${GSL_LIBS}"
+fi
+
 ./configure \
     ${BCFTOOLS_CONFIGURE_FLAGS} \
     CFLAGS="${CFLAGS}" \
