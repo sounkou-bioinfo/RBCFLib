@@ -180,7 +180,7 @@ PLUGIN_LIBS = $(W32_PLUGIN_LIBS)
 # from the application they will be loaded into.
 DL_LIBS =
 else
-PLUGIN_FLAGS = -fPIC -shared
+PLUGIN_FLAGS = -fPIC -shared -Wl,--export-dynamic
 ifeq "$(PLATFORM)" "default"
 # Configure was used and has already added -ldl to $(LIBS) if necessary
 DL_LIBS =
