@@ -22,7 +22,7 @@ file.copy(headers, headers_dest, overwrite = TRUE)
 
 # copy htslib header giles and libraries
 htslib_headers <- c(
-  list.files("htslib-1.22/", pattern = "\\.h$", full.names = TRUE)
+  list.files("bcftools-1.22/htslib-1.22/", pattern = "\\.h$", full.names = TRUE)
 )
 htslib_headers_dest <- file.path(R_PACKAGE_DIR, "include/htslib")
 
