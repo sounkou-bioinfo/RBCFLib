@@ -29,8 +29,3 @@ DONTCHECKMEIN.R
 ^.*\.\.Rcheck.*$
 ^Makefile$
 ^.*\.devcontainer
-^src/bcftools.*/test/.*$
-^src/bcftools.*/*/*/tests/.*$
-^src/.*/libbcftools.a
-^src/bcftools-1.22//*/test/.*$
-^src/bcftools-1.22/.*/.*/test/.*$
