@@ -7,7 +7,8 @@
                 "${workspaceFolder}/src/src/bcftools-1.21/**",
                 "/usr/lib/R/site-library/Rcpp/include/**",
                 "/usr/share/R/include/**",
-                "${workspaceFolder}/src/BCFToolsScore"
+                "${workspaceFolder}/src/BCFToolsScore",
+                "/usr/local/lib/R/site-library/RBCFLib/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
