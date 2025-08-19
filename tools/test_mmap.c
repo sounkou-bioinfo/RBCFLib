@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
     /* init plugin registry (safe even if plugin isn't present) */
     hFILE *dummy = hopen("data:,", "r");
-    if (dummy) hclose(dummy);
+    if (dummy) { int _ = hclose(dummy); (void)_; }
     (void) hfile_plugin_init_mmap();
 
     /* open with mmap backend */
@@ -181,5 +181,78 @@ int main(int argc, char **argv) {
     hts_close(fp);
 
     printf("\n✓ Done.\n");
+
+    // --- Benchmark: Load index into memory ---
+    printf("\n--- Benchmark: Load index into memory ---\n");
+    FILE *idxf = fopen(bin_index_path, "rb");
+    if (!idxf) { fprintf(stderr, "Error: cannot open %s for reading\n", bin_index_path); return 1; }
+    int64_t *offsets = malloc(nrec * sizeof(int64_t));
+    int64_t *sizes = malloc(nrec * sizeof(int64_t));
+    if (!offsets || !sizes) { fprintf(stderr, "Error: malloc failed\n"); fclose(idxf); return 1; }
+    for (size_t i = 0; i < nrec; ++i) {
+        if (fread(&offsets[i], sizeof(int64_t), 1, idxf) != 1) break;
+        if (fread(&sizes[i], sizeof(int64_t), 1, idxf) != 1) break;
+    }
+    fclose(idxf);
+    printf("Index loaded: %zu records\n", nrec);
+
+    // --- Benchmark: Random seek to Nth record ---
+    printf("\n--- Benchmark: Random seek to Nth record ---\n");
+    size_t nth = nrec / 2; // middle record
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    fp = hts_open(uri, "r");
+    hdr = bcf_hdr_read(fp);
+    rec = bcf_init();
+    int seek_ok = -1;
+    if (fp->format.compression == bgzf) {
+        BGZF *bg = (BGZF *)fp->fp.bgzf;
+        seek_ok = bgzf_seek(bg, offsets[nth], SEEK_SET);
+    } else {
+        hFILE *hf = (hFILE *)fp->fp.hfile;
+        seek_ok = hseek(hf, (off_t)offsets[nth], SEEK_SET);
+    }
+    int r = (seek_ok == 0) ? bcf_read(fp, hdr, rec) : -1;
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double seek_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+    if (r >= 0) {
+        bcf_unpack(rec, BCF_UN_STR);
+        printf("Seeked to record %zu: %s:%" PRId64 " %s (%.6f s)\n", nth+1, bcf_seqname(hdr, rec), (int64_t)(rec->pos+1), rec->d.allele[0], seek_s);
+    } else {
+        printf("Seek/read failed for record %zu (%.6f s)\n", nth+1, seek_s);
+    }
+    bcf_destroy(rec);
+    bcf_hdr_destroy(hdr);
+    hts_close(fp);
+
+    // --- Benchmark: Access a chunk of consecutive records ---
+    printf("\n--- Benchmark: Access a chunk of consecutive records ---\n");
+    size_t chunk_start = nrec / 4;
+    size_t chunk_len = 100;
+    if (chunk_start + chunk_len > nrec) chunk_len = nrec - chunk_start;
+    fp = hts_open(uri, "r");
+    hdr = bcf_hdr_read(fp);
+    rec = bcf_init();
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    for (size_t i = 0; i < chunk_len; ++i) {
+        int seek_ok = -1;
+        if (fp->format.compression == bgzf) {
+            BGZF *bg = (BGZF *)fp->fp.bgzf;
+            seek_ok = bgzf_seek(bg, offsets[chunk_start + i], SEEK_SET);
+        } else {
+            hFILE *hf = (hFILE *)fp->fp.hfile;
+            seek_ok = hseek(hf, (off_t)offsets[chunk_start + i], SEEK_SET);
+        }
+        if (seek_ok == 0) { int _ = bcf_read(fp, hdr, rec); (void)_; }
+    }
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double chunk_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+    printf("Accessed %zu consecutive records (from %zu): %.6f s (%.2f ms/record)\n", chunk_len, chunk_start+1, chunk_s, 1000.0*chunk_s/chunk_len);
+    bcf_destroy(rec);
+    bcf_hdr_destroy(hdr);
+    hts_close(fp);
+
+    free(offsets);
+    free(sizes);
+
     return 0;
 }
