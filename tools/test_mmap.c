@@ -1,169 +1,185 @@
+/* test_mmap.c
+ *
+ * Build example:
+ * gcc -O2 -Wall -std=c11 test_mmap.c -I/path/to/htslib/include -L/path/to/htslib/lib -lhts -lz -lbz2 -llzma -lcrypt -lpthread -o test_mmap
+ *
+ * Or (if you link with a static libhts.a as you did):
+ * gcc -O2 -Wall -std=c11 test_mmap.c -I../src/bcftools-1.22/htslib-1.22 -I/usr/local/include -L../src/bcftools-1.22/htslib-1.22 -lhts -lz -lbz2 -llzma -lcurl -lcrypto -lssl -lpthread -o test_mmap
+ *
+ * Usage:
+ * ./test_mmap yourfile.vcf.gz
+ *
+ */
+
+#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <time.h>
+#include <unistd.h>
 #include "htslib/hfile.h"
-#include "htslib/vcf.h"
 #include "htslib/hts.h"
+#include "htslib/bgzf.h"
+#include "htslib/vcf.h"
 
-// Forward declaration for the mmap plugin
+/* optional: plugin initializer (no-op if not linked) */
 extern int hfile_plugin_init_mmap(void);
 
-int main(int argc, char *argv[])
-{
+static const char * compression_name(enum htsCompression c) {
+    switch (c) {
+        case no_compression: return "Uncompressed";
+        case gzip:           return "GZIP";
+        case bgzf:           return "BGZF";
+        default:             return "Unknown";
+    }
+}
+
+int main(int argc, char **argv) {
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <vcf-file>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <vcf[.gz]>\n", argv[0]);
         return 1;
     }
+    const char *path = argv[1];
 
-    const char *filename = argv[1];
-    
-    // Initialize HTSlib and mmap plugin
-    hFILE *dummy = hopen("data:,", "r");  // Initialize scheme registry
-    if (dummy) {
-        if (hclose(dummy) != 0) {
-            fprintf(stderr, "Warning: Failed to close dummy hfile\n");
-        }
-    }
-    hfile_plugin_init_mmap();
-    
-    // Create mmap URI and open file
+    /* init plugin registry (safe even if plugin isn't present) */
+    hFILE *dummy = hopen("data:,", "r");
+    if (dummy) hclose(dummy);
+    (void) hfile_plugin_init_mmap();
+
+    /* open with mmap backend */
     char uri[4096];
-    snprintf(uri, sizeof(uri), "mmap:%s", filename);
-    printf("Opening with mmap: %s\n", filename);
+    snprintf(uri, sizeof(uri), "mmap:%s", path);
+    printf("Opening via mmap backend: %s\n", path);
 
-    // Open file with mmap backend
-    htsFile *hts_fp = hts_open(uri, "r");
-    if (!hts_fp) {
-        fprintf(stderr, "Error: Failed to open %s\n", filename);
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    htsFile *fp = hts_open(uri, "r");
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    if (!fp) {
+        fprintf(stderr, "Error: cannot open %s\n", uri);
         return 1;
     }
-    
-    printf("✓ File opened with mmap backend\n");
-    printf("Format: %s\n", hts_format_description(&hts_fp->format));
+    double open_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+    printf("✓ Opened. format: %s\n", hts_format_description(&fp->format));
+    printf("Open time: %.6f s | compression: %s\n",
+           open_s, compression_name(fp->format.compression));
 
-    // Read VCF header
-    bcf_hdr_t *hdr = bcf_hdr_read(hts_fp);
+    /* read header */
+    bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if (!hdr) {
-        fprintf(stderr, "Error: Failed to read VCF header\n");
-        hts_close(hts_fp);
+        fprintf(stderr, "Error: failed to read VCF header\n");
+        hts_close(fp);
         return 1;
     }
-    
     printf("✓ Header loaded - %d samples\n", bcf_hdr_nsamples(hdr));
-    
-    // Process VCF records
-    printf("\n--- Reading VCF records ---\n");
-    
-    bcf1_t *rec = bcf_init();
-    if (!rec) {
-        fprintf(stderr, "Error: Failed to allocate record\n");
+
+    /* prepare custom binary index */
+    char bin_index_path[4096];
+    snprintf(bin_index_path, sizeof(bin_index_path), "%s.customidx.bin", path);
+    FILE *bout = fopen(bin_index_path, "wb");
+    if (!bout) {
+        fprintf(stderr, "Error: cannot open %s for writing\n", bin_index_path);
         bcf_hdr_destroy(hdr);
-        hts_close(hts_fp);
+        hts_close(fp);
         return 1;
     }
-    
-    int count = 0;
-    int max_records = 5;  // Show first 5 records
-    
-    while (bcf_read(hts_fp, hdr, rec) >= 0 && count < max_records) {
-        count++;
-        
-        // Unpack variant data
-        bcf_unpack(rec, BCF_UN_STR);
-        
-        // Display record info
-        printf("Record %d: %s:%" PRIhts_pos " %s->%s", 
-               count,
-               bcf_seqname(hdr, rec), 
-               rec->pos + 1,
-               rec->d.allele[0],
-               rec->n_allele > 1 ? rec->d.allele[1] : ".");
-        
-        // Show variant type
-        int var_type = bcf_get_variant_types(rec);
-        if (var_type & VCF_SNP) printf(" (SNP)");
-        if (var_type & VCF_INDEL) printf(" (INDEL)");
+
+    printf("\n--- Building custom index (start_voff, size) ---\n");
+    printf("[INFO] For BGZF files offsets are virtual offsets from bgzf_tell(); use bgzf_seek(voff, SEEK_SET) to seek.\n");
+
+    bcf1_t *rec = bcf_init();
+    if (!rec) { fprintf(stderr,"Error: bcf_init failed\n"); fclose(bout); bcf_hdr_destroy(hdr); hts_close(fp); return 1; }
+
+    size_t nrec = 0;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+
+    const int is_bgzf = (fp->format.compression == bgzf);
+    while (1) {
+        int64_t start_off = -1, end_off = -1;
+
+        if (is_bgzf) {
+            /* BGZF virtual offset */
+            BGZF *bg = (BGZF *)fp->fp.bgzf;   /* pragmatic: use internal pointer (widely used) */
+            start_off = bgzf_tell(bg);
+        } else {
+            /* plain byte offset for uncompressed */
+            hFILE *hf = (hFILE *)fp->fp.hfile;
+            start_off = htell(hf);
+        }
+
+        int r = bcf_read(fp, hdr, rec);
+        if (r < 0) break; /* EOF or error */
+
+        if (is_bgzf) {
+            BGZF *bg = (BGZF *)fp->fp.bgzf;
+            end_off = bgzf_tell(bg);
+        } else {
+            hFILE *hf = (hFILE *)fp->fp.hfile;
+            end_off = htell(hf);
+        }
+
+        int64_t sz = end_off - start_off;
+        fwrite(&start_off, sizeof(start_off), 1, bout);
+        fwrite(&sz,        sizeof(sz),        1, bout);
+        nrec++;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double build_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
+    fclose(bout);
+
+    bcf_destroy(rec);
+    bcf_hdr_destroy(hdr);
+    hts_close(fp);
+
+    printf("✓ Custom index written: %zu records -> %s\n", nrec, bin_index_path);
+    if (build_s > 0.0) printf("Indexing time: %.3f s | %.2f records/s\n", build_s, nrec / build_s);
+
+    /* Validate first few entries */
+    printf("\n--- Validating first 5 index entries ---\n");
+    FILE *bin_in = fopen(bin_index_path, "rb");
+    if (!bin_in) {
+        fprintf(stderr, "Error: cannot open %s for reading\n", bin_index_path);
+        return 1;
+    }
+
+    fp = hts_open(uri, "r");
+    if (!fp) { fprintf(stderr, "Error: reopen failed\n"); fclose(bin_in); return 1; }
+    hdr = bcf_hdr_read(fp);
+    if (!hdr) { fprintf(stderr, "Error: hdr reopen failed\n"); hts_close(fp); fclose(bin_in); return 1; }
+    rec = bcf_init();
+    int to_read = (nrec < 5) ? (int)nrec : 5;
+    for (int i = 0; i < to_read; ++i) {
+        int64_t off = 0, sz = 0;
+        if (fread(&off, sizeof(off), 1, bin_in) != 1) break;
+        if (fread(&sz,  sizeof(sz),  1, bin_in) != 1) break;
+
+        int seek_ok = -1;
+        if (fp->format.compression == bgzf) {
+            BGZF *bg = (BGZF *)fp->fp.bgzf;
+            seek_ok = bgzf_seek(bg, off, SEEK_SET);
+        } else {
+            hFILE *hf = (hFILE *)fp->fp.hfile;
+            seek_ok = hseek(hf, (off_t)off, SEEK_SET);
+        }
+
+        printf("Record %d: off=%" PRId64 ", size=%" PRId64, i+1, off, sz);
+        if (seek_ok == 0 && bcf_read(fp, hdr, rec) >= 0) {
+            bcf_unpack(rec, BCF_UN_STR);
+            printf(" | %s:%" PRId64 " %s", bcf_seqname(hdr, rec), (int64_t)(rec->pos + 1), rec->d.allele[0]);
+            if (rec->n_allele > 1) printf("->%s", rec->d.allele[1]);
+        } else {
+            printf(" | (seek/read failed)");
+        }
         printf("\n");
     }
-    
-    printf("✓ Processed %d records\n", count);
-    
-    // Demonstrate file restart and seeking
-    printf("\n--- Testing restart and skip (mmap seeking) ---\n");
-    
-    if (count >= 3) {
-        // Close and reopen to reset file position
-        bcf_destroy(rec);
-        bcf_hdr_destroy(hdr);
-        hts_close(hts_fp);
-        
-        // Reopen with mmap
-        hts_fp = hts_open(uri, "r");
-        hdr = bcf_hdr_read(hts_fp);
-        rec = bcf_init();
-        
-        // Skip to record 3 and read forward
-        printf("Skipping to record 3...\n");
-        int current = 0;
-        while (bcf_read(hts_fp, hdr, rec) >= 0) {
-            current++;
-            if (current >= 3 && current <= 4) {  // Show records 3-4
-                bcf_unpack(rec, BCF_UN_STR);
-                printf("Record %d: %s:%" PRIhts_pos " %s->%s\n", 
-                       current,
-                       bcf_seqname(hdr, rec), 
-                       rec->pos + 1,
-                       rec->d.allele[0],
-                       rec->n_allele > 1 ? rec->d.allele[1] : ".");
-            }
-            if (current >= 4) break;  // Stop after showing 2 records
-        }
-        printf("✓ Successfully restarted and skipped\n");
-    }
-    
-    // Demonstrate random access
-    printf("\n--- Testing random access ---\n");
-    
-    // Reset file again
+
+    fclose(bin_in);
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
-    hts_close(hts_fp);
-    
-    hts_fp = hts_open(uri, "r");
-    hdr = bcf_hdr_read(hts_fp);
-    rec = bcf_init();
-    
-    // Read first record
-    if (bcf_read(hts_fp, hdr, rec) >= 0) {
-        printf("First record: %s:%" PRIhts_pos "\n", 
-               bcf_seqname(hdr, rec), rec->pos + 1);
-    }
-    
-    // Skip ahead multiple records
-    printf("Skipping ahead 10 records...\n");
-    for (int i = 0; i < 10; i++) {
-        if (bcf_read(hts_fp, hdr, rec) < 0) break;
-    }
-    
-    if (rec->pos >= 0) {
-        printf("After skipping: %s:%" PRIhts_pos "\n", 
-               bcf_seqname(hdr, rec), rec->pos + 1);
-    }
-    printf("✓ Random access working\n");
-    
-    // Summary
-    printf("\n--- Summary ---\n");
-    printf("✓ Memory-mapped I/O successful\n");
-    printf("✓ Efficient VCF processing\n");
-    printf("✓ File format: %s\n", 
-           hts_fp->format.compression == bgzf ? "BGZF compressed" : 
-           hts_fp->format.compression == gzip ? "GZIP compressed" : "Uncompressed");
-    
-    // Cleanup
-    bcf_destroy(rec);
-    bcf_hdr_destroy(hdr);
-    hts_close(hts_fp);
-    
+    hts_close(fp);
+
+    printf("\n✓ Done.\n");
     return 0;
 }
