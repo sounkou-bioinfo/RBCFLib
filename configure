@@ -88,7 +88,8 @@ echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
 cd $HTSLIB_DIR
 
 ./configure \
-    CFLAGS="${CFLAGS}"
+    CFLAGS="${CFLAGS}" \
+    --enable-plugins
 
 ## copy file instead of symbolic linking
 rm -f htscodecs.mk && cp "${HTSLIB_BUNDLED_MK}" htscodecs.mk
