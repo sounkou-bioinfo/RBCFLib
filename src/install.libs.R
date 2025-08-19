@@ -22,12 +22,13 @@ file.copy(headers, headers_dest, overwrite = TRUE)
 
 # copy htslib header giles and libraries
 htslib_headers <- c(
-  list.files("bcftools-1.22/htslib-1.22/", pattern = "\\.h$", full.names = TRUE)
+  list.files("bcftools-1.22/htslib-1.22/", pattern = "\\.h$", full.names = TRUE, recursive = TRUE)
 )
-htslib_headers_dest <- file.path(R_PACKAGE_DIR, "include/htslib")
+htslib_headers_dest <- file.path(R_PACKAGE_DIR, "include/htslib", basename(dirname(htslib_headers)))
+htslib_headers_dest <- sub("htslib-1.22", "", htslib_headers_dest)
+lapply(htslib_headers_dest, function(x) {dir.create(x, recursive = TRUE, showWarnings = FALSE)})
+lapply( seq_along(htslib_headers) , function(x) {file.copy(htslib_headers[x], htslib_headers_dest[x], overwrite = TRUE)})
 
-dir.create(htslib_headers_dest, recursive = TRUE, showWarnings = FALSE)
-file.copy(htslib_headers, htslib_headers_dest, overwrite = TRUE)
 htslib_libs <- c(
   list.files(
     "htslib-1.22/",
