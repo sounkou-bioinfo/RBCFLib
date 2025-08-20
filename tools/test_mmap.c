@@ -117,51 +117,7 @@ int main(int argc, char **argv) {
         } else {
             hFILE *hf = (hFILE *)fp->fp.hfile;
             end_off = htell(hf);
-        }
-
-        int64_t sz = end_off - start_off;
-        fwrite(&start_off, sizeof(start_off), 1, bout);
-        fwrite(&sz,        sizeof(sz),        1, bout);
-        nrec++;
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &t1);
-    double build_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-    fclose(bout);
-
-    bcf_destroy(rec);
-    bcf_hdr_destroy(hdr);
-    hts_close(fp);
-
-    printf("✓ Custom index written: %zu records -> %s\n", nrec, bin_index_path);
-    if (build_s > 0.0) printf("Indexing time: %.3f s | %.2f records/s\n", build_s, nrec / build_s);
-
-    /* Validate first few entries */
-    printf("\n--- Validating first 5 index entries ---\n");
-    FILE *bin_in = fopen(bin_index_path, "rb");
-    if (!bin_in) {
-        fprintf(stderr, "Error: cannot open %s for reading\n", bin_index_path);
-        return 1;
-    }
-
-    fp = hts_open(uri, "r");
-    if (!fp) { fprintf(stderr, "Error: reopen failed\n"); fclose(bin_in); return 1; }
-    hdr = bcf_hdr_read(fp);
-    if (!hdr) { fprintf(stderr, "Error: hdr reopen failed\n"); hts_close(fp); fclose(bin_in); return 1; }
-    rec = bcf_init();
-    int to_read = (nrec < 5) ? (int)nrec : 5;
-    for (int i = 0; i < to_read; ++i) {
-        int64_t off = 0, sz = 0;
-        if (fread(&off, sizeof(off), 1, bin_in) != 1) break;
-        if (fread(&sz,  sizeof(sz),  1, bin_in) != 1) break;
-
-        int seek_ok = -1;
-        if (fp->format.compression == bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            seek_ok = bgzf_seek(bg, off, SEEK_SET);
-        } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            seek_ok = hseek(hf, (off_t)off, SEEK_SET);
+    print_multiindex_random_gt(path, "dir", uri);
         }
 
         printf("Record %d: off=%" PRId64 ", size=%" PRId64, i+1, off, sz);
