@@ -41,6 +41,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     const char *path = argv[1];
+    char *ref;
+    char *geno;
 
     /* init plugin registry (safe even if plugin isn't present) */
     hFILE *dummy = hopen("data:,", "r");
@@ -122,13 +124,20 @@ int main(int argc, char **argv) {
         // Write offsets and sizes to the index file
         fwrite(&off, sizeof(int64_t), 1, bout);
         fwrite(&sz, sizeof(int64_t), 1, bout);
-
-        printf("Record %zu: off=%" PRId64 ", size=%" PRId64, nrec+1, off, sz);
-        // Optionally print record info
         bcf_unpack(rec, BCF_UN_STR);
-        printf(" | %s:%" PRId64 " %s", bcf_seqname(hdr, rec), (int64_t)(rec->pos + 1), rec->d.allele[0]);
-        if (rec->n_allele > 1) printf("->%s", rec->d.allele[1]);
-        printf("\n");
+        // do some fake work of extracting all alleles
+      
+       // print only every 100000 iterations
+     //  if( nrec % 100000 == 0) {
+      //     printf("Record %zu: off=%" PRId64 ", size=%" PRId64, nrec+1, off, sz);
+           // Optionally print record info
+       //    printf(" | %s:%" PRId64 " %s", bcf_seqname(hdr, rec), (int64_t)(rec->pos + 1), rec->d.allele[0]);
+        //   printf("\n") ;
+       //    if (rec->n_allele > 1) printf("->%s", rec->d.allele[1]);
+       //} else {
+       //   bcf_seqname(hdr, rec);
+        //  ref = rec->d.allele[1];
+       //}        
 
         nrec++;
     }
