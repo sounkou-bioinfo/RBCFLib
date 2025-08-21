@@ -18,6 +18,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
 #include "htslib/bgzf.h"
@@ -290,33 +291,55 @@ int main(int argc, char **argv) {
     fclose(idxf);
     printf("Index loaded: %zu records\n", nrec);
 
-    // --- Benchmark: Random seek to Nth record ---
-    printf("\n--- Benchmark: Random seek to Nth record ---\n");
-    size_t nth = nrec / 2; // middle record
+  // --- Benchmark: Random seek to Nth record ---
+  printf("\n--- Benchmark: Random seek to Nth record ---\n");
+  size_t nth = nrec / 2; // middle record
+  size_t test_indices[2] = {0, nth};
+  const char *test_names[2] = {"first", "middle"};
+  for (int ti = 0; ti < 2; ++ti) {
+    size_t idx = test_indices[ti];
+    printf("[DEBUG] Attempting to seek to %s record (index %zu, offset = %" PRId64 ")\n", test_names[ti], idx+1, offsets[idx]);
     clock_gettime(CLOCK_MONOTONIC, &t0);
     fp = hts_open(uri, "r");
     hdr = bcf_hdr_read(fp);
     rec = bcf_init();
-  int seek_ok = -1;
-  if (fp->format.compression == bgzf) {
-    BGZF *bg = (BGZF *)fp->fp.bgzf;
-    seek_ok = bgzf_seek(bg, offsets[nth], SEEK_SET);
-  } else {
-    hFILE *hf = (hFILE *)fp->fp.hfile;
-    seek_ok = hseek(hf, (off_t)offsets[nth], SEEK_SET);
-  }
-  int r = (seek_ok == 0) ? bcf_read(fp, hdr, rec) : -1;
+    int seek_ok = -1;
+    if (fp->format.compression == bgzf) {
+      BGZF *bg = (BGZF *)fp->fp.bgzf;
+      seek_ok = bgzf_seek(bg, offsets[idx], SEEK_SET);
+    } else {
+      hFILE *hf = (hFILE *)fp->fp.hfile;
+      seek_ok = hseek(hf, (off_t)offsets[idx], SEEK_SET);
+    }
+    int r = (seek_ok == 0) ? bcf_read(fp, hdr, rec) : vcf_read(fp, hdr, rec);
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double seek_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
     if (r >= 0) {
-        bcf_unpack(rec, BCF_UN_STR);
-        printf("Seeked to record %zu: %s:%" PRId64 " %s (%.6f ms)\n", nth+1, bcf_seqname(hdr, rec), (int64_t)(rec->pos+1), rec->d.allele[0], seek_s * 1000  );
+      bcf_unpack(rec, BCF_UN_STR);
+      printf("Seeked to %s record %zu: %s:%" PRId64 " %s (%.6f ms)\n", test_names[ti], idx+1, bcf_seqname(hdr, rec), (int64_t)(rec->pos+1), rec->d.allele[0], seek_s * 1000  );
+      // Print the full VCF/BCF line for this record
+      printf("[DEBUG] Printing full VCF/BCF line for %s record %zu...\n", test_names[ti], idx+1);
+      fflush(stdout);
+      htsFile *out = hts_open("-", "w");
+      if (out) {
+        if (fp->format.format == vcf) {
+          (void)vcf_write1(out, hdr, rec);
+        } else if (fp->format.format == bcf) {
+          (void)bcf_write1(out, hdr, rec);
+        }
+        hts_close(out);
+      } else {
+        printf("[ERROR] Could not open htsFile for stdout.\n");
+      }
+      printf("[DEBUG] Done printing record.\n");
+      fflush(stdout);
     } else {
-        printf("Seek/read failed for record %zu (%.6f ms)\n", nth+1, seek_s * 1000);
+      printf("Seek/read failed for %s record %zu (%.6f ms)\n", test_names[ti], idx+1, seek_s * 1000);
     }
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
     hts_close(fp);
+  }
 
     // --- Benchmark: Access a chunk of consecutive records ---
     printf("\n--- Benchmark: Access a chunk of consecutive records ---\n");
