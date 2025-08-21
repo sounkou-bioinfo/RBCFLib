@@ -238,51 +238,36 @@ int main(int argc, char **argv) {
     size_t nrec = 0;
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
-    const int is_bgzf = (fp->format.compression == bgzf);
-    while (1) {
-        int64_t start_off = -1, end_off = -1;
-
-        if (is_bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            start_off = bgzf_tell(bg);
-        } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            start_off = htell(hf);
-        }
-
-        int r = bcf_read(fp, hdr, rec);
-        if (r < 0) break;
-
-        if (is_bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            end_off = bgzf_tell(bg);
-        } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            end_off = htell(hf);
-        }
-
-        int64_t off = start_off;
-        int64_t sz = end_off - start_off;
-        // Write offsets and sizes to the index file
-        fwrite(&off, sizeof(int64_t), 1, bout);
-        fwrite(&sz, sizeof(int64_t), 1, bout);
-        bcf_unpack(rec, BCF_UN_STR);
-        // do some fake work of extracting all alleles
-      
-       // print only every 100000 iterations
-     //  if( nrec % 100000 == 0) {
-      //     printf("Record %zu: off=%" PRId64 ", size=%" PRId64, nrec+1, off, sz);
-           // Optionally print record info
-       //    printf(" | %s:%" PRId64 " %s", bcf_seqname(hdr, rec), (int64_t)(rec->pos + 1), rec->d.allele[0]);
-        //   printf("\n") ;
-       //    if (rec->n_allele > 1) printf("->%s", rec->d.allele[1]);
-       //} else {
-       //   bcf_seqname(hdr, rec);
-        //  ref = rec->d.allele[1];
-       //}        
-
-        nrec++;
+  const int is_bgzf = (fp->format.compression == bgzf);
+  while (1) {
+    int64_t start_off = -1, end_off = -1;
+    if (is_bgzf) {
+      BGZF *bg = (BGZF *)fp->fp.bgzf;
+      start_off = bgzf_tell(bg);
+    } else {
+      hFILE *hf = (hFILE *)fp->fp.hfile;
+      start_off = htell(hf);
     }
+
+    int r = bcf_read(fp, hdr, rec);
+    if (r < 0) break;
+
+    if (is_bgzf) {
+      BGZF *bg = (BGZF *)fp->fp.bgzf;
+      end_off = bgzf_tell(bg);
+    } else {
+      hFILE *hf = (hFILE *)fp->fp.hfile;
+      end_off = htell(hf);
+    }
+
+    int64_t off = start_off;
+    int64_t sz = end_off - start_off;
+    // Write offsets and sizes to the index file
+    fwrite(&off, sizeof(int64_t), 1, bout);
+    fwrite(&sz, sizeof(int64_t), 1, bout);
+    bcf_unpack(rec, BCF_UN_STR);
+    nrec++;
+  }
 
     fclose(bout);
     bcf_destroy(rec);
@@ -312,15 +297,15 @@ int main(int argc, char **argv) {
     fp = hts_open(uri, "r");
     hdr = bcf_hdr_read(fp);
     rec = bcf_init();
-    int seek_ok = -1;
-    if (fp->format.compression == bgzf) {
-        BGZF *bg = (BGZF *)fp->fp.bgzf;
-        seek_ok = bgzf_seek(bg, offsets[nth], SEEK_SET);
-    } else {
-        hFILE *hf = (hFILE *)fp->fp.hfile;
-        seek_ok = hseek(hf, (off_t)offsets[nth], SEEK_SET);
-    }
-    int r = (seek_ok == 0) ? bcf_read(fp, hdr, rec) : -1;
+  int seek_ok = -1;
+  if (fp->format.compression == bgzf) {
+    BGZF *bg = (BGZF *)fp->fp.bgzf;
+    seek_ok = bgzf_seek(bg, offsets[nth], SEEK_SET);
+  } else {
+    hFILE *hf = (hFILE *)fp->fp.hfile;
+    seek_ok = hseek(hf, (off_t)offsets[nth], SEEK_SET);
+  }
+  int r = (seek_ok == 0) ? bcf_read(fp, hdr, rec) : -1;
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double seek_s = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
     if (r >= 0) {
@@ -343,21 +328,21 @@ int main(int argc, char **argv) {
     hdr = bcf_hdr_read(fp);
     rec = bcf_init();
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    for ( int n = 0 ; n < ntimes; n++) {
+  for ( int n = 0 ; n < ntimes; n++) {
     for (size_t i = 0; i < chunk_len; ++i) {
-        int seek_ok = -1;
-        if (fp->format.compression == bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            seek_ok = bgzf_seek(bg, offsets[chunk_start + i], SEEK_SET);
-        } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            seek_ok = hseek(hf, (off_t)offsets[chunk_start + i], SEEK_SET);
-        }
-        if (seek_ok == 0) { int _ = bcf_read(fp, hdr, rec); (void)_; }
+      int seek_ok = -1;
+      if (fp->format.compression == bgzf) {
+        BGZF *bg = (BGZF *)fp->fp.bgzf;
+        seek_ok = bgzf_seek(bg, offsets[chunk_start + i], SEEK_SET);
+      } else {
+        hFILE *hf = (hFILE *)fp->fp.hfile;
+        seek_ok = hseek(hf, (off_t)offsets[chunk_start + i], SEEK_SET);
+      }
+      if (seek_ok == 0) { int _ = bcf_read(fp, hdr, rec); (void)_; }
     }
     clock_gettime(CLOCK_MONOTONIC, &t1);
     chunks[n] = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-}
+  }
 float av = 0;
 float min = 0;
 float max = 0;
