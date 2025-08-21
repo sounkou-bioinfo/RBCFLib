@@ -120,6 +120,8 @@ static hFILE *hopen_mmap(const char *filename, const char *modestr)
     }
 
     data = mmap(NULL, st.st_size, prot, MAP_SHARED, fd, 0);
+    //fprintf(stderr, "[mmap] mapped %s at %p, length=%zu bytes\n",
+     //   filename, data, (size_t) st.st_size);
     if (data == MAP_FAILED) goto error;
 
     fp = (hFILE_mmap *) hfile_init(sizeof (hFILE_mmap), modestr, st.st_blksize);
