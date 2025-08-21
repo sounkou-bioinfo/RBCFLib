@@ -69,7 +69,7 @@ The following features are planned for future development:
     -   [ ] Minimal streaming with memory mapped VCF/BCF
 
 -   **Arrow/duckb**
-    -   [ ]  Optional integration with (exon)[https://github.com/wheretrue/exon] R bindings like (exonr)[https://github.com/wheretrue/exon/tree/main/exon-r] and (biobabe)[https://github.com/JosiahParry/biobabe]
+    -   [ ]  Optional integration with [exon](https://github.com/wheretrue/exon) R bindings like [exonr](https://github.com/wheretrue/exon/tree/main/exon-r) and [biobabe](https://github.com/JosiahParry/biobabe)
 
 - **Windows support** :
    -   [ ] Likely just use system2 and no drama

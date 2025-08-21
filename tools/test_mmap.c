@@ -99,17 +99,15 @@ int main(int argc, char **argv) {
         int64_t start_off = -1, end_off = -1;
 
         if (is_bgzf) {
-            /* BGZF virtual offset */
-            BGZF *bg = (BGZF *)fp->fp.bgzf;   /* pragmatic: use internal pointer (widely used) */
+            BGZF *bg = (BGZF *)fp->fp.bgzf;
             start_off = bgzf_tell(bg);
         } else {
-            /* plain byte offset for uncompressed */
             hFILE *hf = (hFILE *)fp->fp.hfile;
             start_off = htell(hf);
         }
 
         int r = bcf_read(fp, hdr, rec);
-        if (r < 0) break; /* EOF or error */
+        if (r < 0) break;
 
         if (is_bgzf) {
             BGZF *bg = (BGZF *)fp->fp.bgzf;
@@ -117,21 +115,25 @@ int main(int argc, char **argv) {
         } else {
             hFILE *hf = (hFILE *)fp->fp.hfile;
             end_off = htell(hf);
-    print_multiindex_random_gt(path, "dir", uri);
         }
 
-        printf("Record %d: off=%" PRId64 ", size=%" PRId64, i+1, off, sz);
-        if (seek_ok == 0 && bcf_read(fp, hdr, rec) >= 0) {
-            bcf_unpack(rec, BCF_UN_STR);
-            printf(" | %s:%" PRId64 " %s", bcf_seqname(hdr, rec), (int64_t)(rec->pos + 1), rec->d.allele[0]);
-            if (rec->n_allele > 1) printf("->%s", rec->d.allele[1]);
-        } else {
-            printf(" | (seek/read failed)");
-        }
+        int64_t off = start_off;
+        int64_t sz = end_off - start_off;
+        // Write offsets and sizes to the index file
+        fwrite(&off, sizeof(int64_t), 1, bout);
+        fwrite(&sz, sizeof(int64_t), 1, bout);
+
+        printf("Record %zu: off=%" PRId64 ", size=%" PRId64, nrec+1, off, sz);
+        // Optionally print record info
+        bcf_unpack(rec, BCF_UN_STR);
+        printf(" | %s:%" PRId64 " %s", bcf_seqname(hdr, rec), (int64_t)(rec->pos + 1), rec->d.allele[0]);
+        if (rec->n_allele > 1) printf("->%s", rec->d.allele[1]);
         printf("\n");
+
+        nrec++;
     }
 
-    fclose(bin_in);
+    fclose(bout);
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
     hts_close(fp);
