@@ -11,9 +11,11 @@ SEXP RC_HTSLibVersion(void);
 SEXP RC_BCFToolsVersion(void);
 
 /* Unified bcftools pipeline function */
+#ifndef _WIN32
+
 SEXP RC_bcftools_pipeline(SEXP commands, SEXP args, SEXP n_commands,
                     SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file, SEXP stderr_file);
-
+#endif
 /* FASTA index and retrieval functions */
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);
 SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);

@@ -8,7 +8,9 @@
 static const R_CallMethodDef CallEntries[] = {
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
+    #ifndef _WIN32
     {"RC_bcftools_pipeline", (DL_FUNC) &RC_bcftools_pipeline, 7},
+    #endif
     {"RC_FaidxIndexFasta", (DL_FUNC) &RC_FaidxIndexFasta, 1},
     {"RC_FaidxFetchRegion", (DL_FUNC) &RC_FaidxFetchRegion, 4},
     {NULL, NULL, 0}

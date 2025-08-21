@@ -175,21 +175,24 @@ BCFToolsMunge <- function(
 
   # Create temporary files for stderr (and stdout if needed)
   stderrFile <- tempfile("bcftools_stderr_")
-  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+  stdoutFile <- if (is.null(SaveStdout)) {
+    tempfile("bcftools_stdout_")
+  } else {
     SaveStdout
+  }
 
   # Call the unified pipeline C function
   pipeline_result <- .Call(
     RC_bcftools_pipeline,
-    list("+munge"),         # Plugin command wrapped in list
-    list(args),             # Args wrapped in list
-    1L,                     # Number of commands = 1
+    list("+munge"), # Plugin command wrapped in list
+    list(args), # Args wrapped in list
+    1L, # Number of commands = 1
     CatchStdout,
     CatchStderr,
     stdoutFile,
     stderrFile
   )
-  
+
   # Extract the single exit code
   status <- pipeline_result[1]
 
@@ -199,7 +202,7 @@ BCFToolsMunge <- function(
   # Read captured output if needed
   stdout <- NULL
   if (CatchStdout && file.exists(stdoutFile)) {
-    stdout <- readLines(stdoutFile, warn = FALSE)
+    stdout <- collect_output(stdoutFile)
     if (!is.null(SaveStdout)) {
       # If we saved to a user-specified file, don't delete it
       if (length(stdout) == 0) stdout <- NULL
@@ -211,7 +214,7 @@ BCFToolsMunge <- function(
 
   stderr <- NULL
   if (CatchStderr && file.exists(stderrFile)) {
-    stderr <- readLines(stderrFile, warn = FALSE)
+    stderr <- collect_output(stderrFile)
     # Clean up temp file
     unlink(stderrFile)
     if (length(stderr) == 0) stderr <- NULL
@@ -224,4 +227,13 @@ BCFToolsMunge <- function(
     stderr = stderr,
     command = command
   )
+}
+
+#' Get the path to the sumstats headers file
+#' as defined by MungeSumstats
+#'
+#' @return Path to the sumstats headers file
+#' @export
+MungeSumstatsHeadersFile <- function() {
+  system.file("exdata", "colheaders.tsv", package = "RBCFLib")
 }

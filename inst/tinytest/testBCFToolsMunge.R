@@ -131,13 +131,20 @@ expect_true(
   "BCFToolsMunge should return non-zero exit status for non-existent file"
 )
 expect_true(
-  any(grepl("Could not open.*No such file or directory", test_nonexistent$stderr)),
+  any(grepl(
+    "Could not open.*No such file or directory",
+    test_nonexistent$stderr
+  )),
   "BCFToolsMunge should report 'Could not open' error in stderr for non-existent file"
 )
 
 # Clean up temp files
-if (file.exists(outputFile)) file.remove(outputFile)
-if (file.exists(outputFileVCF)) file.remove(outputFileVCF)
+if (file.exists(outputFile)) {
+  file.remove(outputFile)
+}
+if (file.exists(outputFileVCF)) {
+  file.remove(outputFileVCF)
+}
 
 # Report successful completion
 cat("All BCFToolsMunge tests completed\n")

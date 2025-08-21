@@ -61,10 +61,11 @@
 #'
 #' @export
 BCFToolsPipeline <- function(
-    ...,
-    catchStdout = TRUE,
-    catchStderr = TRUE,
-    saveStdout = NULL) {
+  ...,
+  catchStdout = TRUE,
+  catchStderr = TRUE,
+  saveStdout = NULL
+) {
   # List of valid bcftools commands
   validCommands <- c(
     "version",
@@ -91,7 +92,52 @@ BCFToolsPipeline <- function(
     "sort",
     "head",
     "help",
-    "+GTisec", "+GTsubset", "+ad-bias", "+add-variantkey", "+af-dist", "+allele-length", "+blup", "+check-ploidy", "+check-sparsity", "+color-chrs", "+contrast", "+counts", "+dosage", "+fill-AN-AC", "+fill-from-fasta", "+fill-tags", "+fixploidy", "+fixref", "+frameshifts", "+guess-ploidy", "+gvcfz", "+impute-info", "+indel-stats", "+isecGT", "+liftover", "+mendelian2", "+metal", "+missing2ref", "+munge", "+parental-origin", "+prune", "+remove-overlaps", "+scatter", "+score", "+setGT", "+smpl-stats", "+split", "+split-vep", "+tag2tag", "+trio-dnm2", "+trio-stats", "+trio-switch-rate", "+variant-distance", "+variantkey-hex", "+vcf2table", "+vrfs"
+    "+GTisec",
+    "+GTsubset",
+    "+ad-bias",
+    "+add-variantkey",
+    "+af-dist",
+    "+allele-length",
+    "+blup",
+    "+check-ploidy",
+    "+check-sparsity",
+    "+color-chrs",
+    "+contrast",
+    "+counts",
+    "+dosage",
+    "+fill-AN-AC",
+    "+fill-from-fasta",
+    "+fill-tags",
+    "+fixploidy",
+    "+fixref",
+    "+frameshifts",
+    "+guess-ploidy",
+    "+gvcfz",
+    "+impute-info",
+    "+indel-stats",
+    "+isecGT",
+    "+liftover",
+    "+mendelian2",
+    "+metal",
+    "+missing2ref",
+    "+munge",
+    "+parental-origin",
+    "+prune",
+    "+remove-overlaps",
+    "+scatter",
+    "+score",
+    "+setGT",
+    "+smpl-stats",
+    "+split",
+    "+split-vep",
+    "+tag2tag",
+    "+trio-dnm2",
+    "+trio-stats",
+    "+trio-switch-rate",
+    "+variant-distance",
+    "+variantkey-hex",
+    "+vcf2table",
+    "+vrfs"
   )
 
   # Commands that don't support standard output redirection with -o option
@@ -220,29 +266,6 @@ BCFToolsPipeline <- function(
     stderr_file,
     PACKAGE = "RBCFLib"
   )
-
-  # Function to collect output from file (handles both text and binary)
-  collect_output <- function(file_path) {
-    if (!file.exists(file_path) || file.info(file_path)$size == 0) {
-      return(character(0))
-    }
-
-    result <- tryCatch(
-      {
-        con <- file(file_path, "r", encoding = "UTF-8")
-        on.exit(close(con), add = TRUE)
-        readLines(con)
-      },
-      error = function(e) {
-        # Handle binary output by reading as raw if text reading fails
-        con <- file(file_path, "rb")
-        on.exit(close(con), add = TRUE)
-        readBin(con, what = "raw", n = file.info(file_path)$size)
-      }
-    )
-
-    return(result)
-  }
 
   # Read captured output if needed
   stdout_lines <- NULL

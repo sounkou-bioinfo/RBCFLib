@@ -152,21 +152,24 @@ BCFToolsScore <- function(
 
   # Create temporary files for stderr (and stdout if needed)
   stderrFile <- tempfile("bcftools_stderr_")
-  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+  stdoutFile <- if (is.null(SaveStdout)) {
+    tempfile("bcftools_stdout_")
+  } else {
     SaveStdout
+  }
 
   # Call the unified pipeline C function
   pipeline_result <- .Call(
     RC_bcftools_pipeline,
-    list("+score"),         # Plugin command wrapped in list
-    list(args),             # Args wrapped in list
-    1L,                     # Number of commands = 1
+    list("+score"), # Plugin command wrapped in list
+    list(args), # Args wrapped in list
+    1L, # Number of commands = 1
     CatchStdout,
     CatchStderr,
     stdoutFile,
     stderrFile
   )
-  
+
   # Extract the single exit code and command attribute
   status <- pipeline_result[1]
   attr(status, "command") <- attr(pipeline_result, "command")
@@ -177,7 +180,7 @@ BCFToolsScore <- function(
   # Read captured output if needed
   stdout <- NULL
   if (CatchStdout && file.exists(stdoutFile)) {
-    stdout <- readLines(stdoutFile, warn = FALSE)
+    stdout <- collect_output(stdoutFile, warn = FALSE)
     if (!is.null(SaveStdout)) {
       # If we saved to a user-specified file, don't delete it
       if (length(stdout) == 0) stdout <- NULL
@@ -189,7 +192,7 @@ BCFToolsScore <- function(
 
   stderr <- NULL
   if (CatchStderr && file.exists(stderrFile)) {
-    stderr <- readLines(stderrFile, warn = FALSE)
+    stderr <- collect_output(stderrFile, warn = FALSE)
     # Clean up temp file
     unlink(stderrFile)
     if (length(stderr) == 0) stderr <- NULL

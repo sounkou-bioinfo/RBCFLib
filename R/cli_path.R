@@ -1,5 +1,3 @@
-
-
 #' Get path to the standard bcftools binary
 #'
 #' Returns the path to the standard bcftools executable included with RBCFLib.
@@ -21,10 +19,10 @@
 #' @export
 BCFToolsBinaryPath <- function() {
   bcftools_path <- system.file("bin", "bcftools", package = "RBCFLib")
-  
+
   if (bcftools_path == "") {
     stop("bcftools binary not found. Please reinstall RBCFLib.")
   }
-  
+
   return(bcftools_path)
 }
