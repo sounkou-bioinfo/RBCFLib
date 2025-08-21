@@ -26,9 +26,5 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 SystemRequirements: 
     GNU make, pkg-config, libgsl
-Suggests:
-    tinytest,
-    exonr,
-    biobabe
-Remotes:
-    JosiahParry/biobabe, wheretrue/exon/exon-r/exonr
+Suggests: tinytest, exonr, biobabe
+Remotes: JosiahParry/biobabe, wheretrue/exon/exon-r/exonr
