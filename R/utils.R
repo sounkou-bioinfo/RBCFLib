@@ -416,3 +416,9 @@ collect_output <- function(file_path, ...) {
 
   return(result)
 }
+
+#' Get the path to the bcftools binary
+#' @export
+BCFTOOLS_PLUGINS <- function() {
+  return(system.file("bin", "plugins", package = "RBCFLib"))
+}
