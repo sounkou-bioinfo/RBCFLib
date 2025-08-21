@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
     // --- Benchmark: Access a chunk of consecutive records ---
     printf("\n--- Benchmark: Access a chunk of consecutive records ---\n");
     size_t chunk_start = nrec / 4;
-    size_t chunk_len = 100;
+    size_t chunk_len = 1000;
     if (chunk_start + chunk_len > nrec) chunk_len = nrec - chunk_start;
     fp = hts_open(uri, "r");
     hdr = bcf_hdr_read(fp);
