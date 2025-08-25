@@ -8,27 +8,29 @@ VBIIndexLoad <- function(vbi_path) {
 }
 #' Query VBI index by region using cgranges (fast interval tree)
 #'
+#' @param VcfPath Path to the VCF/BCF file
 #' @param vbi_ptr External pointer to loaded VBI index
 #' @param region Region string (e.g., "chr1:1000-2000")
-#' @return Integer vector of 1-based indices
+#' @return Character vector of VCF records for the region
 #' @export
-VBIQueryRegionCGRanges <- function(vbi_ptr, region) {
+VBIQueryRegionCGRanges <- function(VcfPath, vbi_ptr, region) {
     .Call(
         RC_VBI_query_region_cgranges,
+        as.character(VcfPath),
         vbi_ptr,
         as.character(region),
         PACKAGE = "RBCFLib"
     )
 }
-#' Print the first n lines of a VBI index file
+#' Print the first n lines of a VBI index (from an external pointer)
 #'
-#' @param vbi_path Path to the VBI index file
+#' @param vbi_ptr External pointer to loaded VBI index
 #' @param n Number of lines to print (default: 10)
 #' @export
-VBIPrintIndex <- function(vbi_path, n = 10) {
+VBIPrintIndex <- function(vbi_ptr, n = 10) {
     invisible(.Call(
         RC_VBI_print_index,
-        as.character(vbi_path),
+        vbi_ptr,
         as.integer(n),
         PACKAGE = "RBCFLib"
     ))
@@ -63,7 +65,7 @@ VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
     .Call(
         RC_VBI_query_range,
         as.character(VcfPath),
-        as.character(VbiPath),
+        VbiPath,
         as.character(Region),
         as.integer(Threads),
         PACKAGE = "RBCFLib"
@@ -83,7 +85,7 @@ VBIQueryIndex <- function(VcfPath, VbiPath, StartIdx, EndIdx, Threads = 1) {
     .Call(
         RC_VBI_query_index,
         as.character(VcfPath),
-        as.character(VbiPath),
+        VbiPath,
         as.integer(StartIdx),
         as.integer(EndIdx),
         as.integer(Threads),

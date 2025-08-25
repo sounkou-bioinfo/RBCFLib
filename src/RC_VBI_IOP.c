@@ -52,32 +52,18 @@ static int download_file(const char *url, const char *dest) {
 }
 
 //' Query VCF/BCF by region using VBI index (returns only records, no header)
-SEXP RC_VBI_query_range(SEXP vcf_path, SEXP vbi_path, SEXP region, SEXP threads) {
+SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
-    const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
+    if (!idx) Rf_error("[VBI] Index pointer is NULL");
     const char *reg = CHAR(STRING_ELT(region, 0));
     int n_threads = asInteger(threads);
-    char vbi_local[4096];
     SEXP lines = R_NilValue;
     PROTECT_INDEX idx_prot;
     PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
-    if (strstr(vbi, "://")) {
-        snprintf(vbi_local, sizeof(vbi_local), "/tmp/vbi_%u.vbi", (unsigned)rand());
-        if (!download_file(vbi, vbi_local)) {
-            UNPROTECT(1);
-            Rf_error("Failed to download VBI index: %s", vbi);
-        }
-        vbi = vbi_local;
-    }
-    vbi_index_t *idx = vbi_index_load(vbi);
-    if (!idx) {
-        UNPROTECT(1);
-        Rf_error("Failed to load VBI index: %s", vbi);
-    }
     int nfound = 0;
     int *indices = vbi_index_query_region(idx, reg, &nfound);
     if (!indices || nfound == 0) {
-        vbi_index_free(idx);
         lines = allocVector(STRSXP, 0);
         REPROTECT(lines, idx_prot);
         UNPROTECT(1);
@@ -85,7 +71,6 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP vbi_path, SEXP region, SEXP threads)
     }
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
-        vbi_index_free(idx);
         free(indices);
         UNPROTECT(1);
         Rf_error("Failed to open VCF/BCF: %s", vcf);
@@ -93,7 +78,6 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP vbi_path, SEXP region, SEXP threads)
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if (!hdr) {
         hts_close(fp);
-        vbi_index_free(idx);
         free(indices);
         UNPROTECT(1);
         Rf_error("Failed to read VCF/BCF header: %s", vcf);
@@ -129,40 +113,25 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP vbi_path, SEXP region, SEXP threads)
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
     hts_close(fp);
-    vbi_index_free(idx);
     free(indices);
     UNPROTECT(1);
     return lines;
 }
 
 //' Query VCF/BCF by variant index range (nth to kth, 1-based, inclusive, no header)
-SEXP RC_VBI_query_index(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_idx, SEXP threads) {
+SEXP RC_VBI_query_index(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
-    const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
+    if (!idx) Rf_error("[VBI] Index pointer is NULL");
     int n_threads = asInteger(threads);
     int start = asInteger(start_idx) - 1;
     int end = asInteger(end_idx) - 1;
-    char vbi_local[4096];
     SEXP lines = R_NilValue;
     PROTECT_INDEX idx_prot;
     PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
-    if (strstr(vbi, "://")) {
-        snprintf(vbi_local, sizeof(vbi_local), "/tmp/vbi_%u.vbi", (unsigned)rand());
-        if (!download_file(vbi, vbi_local)) {
-            UNPROTECT(1);
-            Rf_error("Failed to download VBI index: %s", vbi);
-        }
-        vbi = vbi_local;
-    }
-    vbi_index_t *idx = vbi_index_load(vbi);
-    if (!idx) {
-        UNPROTECT(1);
-        Rf_error("Failed to load VBI index: %s", vbi);
-    }
     int nfound = 0;
     int *indices = vbi_index_query_index_range(idx, start, end, &nfound);
     if (!indices || nfound == 0) {
-        vbi_index_free(idx);
         lines = allocVector(STRSXP, 0);
         REPROTECT(lines, idx_prot);
         UNPROTECT(1);
@@ -170,7 +139,6 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_i
     }
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
-        vbi_index_free(idx);
         free(indices);
         UNPROTECT(1);
         Rf_error("Failed to open VCF/BCF: %s", vcf);
@@ -178,7 +146,6 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_i
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if (!hdr) {
         hts_close(fp);
-        vbi_index_free(idx);
         free(indices);
         UNPROTECT(1);
         Rf_error("Failed to read VCF/BCF header: %s", vcf);
@@ -214,20 +181,17 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_i
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
     hts_close(fp);
-    vbi_index_free(idx);
     free(indices);
     UNPROTECT(1);
     return lines;
 }
 
 
-SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n) {
-    const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
+SEXP RC_VBI_print_index(SEXP idx_ptr, SEXP n) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
+    if (!idx) Rf_error("[VBI] Index pointer is NULL");
     int nlines = asInteger(n);
-    vbi_index_t *idx = vbi_index_load(vbi);
-    if (!idx) Rf_error("Failed to load VBI index: %s", vbi);
     vbi_index_print(idx, nlines);
-    vbi_index_free(idx);
     return R_NilValue;
 }
 
@@ -235,6 +199,14 @@ SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n) {
 // R-callable: load VBI index and return external pointer
 SEXP RC_VBI_load_index(SEXP vbi_path) {
     const char *path = CHAR(STRING_ELT(vbi_path, 0));
+    char local_path[4096];
+    if (strstr(path, "://")) {
+        snprintf(local_path, sizeof(local_path), "/tmp/vbi_%u.vbi", (unsigned)rand());
+        if (!download_file(path, local_path)) {
+            Rf_error("Failed to download VBI index: %s", path);
+        }
+        path = local_path;
+    }
     vbi_index_t *idx = vbi_index_load(path);
     if (!idx) Rf_error("[VBI] Failed to load index: %s", path);
     SEXP ptr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
@@ -245,14 +217,60 @@ SEXP RC_VBI_load_index(SEXP vbi_path) {
 
 
 // R-callable wrapper for cgranges region query
-SEXP RC_VBI_query_region_cgranges(SEXP idx_ptr, SEXP region_str) {
+SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) {
+    const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
     const char *reg = CHAR(STRING_ELT(region_str, 0));
     int nfound = 0;
     int *hits = vbi_index_query_region_cgranges(idx, reg, &nfound);
-    SEXP out = PROTECT(allocVector(INTSXP, nfound));
-    for (int i = 0; i < nfound; ++i) INTEGER(out)[i] = hits[i] + 1; // 1-based for R
+    if (!hits || nfound == 0) {
+        SEXP out = PROTECT(allocVector(STRSXP, 0));
+        UNPROTECT(1);
+        return out;
+    }
+    // For uniformity, seek and extract records from VCF for the found indices
+    htsFile *fp = hts_open(vcf, "r");
+    if (!fp) {
+        free(hits);
+        Rf_error("Failed to open VCF/BCF: %s", vcf);
+    }
+    bcf_hdr_t *hdr = bcf_hdr_read(fp);
+    if (!hdr) {
+        hts_close(fp);
+        free(hits);
+        Rf_error("Failed to read VCF/BCF header: %s", vcf);
+    }
+    SEXP out = PROTECT(allocVector(STRSXP, nfound));
+    bcf1_t *rec = bcf_init();
+    for (int i = 0; i < nfound; ++i) {
+        int idx_var = hits[i];
+        int seek_ok = 0;
+        if (fp->format.compression == bgzf) {
+            BGZF *bg = (BGZF *)fp->fp.bgzf;
+            seek_ok = (bgzf_seek(bg, idx->offsets[idx_var], SEEK_SET) == 0);
+        } else {
+            hFILE *hf = (hFILE *)fp->fp.hfile;
+            seek_ok = (hseek(hf, (off_t)idx->offsets[idx_var], SEEK_SET) == 0);
+        }
+        if (!seek_ok) {
+            SET_STRING_ELT(out, i, mkChar(""));
+            continue;
+        }
+        int r = bcf_read(fp, hdr, rec);
+        if (r < 0) {
+            SET_STRING_ELT(out, i, mkChar(""));
+            continue;
+        }
+        bcf_unpack(rec, BCF_UN_STR);
+        kstring_t str = {0,0,0};
+        vcf_format1(hdr, rec, &str);
+        SET_STRING_ELT(out, i, mkChar(str.s));
+        free(str.s);
+    }
+    bcf_destroy(rec);
+    bcf_hdr_destroy(hdr);
+    hts_close(fp);
     free(hits);
     UNPROTECT(1);
     return out;
