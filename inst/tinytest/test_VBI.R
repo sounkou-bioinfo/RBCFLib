@@ -1,0 +1,18 @@
+# Tinytest for VBI index and query
+library(tinytest)
+library(RBCFLib)
+exdata <- system.file("exdata", package = "RBCFLib")
+vcf <- file.path(exdata, "imputed.gt.vcf.gz")
+vbi <- tempfile(fileext = ".vbi")
+
+# Indexing
+res_idx <- VBIIndex(vcf, vbi)
+expect_true(file.exists(vbi))
+
+# Query by region
+hits <- VBIQueryRange(vcf, vbi, "chr21:10-2000000000")
+expect_true(is.character(hits))
+
+# Query by index range
+hits2 <- VBIQueryIndex(vcf, vbi, 0, 10)
+expect_true(is.character(hits2))
