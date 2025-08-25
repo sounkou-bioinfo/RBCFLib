@@ -1,3 +1,20 @@
+#' Vectorized overlap for CGRanges
+#' @export
+CGRangesOverlapVec <- function(cr, chrom, start, end) {
+    .Call(
+        RC_cgranges_overlap,
+        cr,
+        as.character(chrom),
+        as.integer(start),
+        as.integer(end)
+    )
+}
+
+#' Extract intervals by 1-based index from CGRanges
+#' @export
+CGRangesExtractByIndex <- function(cr, indices) {
+    .Call(RC_cgranges_extract_by_index, cr, as.integer(indices))
+}
 #' Extract variant ranges from a VBI index pointer
 #' @param VbiPtr External pointer to VBI index
 #' @param n Number of ranges to extract (default: all)

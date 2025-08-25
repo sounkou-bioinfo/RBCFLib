@@ -1,7 +1,3 @@
-#include "cgranges.h"
-
-// Forward declaration for finalizer
-SEXP RC_cgranges_destroy(SEXP cr_ptr);
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Print.h>
@@ -14,10 +10,17 @@ SEXP RC_cgranges_destroy(SEXP cr_ptr);
 #include "htslib/vcf.h"
 #include "htslib/hfile.h"
 #include "cgranges.h"
-
+// Forward declaration for finalizer (after SEXP is defined)
+SEXP RC_cgranges_destroy(SEXP cr_ptr);
 // Forward declarations from vbi_index.c and vbi_index_capi.h
 #include "vbi_index_capi.h"
 int do_index(const char *infile, const char *outfile, int n_threads);
+
+// Minimal cr_chrom implementation for cgranges_t (do not modify cgranges library files)
+static inline const char *cr_chrom(const cgranges_t *cr, int64_t i) {
+    int32_t ctg_id = (int32_t)(cr->r[i].x >> 32);
+    return cr->ctg[ctg_id].name;
+}
 
 // Helper: check file existence
 static int file_exists(const char *path) {
@@ -214,7 +217,7 @@ SEXP RC_VBI_load_index(SEXP vbi_path) {
     vbi_index_t *idx = vbi_index_load(path);
     if (!idx) Rf_error("[VBI] Failed to load index: %s", path);
     SEXP ptr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, vbi_index_finalizer, TRUE);
+    R_RegisterCFinalizerEx(ptr, vbi_index_finalizer, 1);
     UNPROTECT(1);
     return ptr;
 }
@@ -322,7 +325,7 @@ SEXP RC_cgranges_create() {
     cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_Calloc(1, cgranges_ptr_t);
     ptr->cr = cr_init();
     SEXP ext = PROTECT(R_MakeExternalPtr(ptr, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ext, (R_CFinalizer_t)RC_cgranges_destroy, TRUE);
+    R_RegisterCFinalizerEx(ext, (R_CFinalizer_t)RC_cgranges_destroy, 1);
     UNPROTECT(1);
     return ext;
 }
@@ -344,13 +347,20 @@ SEXP RC_cgranges_index(SEXP cr_ptr) {
 SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end) {
     cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_ExternalPtrAddr(cr_ptr);
     if (!ptr || !ptr->cr) Rf_error("[cgranges] Null pointer");
-    int64_t *b = 0, max_b = 0;
-    int n = cr_overlap(ptr->cr, CHAR(STRING_ELT(chrom, 0)), INTEGER(start)[0], INTEGER(end)[0], &b, &max_b);
-    SEXP res = PROTECT(allocVector(INTSXP, n));
-    for (int i = 0; i < n; ++i) INTEGER(res)[i] = (int)b[i];
-    if (b) free(b);
+    int n = LENGTH(chrom);
+    if (LENGTH(start) != n || LENGTH(end) != n) Rf_error("chrom, start, end must have same length");
+    SEXP out = PROTECT(allocVector(VECSXP, n));
+    for (int i = 0; i < n; ++i) {
+        int64_t *b = 0, max_b = 0;
+        int nhit = cr_overlap(ptr->cr, CHAR(STRING_ELT(chrom, i)), INTEGER(start)[i], INTEGER(end)[i], &b, &max_b);
+        SEXP res = PROTECT(allocVector(INTSXP, nhit));
+        for (int j = 0; j < nhit; ++j) INTEGER(res)[j] = (int)b[j] + 1; // 1-based for R
+        if (b) free(b);
+        SET_VECTOR_ELT(out, i, res);
+        UNPROTECT(1);
+    }
     UNPROTECT(1);
-    return res;
+    return out;
 }
 
 SEXP RC_cgranges_destroy(SEXP cr_ptr) {
@@ -362,4 +372,46 @@ SEXP RC_cgranges_destroy(SEXP cr_ptr) {
     }
     R_ClearExternalPtr(cr_ptr);
     return R_NilValue;
+}
+
+// Helper: extract interval info from cgranges by 0-based index
+static void cr_extract_one(cgranges_t *cr, int idx, char **chrom, int *start, int *end, int *label) {
+    const char *cname = cr_chrom(cr, idx);
+    *chrom = (char*)cname;
+    *start = cr_start(cr, idx);
+    *end = cr_end(cr, idx);
+    *label = cr_label(cr, idx);
+}
+
+// Extract intervals by 1-based indices (R)
+SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices) {
+    cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_ExternalPtrAddr(cr_ptr);
+    if (!ptr || !ptr->cr) Rf_error("[cgranges] Null pointer");
+    int n = LENGTH(indices);
+    SEXP chroms = PROTECT(allocVector(STRSXP, n));
+    SEXP starts = PROTECT(allocVector(INTSXP, n));
+    SEXP ends   = PROTECT(allocVector(INTSXP, n));
+    SEXP labels = PROTECT(allocVector(INTSXP, n));
+    for (int i = 0; i < n; ++i) {
+        int idx = INTEGER(indices)[i] - 1; // 1-based to 0-based
+        char *chrom; int start, end, label;
+        cr_extract_one(ptr->cr, idx, &chrom, &start, &end, &label);
+        SET_STRING_ELT(chroms, i, mkChar(chrom));
+        INTEGER(starts)[i] = start;
+        INTEGER(ends)[i] = end;
+        INTEGER(labels)[i] = label + 1; // 1-based for R
+    }
+    SEXP df = PROTECT(allocVector(VECSXP, 4));
+    SET_VECTOR_ELT(df, 0, chroms);
+    SET_VECTOR_ELT(df, 1, starts);
+    SET_VECTOR_ELT(df, 2, ends);
+    SET_VECTOR_ELT(df, 3, labels);
+    SEXP names = PROTECT(allocVector(STRSXP, 4));
+    SET_STRING_ELT(names, 0, mkChar("chrom"));
+    SET_STRING_ELT(names, 1, mkChar("start"));
+    SET_STRING_ELT(names, 2, mkChar("end"));
+    SET_STRING_ELT(names, 3, mkChar("label"));
+    setAttrib(df, R_NamesSymbol, names);
+    UNPROTECT(6);
+    return df;
 }
