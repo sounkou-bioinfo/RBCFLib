@@ -4,7 +4,8 @@
         "*.rmd": "markdown",
         "*.S": "r",
         "bcftools.rbcflib.h": "c",
-        "cgranges.h": "c"
+        "cgranges.h": "c",
+        "rbcflib.h": "c"
     },
     "[r]": {
         "editor.formatOnSave": true,

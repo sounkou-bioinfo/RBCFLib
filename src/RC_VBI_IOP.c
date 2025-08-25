@@ -17,9 +17,17 @@ SEXP RC_cgranges_destroy(SEXP cr_ptr);
 int do_index(const char *infile, const char *outfile, int n_threads);
 
 // Minimal cr_chrom implementation for cgranges_t (do not modify cgranges library files)
+// Reconstruct contig index for interval i by searching ctg ranges
 static inline const char *cr_chrom(const cgranges_t *cr, int64_t i) {
-    int32_t ctg_id = (int32_t)(cr->r[i].x >> 32);
-    return cr->ctg[ctg_id].name;
+    if (!cr || i < 0 || i >= cr->n_r) return NULL;
+    for (int32_t j = 0; j < cr->n_ctg; ++j) {
+        int64_t off = cr->ctg[j].off;
+        int64_t n = cr->ctg[j].n;
+        if (i >= off && i < off + n) {
+            return cr->ctg[j].name;
+        }
+    }
+    return NULL;
 }
 
 // Helper: check file existence
@@ -376,6 +384,12 @@ SEXP RC_cgranges_destroy(SEXP cr_ptr) {
 
 // Helper: extract interval info from cgranges by 0-based index
 static void cr_extract_one(cgranges_t *cr, int idx, char **chrom, int *start, int *end, int *label) {
+    if (!cr || !chrom || !start || !end || !label) return;
+    if (idx < 0 || idx >= cr->n_r) {
+        *chrom = NULL;
+        *start = *end = *label = NA_INTEGER;
+        return;
+    }
     const char *cname = cr_chrom(cr, idx);
     *chrom = (char*)cname;
     *start = cr_start(cr, idx);
@@ -394,12 +408,15 @@ SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices) {
     SEXP labels = PROTECT(allocVector(INTSXP, n));
     for (int i = 0; i < n; ++i) {
         int idx = INTEGER(indices)[i] - 1; // 1-based to 0-based
-        char *chrom; int start, end, label;
+        char *chrom = NULL; int start = NA_INTEGER, end = NA_INTEGER, label = NA_INTEGER;
         cr_extract_one(ptr->cr, idx, &chrom, &start, &end, &label);
-        SET_STRING_ELT(chroms, i, mkChar(chrom));
+        if (chrom)
+            SET_STRING_ELT(chroms, i, mkChar(chrom));
+        else
+            SET_STRING_ELT(chroms, i, NA_STRING);
         INTEGER(starts)[i] = start;
         INTEGER(ends)[i] = end;
-        INTEGER(labels)[i] = label + 1; // 1-based for R
+        INTEGER(labels)[i] = (label == NA_INTEGER) ? NA_INTEGER : label + 1; // 1-based for R
     }
     SEXP df = PROTECT(allocVector(VECSXP, 4));
     SET_VECTOR_ELT(df, 0, chroms);
