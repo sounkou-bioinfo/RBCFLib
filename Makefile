@@ -5,6 +5,7 @@
 PKGNAME = `sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION`
 PKGVERS = `sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION`
 
+.PHONY: all build check install install2 install_deps rd clean
 
 all: check
 
@@ -22,7 +23,7 @@ install_deps:
 install: build
 	R CMD INSTALL $(PKGNAME)_$(PKGVERS).tar.gz
 
-install2: build
+install2:
 	R CMD INSTALL --no-configure .
 
 rd: 
