@@ -123,9 +123,8 @@ int64_t vbi_index_position(vbi_index_t *idx, int idx_var) {
 int do_index(const char *infile, const char *outfile, int n_threads) {
     htsFile *fp = NULL;
     if (n_threads > 1) {
-        char optstr[64];
-        snprintf(optstr, sizeof(optstr), "r:threads=%d", n_threads);
-        fp = hts_open(infile, optstr);
+        fp = hts_open(infile, "r");
+        hts_set_threads(fp, n_threads);
     } else {
         fp = hts_open(infile, "r");
     }
