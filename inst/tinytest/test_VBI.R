@@ -37,7 +37,6 @@ expect_true(is.character(hits2))
 print(length(hits2))
 
 # Benchmark: compare linear scan vs cgranges region query
-quit()
 cat("[Benchmark] Querying region 10x (linear scan)...\n")
 tm1 <- system.time({
     for (i in 1:10) {
