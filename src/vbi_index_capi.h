@@ -62,4 +62,5 @@ void vbi_index_print(const vbi_index_t *idx, int n);
 
 int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, int *nfound);
 
+void vbi_index_finalizer(SEXP extPtr);
 #endif // VBI_INDEX_CAPI_H

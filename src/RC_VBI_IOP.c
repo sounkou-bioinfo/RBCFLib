@@ -238,7 +238,7 @@ SEXP RC_VBI_load_index(SEXP vbi_path) {
     vbi_index_t *idx = vbi_index_load(path);
     if (!idx) Rf_error("[VBI] Failed to load index: %s", path);
     SEXP ptr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, (R_CFinalizer_t)vbi_index_free, TRUE);
+    R_RegisterCFinalizerEx(ptr, vbi_index_finalizer, TRUE);
     UNPROTECT(1);
     return ptr;
 }

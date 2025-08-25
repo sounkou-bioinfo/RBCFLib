@@ -265,19 +265,27 @@ fail:
 
 // Print the first n lines of the VBI index for debugging
 void vbi_index_print(const vbi_index_t *idx, int n) {
-    if (!idx) {
-        Rprintf("[VBI] Index is NULL\n");
-        return;
-    }
-    int max = n > 0 ? n : idx->num_marker;
-    if (max > idx->num_marker) max = idx->num_marker;
-    Rprintf("[VBI] num_marker: %ld\n", (long)idx->num_marker);
-    for (int i = 0; i < max; ++i) {
+    if (!idx) return;
+    Rprintf("[VBI] num_marker: %" PRId64 "\n", idx->num_marker);
+    for (int i = 0; i < n && i < idx->num_marker; ++i) {
         const char *chr = idx->chrom_names[idx->chrom_ids[i]];
-        Rprintf("[VBI] %d: %s\t%ld\toffset=%ld\n", i+1, chr, (long)idx->positions[i], (long)idx->offsets[i]);
+        int64_t pos = idx->positions[i];
+        int64_t off = idx->offsets[i];
+        Rprintf("[VBI] %d: %s  %" PRId64 " offset=%" PRId64 "\n", i+1, chr, pos, off);
+    }
+}
+// Robust R finalizer for VBI index external pointer
+void vbi_index_finalizer(SEXP extPtr) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(extPtr);
+    if (idx) {
+        Rprintf("[VBI] vbi_index_finalizer: freeing %p\n", idx);
+        vbi_index_free(idx);
+        R_SetExternalPtrAddr(extPtr, NULL);
     }
     return ;
 }
+
+
 
 // Query by region string using cgranges (returns malloc'd array of indices)
 int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, int *nfound) {
