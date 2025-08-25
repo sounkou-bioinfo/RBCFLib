@@ -230,3 +230,30 @@ SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n) {
     vbi_index_free(idx);
     return R_NilValue;
 }
+
+
+// R-callable: load VBI index and return external pointer
+SEXP RC_VBI_load_index(SEXP vbi_path) {
+    const char *path = CHAR(STRING_ELT(vbi_path, 0));
+    vbi_index_t *idx = vbi_index_load(path);
+    if (!idx) Rf_error("[VBI] Failed to load index: %s", path);
+    SEXP ptr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(ptr, (R_CFinalizer_t)vbi_index_free, TRUE);
+    UNPROTECT(1);
+    return ptr;
+}
+
+
+// R-callable wrapper for cgranges region query
+SEXP RC_VBI_query_region_cgranges(SEXP idx_ptr, SEXP region_str) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
+    if (!idx) Rf_error("[VBI] Index pointer is NULL");
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    int nfound = 0;
+    int *hits = vbi_index_query_region_cgranges(idx, reg, &nfound);
+    SEXP out = PROTECT(allocVector(INTSXP, nfound));
+    for (int i = 0; i < nfound; ++i) INTEGER(out)[i] = hits[i] + 1; // 1-based for R
+    free(hits);
+    UNPROTECT(1);
+    return out;
+}

@@ -278,3 +278,34 @@ void vbi_index_print(const vbi_index_t *idx, int n) {
     }
     return ;
 }
+
+// Query by region string using cgranges (returns malloc'd array of indices)
+int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, int *nfound) {
+    if (!idx || !idx->cr) { *nfound = 0; return NULL; }
+    region_t *regions = NULL;
+    int nregions = 0;
+    if (parse_regions(region_str, &regions, &nregions) != 0) {
+        *nfound = 0;
+        return NULL;
+    }
+    int64_t *buf = NULL;
+    int64_t max_buf = 0;
+    int total = 0;
+    // First, count total overlaps
+    for (int r = 0; r < nregions; ++r) {
+        int n = cr_overlap(idx->cr, regions[r].chrom, (int32_t)regions[r].start, (int32_t)regions[r].end, &buf, &max_buf);
+        total += n;
+    }
+    int *hits = malloc(total * sizeof(int));
+    int k = 0;
+    for (int r = 0; r < nregions; ++r) {
+        int n = cr_overlap(idx->cr, regions[r].chrom, (int32_t)regions[r].start, (int32_t)regions[r].end, &buf, &max_buf);
+        for (int i = 0; i < n; ++i) {
+            hits[k++] = cr_label(idx->cr, buf[i]);
+        }
+    }
+    free(buf);
+    free(regions);
+    *nfound = total;
+    return hits;
+}

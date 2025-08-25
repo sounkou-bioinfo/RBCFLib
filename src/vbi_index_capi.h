@@ -1,4 +1,3 @@
-
 #ifndef VBI_INDEX_CAPI_H
 #define VBI_INDEX_CAPI_H
 
@@ -60,5 +59,7 @@ int64_t vbi_index_position(vbi_index_t *idx, int idx_var);
 
 // Print the first n lines of the VBI index for debugging
 void vbi_index_print(const vbi_index_t *idx, int n);
+
+int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, int *nfound);
 
 #endif // VBI_INDEX_CAPI_H

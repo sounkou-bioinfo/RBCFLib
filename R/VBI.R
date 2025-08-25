@@ -1,3 +1,25 @@
+#' Load a VBI index file and return an external pointer
+#'
+#' @param vbi_path Path to the VBI index file
+#' @return External pointer to the loaded VBI index
+#' @export
+VBIIndexLoad <- function(vbi_path) {
+    .Call(RC_VBI_load_index, as.character(vbi_path), PACKAGE = "RBCFLib")
+}
+#' Query VBI index by region using cgranges (fast interval tree)
+#'
+#' @param vbi_ptr External pointer to loaded VBI index
+#' @param region Region string (e.g., "chr1:1000-2000")
+#' @return Integer vector of 1-based indices
+#' @export
+VBIQueryRegionCGRanges <- function(vbi_ptr, region) {
+    .Call(
+        RC_VBI_query_region_cgranges,
+        vbi_ptr,
+        as.character(region),
+        PACKAGE = "RBCFLib"
+    )
+}
 #' Print the first n lines of a VBI index file
 #'
 #' @param vbi_path Path to the VBI index file

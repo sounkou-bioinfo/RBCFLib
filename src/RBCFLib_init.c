@@ -6,6 +6,7 @@
 
 /* R native routine registration */
 static const R_CallMethodDef CallEntries[] = {
+    {"RC_VBI_load_index", (DL_FUNC) &RC_VBI_load_index, 1},
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
     #ifndef _WIN32
@@ -18,6 +19,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"RC_VBI_query_range", (DL_FUNC) &RC_VBI_query_range, 4},
     {"RC_VBI_query_index", (DL_FUNC) &RC_VBI_query_index, 5},
     {"RC_VBI_print_index", (DL_FUNC) &RC_VBI_print_index, 2},
+    {"RC_VBI_query_region_cgranges", (DL_FUNC) &RC_VBI_query_region_cgranges, 2},
     {NULL, NULL, 0}
 };
 
