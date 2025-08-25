@@ -219,3 +219,14 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_i
     UNPROTECT(1);
     return lines;
 }
+
+
+SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n) {
+    const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
+    int nlines = asInteger(n);
+    vbi_index_t *idx = vbi_index_load(vbi);
+    if (!idx) Rf_error("Failed to load VBI index: %s", vbi);
+    vbi_index_print(idx, nlines);
+    vbi_index_free(idx);
+    return R_NilValue;
+}

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "vbi_index_capi.h"
+#include <R_ext/Print.h>
 
 // Parse a single region string (chr, chr:pos, chr:start-end)
 int parse_region(const char *str, region_t *reg) {
@@ -260,4 +261,21 @@ fail:
     free(idx);
     fclose(f);
     return NULL;
+}
+
+
+// Print the first n lines of the VBI index for debugging
+void vbi_index_print(const vbi_index_t *idx, int n) {
+    if (!idx) {
+        Rprintf("[VBI] Index is NULL\n");
+        return;
+    }
+    int max = n > 0 ? n : idx->num_marker;
+    if (max > idx->num_marker) max = idx->num_marker;
+    Rprintf("[VBI] num_marker: %ld\n", (long)idx->num_marker);
+    for (int i = 0; i < max; ++i) {
+        const char *chr = idx->chrom_names[idx->chrom_ids[i]];
+        Rprintf("[VBI] %d: %s\t%ld\toffset=%ld\n", i+1, chr, (long)idx->positions[i], (long)idx->offsets[i]);
+    }
+    return ;
 }

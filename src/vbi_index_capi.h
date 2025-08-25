@@ -1,3 +1,4 @@
+
 #ifndef VBI_INDEX_CAPI_H
 #define VBI_INDEX_CAPI_H
 
@@ -57,6 +58,7 @@ const char *vbi_index_chrom_name(vbi_index_t *idx, int idx_var);
 // Get position for a given variant index
 int64_t vbi_index_position(vbi_index_t *idx, int idx_var);
 
-
+// Print the first n lines of the VBI index for debugging
+void vbi_index_print(const vbi_index_t *idx, int n);
 
 #endif // VBI_INDEX_CAPI_H
