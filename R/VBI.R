@@ -43,7 +43,8 @@ VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
         as.character(VcfPath),
         as.character(VbiPath),
         as.character(Region),
-        as.integer(Threads)
+        as.integer(Threads),
+        PACKAGE = "RBCFLib"
     )
 }
 
@@ -63,6 +64,7 @@ VBIQueryIndex <- function(VcfPath, VbiPath, StartIdx, EndIdx, Threads = 1) {
         as.character(VbiPath),
         as.integer(StartIdx),
         as.integer(EndIdx),
-        as.integer(Threads)
+        as.integer(Threads),
+        PACKAGE = "RBCFLib"
     )
 }
