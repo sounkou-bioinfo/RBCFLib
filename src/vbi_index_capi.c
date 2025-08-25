@@ -304,7 +304,8 @@ int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, i
             hits[k++] = cr_label(idx->cr, buf[i]);
         }
     }
-    free(buf);
+    // Only free buf once, after all cr_overlap calls (per cgranges API)
+    if (buf) free(buf);
     free(regions);
     *nfound = total;
     return hits;
