@@ -13,6 +13,10 @@ static const R_CallMethodDef CallEntries[] = {
     #endif
     {"RC_FaidxIndexFasta", (DL_FUNC) &RC_FaidxIndexFasta, 1},
     {"RC_FaidxFetchRegion", (DL_FUNC) &RC_FaidxFetchRegion, 4},
+    /* vbi*/
+    {"RC_VBI_index", (DL_FUNC) &RC_VBI_index, 3},
+    {"RC_VBI_query_range", (DL_FUNC) &RC_VBI_query_range, 4},
+    {"RC_VBI_query_index", (DL_FUNC) &RC_VBI_query_index, 5},
     {NULL, NULL, 0}
 };
 

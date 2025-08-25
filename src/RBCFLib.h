@@ -20,4 +20,8 @@ SEXP RC_bcftools_pipeline(SEXP commands, SEXP args, SEXP n_commands,
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);
 SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
 
+/* VBI index and query functions */
+extern SEXP RC_VBI_index(SEXP vcf_path, SEXP vbi_path, SEXP threads);
+extern SEXP RC_VBI_query_range(SEXP vcf_path, SEXP vbi_path, SEXP region, SEXP threads);
+extern SEXP RC_VBI_query_index(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_idx, SEXP threads);
 #endif /* RBCFLIB_H */
