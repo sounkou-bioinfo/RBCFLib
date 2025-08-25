@@ -1,3 +1,15 @@
+#' Print the first n lines of a VBI index file
+#'
+#' @param vbi_path Path to the VBI index file
+#' @param n Number of lines to print (default: 10)
+#' @export
+VBIPrintIndex <- function(vbi_path, n = 10) {
+    invisible(.Call(
+        "RC_VBI_print_index",
+        as.character(vbi_path),
+        as.integer(n)
+    ))
+}
 #' VBI Index
 #'
 #' Create a VBI index for a VCF/BCF file.
