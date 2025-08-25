@@ -118,8 +118,8 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
     return lines;
 }
 
-//' Query VCF/BCF by variant index range (nth to kth, 1-based, inclusive, no header)
-SEXP RC_VBI_query_index(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
+//' Query VCF/BCF by contiguous variant index range (nth to kth, 1-based, inclusive, no header)
+SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
@@ -130,8 +130,8 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_id
     PROTECT_INDEX idx_prot;
     PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
     int nfound = 0;
-    int *indices = vbi_index_query_index_range(idx, start, end, &nfound);
-    if (!indices || nfound == 0) {
+    nfound = end - start + 1;
+    if (nfound <= 0) {
         lines = allocVector(STRSXP, 0);
         REPROTECT(lines, idx_prot);
         UNPROTECT(1);
@@ -139,34 +139,35 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_id
     }
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
-        free(indices);
         UNPROTECT(1);
         Rf_error("Failed to open VCF/BCF: %s", vcf);
     }
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if (!hdr) {
         hts_close(fp);
-        free(indices);
         UNPROTECT(1);
         Rf_error("Failed to read VCF/BCF header: %s", vcf);
     }
     lines = allocVector(STRSXP, nfound);
     REPROTECT(lines, idx_prot);
     bcf1_t *rec = bcf_init();
+    // Seek once to the first offset
+    int seek_ok = 0;
+    if (fp->format.compression == bgzf) {
+        BGZF *bg = (BGZF *)fp->fp.bgzf;
+        seek_ok = (bgzf_seek(bg, idx->offsets[start], SEEK_SET) == 0);
+    } else {
+        hFILE *hf = (hFILE *)fp->fp.hfile;
+        seek_ok = (hseek(hf, (off_t)idx->offsets[start], SEEK_SET) == 0);
+    }
+    if (!seek_ok) {
+        bcf_destroy(rec);
+        bcf_hdr_destroy(hdr);
+        hts_close(fp);
+        UNPROTECT(1);
+        Rf_error("Failed to seek to first record");
+    }
     for (int i = 0; i < nfound; ++i) {
-        int idx_var = indices[i];
-        int seek_ok = 0;
-        if (fp->format.compression == bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            seek_ok = (bgzf_seek(bg, idx->offsets[idx_var], SEEK_SET) == 0);
-        } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            seek_ok = (hseek(hf, (off_t)idx->offsets[idx_var], SEEK_SET) == 0);
-        }
-        if (!seek_ok) {
-            SET_STRING_ELT(lines, i, mkChar(""));
-            continue;
-        }
         int r = bcf_read(fp, hdr, rec);
         if (r < 0) {
             SET_STRING_ELT(lines, i, mkChar(""));
@@ -181,7 +182,6 @@ SEXP RC_VBI_query_index(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_id
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
     hts_close(fp);
-    free(indices);
     UNPROTECT(1);
     return lines;
 }

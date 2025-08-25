@@ -77,17 +77,24 @@ VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
 #' @param VcfPath Path to the VCF/BCF file
 #' @param VbiPath Path to the VBI index file
 #' @param StartIdx Start index for index-based query
-#' @param EndIdx End index for index-based query
+
+#' @param EndingIndice End index for index-based query
 #' @param Threads Number of threads to use (default: 1)
 #' @return List of results
 #' @export
-VBIQueryIndex <- function(VcfPath, VbiPath, StartIdx, EndIdx, Threads = 1) {
+VBIQueryByIndices <- function(
+    VcfPath,
+    VbiPath,
+    StartingIndice,
+    EndingIndice,
+    Threads = 1
+) {
     .Call(
-        RC_VBI_query_index,
+        RC_VBI_query_by_indices,
         as.character(VcfPath),
         VbiPath,
-        as.integer(StartIdx),
-        as.integer(EndIdx),
+        as.integer(StartingIndice),
+        as.integer(EndingIndice),
         as.integer(Threads),
         PACKAGE = "RBCFLib"
     )
