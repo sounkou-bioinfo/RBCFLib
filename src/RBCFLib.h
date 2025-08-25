@@ -27,5 +27,13 @@ extern SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP vbi_path, SEXP start_idx
 extern SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n);
 SEXP RC_VBI_load_index(SEXP vbi_path);
 SEXP RC_VBI_query_region_cgranges(SEXP idx_ptr, SEXP region_str);
+// VBI extract ranges
+SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n);
 
+// cgranges R bindings
+SEXP RC_cgranges_create();
+SEXP RC_cgranges_add(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end, SEXP label);
+SEXP RC_cgranges_index(SEXP cr_ptr);
+SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end);
+SEXP RC_cgranges_destroy(SEXP cr_ptr);
 #endif /* RBCFLIB_H */

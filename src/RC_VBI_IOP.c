@@ -1,3 +1,7 @@
+#include "cgranges.h"
+
+// Forward declaration for finalizer
+SEXP RC_cgranges_destroy(SEXP cr_ptr);
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Print.h>
@@ -274,4 +278,88 @@ SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) 
     free(hits);
     UNPROTECT(1);
     return out;
+}
+
+
+// VBIExtractRanges: extract chrom/start/end/label from VBI index
+SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
+    if (!idx) Rf_error("[VBI] Index pointer is NULL");
+    int nvar = idx->num_marker;
+    int nout = n == R_NilValue || INTEGER(n)[0] == NA_INTEGER ? nvar : INTEGER(n)[0];
+    if (nout > nvar) nout = nvar;
+    SEXP chroms = PROTECT(allocVector(STRSXP, nout));
+    SEXP starts = PROTECT(allocVector(INTSXP, nout));
+    SEXP ends   = PROTECT(allocVector(INTSXP, nout));
+    SEXP labels = PROTECT(allocVector(INTSXP, nout));
+    for (int i = 0; i < nout; ++i) {
+        SET_STRING_ELT(chroms, i, mkChar(idx->chrom_names[idx->chrom_ids[i]]));
+        INTEGER(starts)[i] = idx->positions[i];
+        INTEGER(ends)[i]   = idx->positions[i];
+        INTEGER(labels)[i] = i;
+    }
+    SEXP df = PROTECT(allocVector(VECSXP, 4));
+    SET_VECTOR_ELT(df, 0, chroms);
+    SET_VECTOR_ELT(df, 1, starts);
+    SET_VECTOR_ELT(df, 2, ends);
+    SET_VECTOR_ELT(df, 3, labels);
+    SEXP names = PROTECT(allocVector(STRSXP, 4));
+    SET_STRING_ELT(names, 0, mkChar("chrom"));
+    SET_STRING_ELT(names, 1, mkChar("start"));
+    SET_STRING_ELT(names, 2, mkChar("end"));
+    SET_STRING_ELT(names, 3, mkChar("label"));
+    setAttrib(df, R_NamesSymbol, names);
+    UNPROTECT(6);
+    return df;
+}
+
+// Minimal cgranges R binding
+typedef struct {
+    cgranges_t *cr;
+} cgranges_ptr_t;
+
+SEXP RC_cgranges_create() {
+    cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_Calloc(1, cgranges_ptr_t);
+    ptr->cr = cr_init();
+    SEXP ext = PROTECT(R_MakeExternalPtr(ptr, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(ext, (R_CFinalizer_t)RC_cgranges_destroy, TRUE);
+    UNPROTECT(1);
+    return ext;
+}
+
+SEXP RC_cgranges_add(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end, SEXP label) {
+    cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_ExternalPtrAddr(cr_ptr);
+    if (!ptr || !ptr->cr) Rf_error("[cgranges] Null pointer");
+    cr_add(ptr->cr, CHAR(STRING_ELT(chrom, 0)), INTEGER(start)[0], INTEGER(end)[0], INTEGER(label)[0]);
+    return R_NilValue;
+}
+
+SEXP RC_cgranges_index(SEXP cr_ptr) {
+    cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_ExternalPtrAddr(cr_ptr);
+    if (!ptr || !ptr->cr) Rf_error("[cgranges] Null pointer");
+    cr_index(ptr->cr);
+    return R_NilValue;
+}
+
+SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end) {
+    cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_ExternalPtrAddr(cr_ptr);
+    if (!ptr || !ptr->cr) Rf_error("[cgranges] Null pointer");
+    int64_t *b = 0, max_b = 0;
+    int n = cr_overlap(ptr->cr, CHAR(STRING_ELT(chrom, 0)), INTEGER(start)[0], INTEGER(end)[0], &b, &max_b);
+    SEXP res = PROTECT(allocVector(INTSXP, n));
+    for (int i = 0; i < n; ++i) INTEGER(res)[i] = (int)b[i];
+    if (b) free(b);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP RC_cgranges_destroy(SEXP cr_ptr) {
+    cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_ExternalPtrAddr(cr_ptr);
+    if (ptr && ptr->cr) {
+        cr_destroy(ptr->cr);
+        ptr->cr = NULL;
+        R_Free(ptr);
+    }
+    R_ClearExternalPtr(cr_ptr);
+    return R_NilValue;
 }

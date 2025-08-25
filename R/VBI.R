@@ -1,3 +1,40 @@
+#' Extract variant ranges from a VBI index pointer
+#' @param VbiPtr External pointer to VBI index
+#' @param n Number of ranges to extract (default: all)
+#' @return data.frame with chrom, start, end, label
+#' @export
+VBIExtractRanges <- function(VbiPtr, n = NA) {
+    .Call(RC_VBI_extract_ranges, VbiPtr, n)
+}
+
+#' cgranges R binding: create, add, index, overlap, destroy
+#' @export
+CGRangesCreate <- function() .Call(RC_cgranges_create)
+#' @export
+CGRangesAdd <- function(cr, chrom, start, end, label) {
+    .Call(
+        RC_cgranges_add,
+        cr,
+        as.character(chrom),
+        as.integer(start),
+        as.integer(end),
+        as.integer(label)
+    )
+}
+#' @export
+CGRangesIndex <- function(cr) .Call(RC_cgranges_index, cr)
+#' @export
+CGRangesOverlap <- function(cr, chrom, start, end) {
+    .Call(
+        RC_cgranges_overlap,
+        cr,
+        as.character(chrom),
+        as.integer(start),
+        as.integer(end)
+    )
+}
+#' @export
+CGRangesDestroy <- function(cr) .Call(RC_cgranges_destroy, cr)
 #' Load a VBI index file and return an external pointer
 #'
 #' @param vbi_path Path to the VBI index file

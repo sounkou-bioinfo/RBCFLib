@@ -6,6 +6,12 @@
 
 /* R native routine registration */
 static const R_CallMethodDef CallEntries[] = {
+    {"RC_VBI_extract_ranges", (DL_FUNC) &RC_VBI_extract_ranges, 2},
+    {"RC_cgranges_create", (DL_FUNC) &RC_cgranges_create, 0},
+    {"RC_cgranges_add", (DL_FUNC) &RC_cgranges_add, 5},
+    {"RC_cgranges_index", (DL_FUNC) &RC_cgranges_index, 1},
+    {"RC_cgranges_overlap", (DL_FUNC) &RC_cgranges_overlap, 4},
+    {"RC_cgranges_destroy", (DL_FUNC) &RC_cgranges_destroy, 1},
     {"RC_VBI_load_index", (DL_FUNC) &RC_VBI_load_index, 1},
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
