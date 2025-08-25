@@ -5,9 +5,10 @@
 #' @export
 VBIPrintIndex <- function(vbi_path, n = 10) {
     invisible(.Call(
-        "RC_VBI_print_index",
+        RC_VBI_print_index,
         as.character(vbi_path),
-        as.integer(n)
+        as.integer(n),
+        PACKAGE = "RBCFLib"
     ))
 }
 #' VBI Index
