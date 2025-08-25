@@ -22,7 +22,6 @@ system.time(vbi_ptr <- VBIIndexLoad(vbi))
 
 # Print the first 5 lines of the VBI index (for debug/coverage)
 system.time(expect_silent(VBIPrintIndex(vbi_ptr, 5)))
-VBIPrintIndex(vbi_ptr, 5) |> cat()
 
 # Query by region
 system.time(
