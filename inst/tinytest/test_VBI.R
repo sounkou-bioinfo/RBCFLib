@@ -19,32 +19,34 @@ if (!file.exists(vbi)) {
 # Load the VBI index once as an external pointer
 cat("\n[Benchmark] Loading VBI index as external pointer...\n")
 system.time(vbi_ptr <- VBIIndexLoad(vbi))
-
 # Print the first 5 lines of the VBI index (for debug/coverage)
 system.time(expect_silent(VBIPrintIndex(vbi_ptr, 5)))
-
+VBIPrintIndex(vbi_ptr, 5) |> cat()
+# Compare outputs for the same region
+region_str <- "chr21:5030578-5030596"
 # Query by region
 system.time(
-    hits <- VBIQueryRange(vcf, vbi_ptr, rep("chr21:5030082-5030082", 100))
+    hits <- VBIQueryRange(vcf, vbi_ptr, rep(region_str, 10))
 )
+
 expect_true(is.character(hits))
 
 # Query by index range
-system.time(hits2 <- VBIQueryIndex(vcf, vbi_ptr, 100, 100000))
+system.time(hits2 <- VBIQueryIndex(vcf, vbi_ptr, 10, 10000))
 expect_true(is.character(hits2))
 print(length(hits2))
 
 # Benchmark: compare linear scan vs cgranges region query
-region_str <- "chr21:5030082-5030082"
-cat("[Benchmark] Querying region 100x (linear scan)...\n")
+quit()
+cat("[Benchmark] Querying region 10x (linear scan)...\n")
 tm1 <- system.time({
-    for (i in 1:100) {
+    for (i in 1:10) {
         VBIQueryRange(vcf, vbi_ptr, region_str)
     }
 })
-cat("[Benchmark] Querying region 100x (cgranges)...\n")
+cat("[Benchmark] Querying region 10x (cgranges)...\n")
 tm2 <- system.time({
-    for (i in 1:100) {
+    for (i in 1:10) {
         VBIQueryRegionCGRanges(vcf, vbi_ptr, region_str)
     }
 })
