@@ -8,12 +8,12 @@
 #' @return Path to index file
 #' @export
 VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
-  .Call(
-    RC_VBI_index,
-    as.character(VcfPath),
-    as.character(VbiPath),
-    as.integer(Threads)
-  )
+    .Call(
+        RC_VBI_index,
+        as.character(VcfPath),
+        as.character(VbiPath),
+        as.integer(Threads)
+    )
 }
 
 #' Query VBI index by region
@@ -25,13 +25,13 @@ VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
 #' @return List of results
 #' @export
 VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
-  .Call(
-    RC_VBI_query_range,
-    as.character(VcfPath),
-    as.character(VbiPath),
-    as.character(Region),
-    as.integer(Threads)
-  )
+    .Call(
+        RC_VBI_query_range,
+        as.character(VcfPath),
+        as.character(VbiPath),
+        as.character(Region),
+        as.integer(Threads)
+    )
 }
 
 #' Query VBI index by marker index range
@@ -44,12 +44,12 @@ VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
 #' @return List of results
 #' @export
 VBIQueryIndex <- function(VcfPath, VbiPath, StartIdx, EndIdx, Threads = 1) {
-  .Call(
-    RC_VBI_query_index,
-    as.character(VcfPath),
-    as.character(VbiPath),
-    as.integer(StartIdx),
-    as.integer(EndIdx),
-    as.integer(Threads)
-  )
+    .Call(
+        RC_VBI_query_index,
+        as.character(VcfPath),
+        as.character(VbiPath),
+        as.integer(StartIdx),
+        as.integer(EndIdx),
+        as.integer(Threads)
+    )
 }

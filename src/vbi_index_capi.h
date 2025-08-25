@@ -14,6 +14,7 @@
 #include "cgranges.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <Rinternals.h>
 
 typedef struct {
     int64_t num_sample;

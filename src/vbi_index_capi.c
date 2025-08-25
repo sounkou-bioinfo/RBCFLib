@@ -129,12 +129,12 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
         fp = hts_open(infile, "r");
     }
     if (!fp) {
-        fprintf(stderr, "Error: cannot open %s\n", infile);
+        Rf_error("Error: cannot open %s\n", infile);
         return 1;
     }
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if (!hdr) {
-        fprintf(stderr, "Error: failed to read VCF/BCF header\n");
+        Rf_error("Error: failed to read VCF/BCF header\n");
         hts_close(fp);
         return 1;
     }
@@ -152,7 +152,11 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
     positions = malloc(alloc * sizeof(int64_t));
     offsets = malloc(alloc * sizeof(int64_t));
     bcf1_t *rec = bcf_init();
-    while (bcf_read(fp, hdr, rec) == 0) {
+    while (1) {
+        BGZF *bg = (BGZF *)fp->fp.bgzf;
+        int64_t this_offset = bgzf_tell(bg);
+        int ret = bcf_read(fp, hdr, rec);
+        if (ret != 0) break;
         const char *chr = bcf_hdr_id2name(hdr, rec->rid);
         // Find or add chrom
         int found = 0;
@@ -175,8 +179,7 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
         }
         chrom_ids[n] = chrom_id;
         positions[n] = rec->pos + 1;
-        BGZF *bg = (BGZF *)fp->fp.bgzf;
-        offsets[n] = bgzf_tell(bg);
+        offsets[n] = this_offset;
         n++;
     }
     num_marker = n;
@@ -204,7 +207,7 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
     fclose(fidx);
     for (int i = 0; i < chrom_count; ++i) free(chrom_names[i]);
     free(chrom_names); free(chrom_ids); free(positions); free(offsets);
-    printf("Indexing finished: %" PRId64 " samples, %" PRId64 " markers, %d chromosomes\n", num_sample, num_marker, chrom_count);
+    Rprintf("Indexing  finished: %" PRId64 " samples, %" PRId64 " markers, %d chromosomes\n", num_sample, num_marker, chrom_count);
     return 0;
 }
 
