@@ -52,7 +52,7 @@ cat('CGRangesExtractByIndex(cr, 3):\n')
 print(CGRangesExtractByIndex(cr, 3))
 res <- CGRangesExtractByIndex(cr, c(1, 2, 3))
 print(res$chrom)
-expect_equal(is.na(res$chrom), c(FALSE, FALSE, TRUE))
+expect_equal(res$chrom, c("chr1", "chr1", "chr2"))
 expect_equal(res$start, c(10, 15, 5))
 expect_equal(res$end, c(20, 25, 15))
 expect_equal(res$label, c(2, 3, 4)) # label is 1-based in R
