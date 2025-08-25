@@ -2,15 +2,15 @@
 % Please edit documentation in R/VBI.R
 \name{VBIPrintIndex}
 \alias{VBIPrintIndex}
-\title{Print the first n lines of a VBI index file}
+\title{Print the first n lines of a VBI index (from an external pointer)}
 \usage{
-VBIPrintIndex(vbi_path, n = 10)
+VBIPrintIndex(vbi_ptr, n = 10)
 }
 \arguments{
-\item{vbi_path}{Path to the VBI index file}
+\item{vbi_ptr}{External pointer to loaded VBI index}
 
 \item{n}{Number of lines to print (default: 10)}
 }
 \description{
-Print the first n lines of a VBI index file
+Print the first n lines of a VBI index (from an external pointer)
 }
