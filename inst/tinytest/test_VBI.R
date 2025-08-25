@@ -45,7 +45,7 @@ tm1 <- system.time({
 cat("[Benchmark] Querying region 100x (cgranges)...\n")
 tm2 <- system.time({
     for (i in 1:100) {
-        VBIQueryRegionCGRanges(vbi_ptr, region_str)
+        VBIQueryRegionCGRanges(vcf, vbi_ptr, region_str)
     }
 })
 cat(sprintf("[Benchmark] Linear scan: %g sec\n", tm1[3]))
