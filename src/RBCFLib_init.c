@@ -19,7 +19,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"RC_VBI_query_range", (DL_FUNC) &RC_VBI_query_range, 4},
     {"RC_VBI_query_index", (DL_FUNC) &RC_VBI_query_index, 5},
     {"RC_VBI_print_index", (DL_FUNC) &RC_VBI_print_index, 2},
-    {"RC_VBI_query_region_cgranges", (DL_FUNC) &RC_VBI_query_region_cgranges, 2},
+    {"RC_VBI_query_region_cgranges", (DL_FUNC) &RC_VBI_query_region_cgranges, 3},
     {NULL, NULL, 0}
 };
 
