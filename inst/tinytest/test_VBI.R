@@ -32,7 +32,7 @@ system.time(
 expect_true(is.character(hits))
 
 # Query by index range
-system.time(hits2 <- VBIQueryIndex(vcf, vbi_ptr, 10, 10000))
+system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 10, 10000))
 expect_true(is.character(hits2))
 print(length(hits2))
 
