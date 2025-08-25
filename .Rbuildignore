@@ -32,3 +32,4 @@ DONTCHECKMEIN.R
 ^src/bcftools-1\.22/htslib-1\.22/test/.*$
 ^src/bcftools-1\.22/test/.*$
 ^src/bcftools-1.22/htslib-1.22/htscodecs/tests/.*$
+^[.]?air[.]toml$

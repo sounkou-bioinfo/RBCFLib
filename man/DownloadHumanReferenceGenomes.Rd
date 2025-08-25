@@ -9,9 +9,9 @@ DownloadHumanReferenceGenomes(
   grch38_dir = file.path(Sys.getenv("HOME"), "GRCh38"),
   urls = list(grch37_fasta =
     "http://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/human_g1k_v37.fasta.gz",
-    grch38_fasta =
-    "http://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz",
-    grch37_cytoband =
+    grch38_fasta = paste0("http://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/",
+    "GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/",
+    "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz"), grch37_cytoband =
     "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz",
     grch38_cytoband =
     "http://hgdownload.cse.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz",

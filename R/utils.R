@@ -34,6 +34,8 @@ FaidxFetchRegion <- function(fasta_path, seqname, start, end) {
   )
 }
 
+# should probably add zstd
+
 #' Download human reference genomes (GRCh37 and GRCh38)
 #'
 #' Downloads the GRCh37 and GRCh38 human reference FASTA files and their indexes to the specified directories.
@@ -67,7 +69,11 @@ DownloadHumanReferenceGenomes <- function(
   grch38_dir = file.path(Sys.getenv("HOME"), "GRCh38"),
   urls = list(
     grch37_fasta = "http://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/human_g1k_v37.fasta.gz",
-    grch38_fasta = "http://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz",
+    grch38_fasta = paste0(
+      "http://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/",
+      "GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/",
+      "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz"
+    ),
     grch37_cytoband = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/cytoBand.txt.gz",
     grch38_cytoband = "http://hgdownload.cse.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz",
     grch37_chain = "http://hgdownload.cse.ucsc.edu/goldenpath/hg18/liftOver/hg18ToHg19.over.chain.gz",
@@ -83,8 +89,10 @@ DownloadHumanReferenceGenomes <- function(
   dir.create(grch38_dir, showWarnings = FALSE, recursive = TRUE)
 
   # GRCh37
-  grch37_fasta_gz <- file.path(grch37_dir, "human_g1k_v37.fasta.gz")
-  grch37_fasta <- file.path(grch37_dir, "human_g1k_v37.fasta")
+  grch37_fasta_gz <- file.path(grch37_dir, basename(urls$grch37_fasta))
+
+  grch37_fasta <- gsub(".gz$", "", grch37_fasta_gz)
+
   grch37_fai <- paste0(grch37_fasta, ".fai")
 
   if (!file.exists(grch37_fasta)) {
@@ -126,12 +134,9 @@ DownloadHumanReferenceGenomes <- function(
   # GRCh38
   grch38_fasta_gz <- file.path(
     grch38_dir,
-    "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz"
+    basename(urls$grch38_fasta)
   )
-  grch38_fasta <- file.path(
-    grch38_dir,
-    "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
-  )
+  grch38_fasta <- gsub(".gz$", "", grch38_fasta_gz)
   grch38_fai <- paste0(grch38_fasta, ".fai")
 
   if (!file.exists(grch38_fasta)) {
@@ -175,8 +180,8 @@ DownloadHumanReferenceGenomes <- function(
   chain_files <- NULL
   if (cytoband) {
     cytoband_files <- list(
-      grch37 = file.path(grch37_dir, "cytoBand.txt.gz"),
-      grch38 = file.path(grch38_dir, "cytoBand.txt.gz")
+      grch37 = file.path(grch37_dir, basename(urls$grch37_cytoband)),
+      grch38 = file.path(grch38_dir, basename(urls$grch38_cytoband))
     )
     if (!file.exists(cytoband_files$grch37)) {
       tryCatch(
@@ -221,9 +226,9 @@ DownloadHumanReferenceGenomes <- function(
   }
   if (chain) {
     chain_files <- list(
-      grch37 = file.path(grch37_dir, "hg18ToHg19.over.chain.gz"),
-      grch38_18 = file.path(grch38_dir, "hg18ToHg38.over.chain.gz"),
-      grch38_19 = file.path(grch38_dir, "hg19ToHg38.over.chain.gz")
+      grch37 = file.path(grch37_dir, basename(urls$grch37_chain)),
+      grch38_18 = file.path(grch38_dir, basename(urls$grch38_chain_18)),
+      grch38_19 = file.path(grch38_dir, basename(urls$grch38_chain_19))
     )
     if (!file.exists(chain_files$grch37)) {
       tryCatch(
@@ -386,4 +391,34 @@ DecompressFile <- function(
 
   # Return the output file path even if there was an error
   return(output_file)
+}
+
+
+# Function to collect output from file (handles both text and binary)
+collect_output <- function(file_path, ...) {
+  if (!file.exists(file_path) || file.info(file_path)$size == 0) {
+    return(character(0))
+  }
+
+  result <- tryCatch(
+    {
+      con <- file(file_path, "r")
+      on.exit(close(con), add = TRUE)
+      readLines(con)
+    },
+    error = function(e) {
+      # Handle binary output by reading as raw if text reading fails
+      con <- file(file_path, "rb")
+      on.exit(close(con), add = TRUE)
+      readBin(con, what = "raw", n = file.info(file_path)$size)
+    }
+  )
+
+  return(result)
+}
+
+#' Get the path to the bcftools binary
+#' @export
+BCFTOOLS_PLUGINS <- function() {
+  return(system.file("bin", "plugins", package = "RBCFLib"))
 }

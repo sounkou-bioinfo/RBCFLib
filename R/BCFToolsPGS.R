@@ -184,17 +184,20 @@ BCFToolsPGS <- function(
 
   # Create temporary files for stderr (and stdout if needed)
   stderrFile <- tempfile("bcftools_stderr_")
-  stdoutFile <- if (is.null(SaveStdout)) tempfile("bcftools_stdout_") else
+  stdoutFile <- if (is.null(SaveStdout)) {
+    tempfile("bcftools_stdout_")
+  } else {
     SaveStdout
+  }
 
   # Call the unified pipeline C function
   status <- tryCatch(
     {
       pipeline_result <- .Call(
         RC_bcftools_pipeline,
-        list("+pgs"),           # Plugin command wrapped in list
-        list(args),             # Args wrapped in list
-        1L,                     # Number of commands = 1
+        list("+pgs"), # Plugin command wrapped in list
+        list(args), # Args wrapped in list
+        1L, # Number of commands = 1
         CatchStdout,
         CatchStderr,
         stdoutFile,

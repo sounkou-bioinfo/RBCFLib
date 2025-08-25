@@ -21,6 +21,7 @@ THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
+#ifndef _WIN32
 
 #include <errno.h>
 #include <fcntl.h>
@@ -62,6 +63,7 @@ static off_t mmap_seek(hFILE *fpv, off_t offset, int whence)
     hFILE_mmap *fp = (hFILE_mmap *) fpv;
     size_t absoffset = (offset >= 0)? offset : -offset;
     size_t origin;
+    //fprintf(stderr, "[mmap] seek %ld bytes %s\n", absoffset, (offset < 0)? "backward" : "forward");
 
     switch (whence) {
     case SEEK_SET: origin = 0; break;
@@ -119,6 +121,8 @@ static hFILE *hopen_mmap(const char *filename, const char *modestr)
     }
 
     data = mmap(NULL, st.st_size, prot, MAP_SHARED, fd, 0);
+    fprintf(stderr, "[mmap] mapped %s at %p, length=%zu bytes\n",
+        filename, data, (size_t) st.st_size);
     if (data == MAP_FAILED) goto error;
 
     fp = (hFILE_mmap *) hfile_init(sizeof (hFILE_mmap), modestr, st.st_blksize);
@@ -154,3 +158,4 @@ int hfile_plugin_init(struct hFILE_plugin *self)
 int hfile_plugin_init_mmap(void) {
     return hfile_plugin_init(NULL);
 }
+#endif

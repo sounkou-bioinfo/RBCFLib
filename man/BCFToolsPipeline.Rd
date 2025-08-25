@@ -54,17 +54,17 @@ command of the pipeline and only for commands that support output redirection.
 # Pipeline of three commands: view, filter, annotate
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 result <- BCFToolsPipeline(
-    "view", c("-r", "chr1:1000-2000", vcfFile),
-    "view", c("-i", "QUAL>20"),
-    "annotate", c("-x", "INFO")
+  "view", c("-r", "chr1:1000-2000", vcfFile),
+  "view", c("-i", "QUAL>20"),
+  "annotate", c("-x", "INFO")
 )
 
 # Filter, sort and output to file (only last command has -o)
 outFile <- tempfile(fileext = ".vcf.gz")
 BCFToolsPipeline(
-    "view", c("-i", "'DP>30'", vcfFile),
-    "sort", character(),
-    "view", c("-Oz", "-o", outFile)
+  "view", c("-i", "'DP>30'", vcfFile),
+  "sort", character(),
+  "view", c("-Oz", "-o", outFile)
 )
 
 # INVALID: -o in non-final command (will throw error)

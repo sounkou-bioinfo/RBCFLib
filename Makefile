@@ -5,6 +5,7 @@
 PKGNAME = `sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION`
 PKGVERS = `sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION`
 
+.PHONY: all build check install install2 install_deps rd clean
 
 all: check
 
@@ -15,15 +16,18 @@ check: build
 	R CMD check --no-manual $(PKGNAME)_$(PKGVERS).tar.gz
 
 install_deps:
-	Rscript \
+	R \
 	-e 'if (!requireNamespace("remotes")) install.packages("remotes")' \
 	-e 'remotes::install_deps(dependencies = TRUE)'
 
 install: build
 	R CMD INSTALL $(PKGNAME)_$(PKGVERS).tar.gz
 
+install2:
+	R CMD INSTALL --no-configure .
+
 rd: 
-	Rscript -e 'roxygen2::roxygenise(".")'
+	R -e 'roxygen2::roxygenise(".")'
 
 clean:
 	@rm -rf $(PKGNAME)_$(PKGVERS).tar.gz $(PKGNAME).Rcheck

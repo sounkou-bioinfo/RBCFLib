@@ -45,8 +45,11 @@ BCFToolsRun <- function(
 ) {
   # Create temporary files for stderr (and stdout if needed)
   stderrFile <- tempfile("bcftools_stderr_")
-  stdoutFile <- if (is.null(saveStdout)) tempfile("bcftools_stdout_") else
+  stdoutFile <- if (is.null(saveStdout)) {
+    tempfile("bcftools_stdout_")
+  } else {
     saveStdout
+  }
 
   # List of valid bcftools commands
   validCommands <- c(
@@ -76,7 +79,52 @@ BCFToolsRun <- function(
     "help",
     "polysomy",
     # plugin commands
-    "+GTisec","+GTsubset","+ad-bias","+add-variantkey","+af-dist","+allele-length","+blup","+check-ploidy","+check-sparsity","+color-chrs","+contrast","+counts","+dosage","+fill-AN-AC","+fill-from-fasta","+fill-tags","+fixploidy","+fixref","+frameshifts","+guess-ploidy","+gvcfz","+impute-info","+indel-stats","+isecGT","+liftover","+mendelian2","+metal","+missing2ref","+munge","+parental-origin","+prune","+remove-overlaps","+scatter","+score","+setGT","+smpl-stats","+split","+split-vep","+tag2tag","+trio-dnm2","+trio-stats","+trio-switch-rate","+variant-distance","+variantkey-hex","+vcf2table","+vrfs"
+    "+GTisec",
+    "+GTsubset",
+    "+ad-bias",
+    "+add-variantkey",
+    "+af-dist",
+    "+allele-length",
+    "+blup",
+    "+check-ploidy",
+    "+check-sparsity",
+    "+color-chrs",
+    "+contrast",
+    "+counts",
+    "+dosage",
+    "+fill-AN-AC",
+    "+fill-from-fasta",
+    "+fill-tags",
+    "+fixploidy",
+    "+fixref",
+    "+frameshifts",
+    "+guess-ploidy",
+    "+gvcfz",
+    "+impute-info",
+    "+indel-stats",
+    "+isecGT",
+    "+liftover",
+    "+mendelian2",
+    "+metal",
+    "+missing2ref",
+    "+munge",
+    "+parental-origin",
+    "+prune",
+    "+remove-overlaps",
+    "+scatter",
+    "+score",
+    "+setGT",
+    "+smpl-stats",
+    "+split",
+    "+split-vep",
+    "+tag2tag",
+    "+trio-dnm2",
+    "+trio-stats",
+    "+trio-switch-rate",
+    "+variant-distance",
+    "+variantkey-hex",
+    "+vcf2table",
+    "+vrfs"
   )
 
   # Input validation
@@ -159,7 +207,7 @@ BCFToolsRun <- function(
   if (catchStdout) {
     # Commands that don't support standard output redirection with -o option
     # Based on the pysam implementation
-    EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats")
+    EXCLUDED_COMMANDS <- c("head", "index", "roh", "stats", "+guess-ploidy")
 
     if (!is.null(saveStdout)) {
       # User explicitly requested to save stdout to a file
@@ -197,15 +245,15 @@ BCFToolsRun <- function(
   # Call the C function using the unified pipeline interface
   pipeline_result <- .Call(
     RC_bcftools_pipeline,
-    list(command),           # Single command wrapped in list
-    list(working_args[[1]]), # Single args list wrapped in list  
-    1L,                      # Number of commands = 1
+    list(command), # Single command wrapped in list
+    list(working_args[[1]]), # Single args list wrapped in list
+    1L, # Number of commands = 1
     catchStdout,
     catchStderr,
     stdoutFile,
     stderrFile
   )
-  
+
   # Extract the single exit code and command attribute
   res_int <- pipeline_result[1]
   attr(res_int, "command") <- attr(pipeline_result, "command")

@@ -35,6 +35,7 @@ assoc_plot_version <- '2024-09-27'
 suppressPackageStartupMessages(library(optparse))
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(RBCFLib))
 if (capabilities()[['cairo']]) {
   options(bitmapType = 'cairo')
 }
@@ -444,7 +445,10 @@ if (!is.null(args$vcf)) {
     fmt <- paste0(fmt, '\\t%Consequence')
     names <- c(names, 'consequence')
     cmd <- paste0(
-      'bcftools +split-vep --output-type u --columns Consequence',
+      "BCFTOOLS_PLUGINS=",
+      BCFTOOLS_PLUGINS(),
+      " ",
+      ' +split-vep --output-type u --columns Consequence',
       opt_filter,
       opt_regions,
       ' "',
@@ -456,7 +460,11 @@ if (!is.null(args$vcf)) {
     )
   } else {
     cmd <- paste0(
-      'bcftools query --format "',
+      "BCFTOOLS_PLUGINS=",
+      BCFTOOLS_PLUGINS(),
+      " ",
+      BCFToolsBinaryPath(),
+      ' query --format "',
       fmt,
       '\\n"',
       opt_filter,

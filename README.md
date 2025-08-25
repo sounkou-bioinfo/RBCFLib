@@ -21,7 +21,7 @@ The goal that motivated **RBCFLib** is to provide a minimalist and performant R-
 For more details on these methods, refer to the BCFTools Score documentation: https://github.com/freeseek/score
 
 -   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
--   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()`
+-   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()` and the plugins `BCFTOOLS_PLUGINS()` installation directory
 
 **Installation**
 
@@ -46,11 +46,10 @@ library(RBCFLib)
 
 # Get bcftools version (from the bundled executable)
 BCFToolsVersion()
-
 # Run a bcftools command - executes as subprocess with full error handling
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 results <- BCFToolsRun("+vcf2table", vcfFile)
-# Create a pipeline of multiple bcftools commands - efficient C-managed piping
+# Create a pipeline of multiple bcftools commands - efficient C-managed piping on unix
 # The commands are executed as connected subprocesses with automatic pipe management
 results <- BCFToolsPipeline(
     "view", c("-r", "chr21", "-Ob", vcfFile),
@@ -64,12 +63,13 @@ print(results$stdout)
 
 The following features are planned for future development:
 
--   **Enhanced `bcftools` Wrapping:**
-    -   [ ] more plugins for basic statistics
--   **Direct BCF/VCF Data Manipulation in R:**
+-   **Direct BCF/VCF Data Manipulation in R with no additional dependency:**
+
     -   [ ] Develop functions for reading/scanning BCF/VCF files into R data structures ? (e.g., data frames or similar).
-    -   [ ] Minimal streaming like rbcf and vcfppR
--   **Some Interval Operations (kfunctions):**
-    -   [ ] Provide some utils for working with genomic intervals.
--   **Tabix Support:**
-    -   [ ] A tabix wrapper
+    -   [ ] Minimal streaming with memory mapped VCF/BCF
+
+-   **Arrow/duckb**
+    -   [ ]  Optional integration with [exon](https://github.com/wheretrue/exon) R bindings like [exonr](https://github.com/wheretrue/exon/tree/main/exon-r) and [biobabe](https://github.com/JosiahParry/biobabe)
+
+- **Windows support** :
+   -   [ ] Likely just use system2 and no drama
