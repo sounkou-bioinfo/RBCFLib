@@ -9,11 +9,11 @@
 #include "htslib/bgzf.h"
 #include "htslib/vcf.h"
 #include "htslib/hfile.h"
+#include "vbi_index_capi.h"
 #include "cgranges.h"
 // Forward declaration for finalizer (after SEXP is defined)
 SEXP RC_cgranges_destroy(SEXP cr_ptr);
 // Forward declarations from vbi_index.c and vbi_index_capi.h
-#include "vbi_index_capi.h"
 int do_index(const char *infile, const char *outfile, int n_threads);
 
 // Minimal cr_chrom implementation for cgranges_t (do not modify cgranges library files)
@@ -58,6 +58,8 @@ SEXP RC_VBI_index(SEXP vcf_path, SEXP vbi_path, SEXP threads) {
 }
 
 // Helper: download remote file to local path (R's download.file)
+// we will get back to this
+// avoiding the R C API is advised 
 static int download_file(const char *url, const char *dest) {
     SEXP call = PROTECT(lang4(install("download.file"), mkString(url), mkString(dest), mkString("auto")));
     SEXP res = PROTECT(R_tryEval(call, R_GlobalEnv, NULL));
@@ -67,6 +69,7 @@ static int download_file(const char *url, const char *dest) {
 }
 
 //' Query VCF/BCF by region using VBI index (returns only records, no header)
+// the threads are decompression threads only
 SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);

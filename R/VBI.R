@@ -6,7 +6,8 @@ CGRangesOverlapVec <- function(cr, chrom, start, end) {
         cr,
         as.character(chrom),
         as.integer(start),
-        as.integer(end)
+        as.integer(end),
+        PACKAGE = "RBCFLib"
     )
 }
 
@@ -21,7 +22,8 @@ CGRangesExtractByIndex <- function(cr, indices) {
 #' @return data.frame with chrom, start, end, label
 #' @export
 VBIExtractRanges <- function(VbiPtr, n = NA) {
-    .Call(RC_VBI_extract_ranges, VbiPtr, n)
+    storage.mode(n) <- "integer"
+    .Call(RC_VBI_extract_ranges, VbiPtr, n, , PACKAGE = "RBCFLib")
 }
 
 #' cgranges R binding: create, add, index, overlap, destroy
@@ -35,7 +37,8 @@ CGRangesAdd <- function(cr, chrom, start, end, label) {
         as.character(chrom),
         as.integer(start),
         as.integer(end),
-        as.integer(label)
+        as.integer(label),
+        PACKAGE = "RBCFLib"
     )
 }
 #' @export
@@ -47,11 +50,14 @@ CGRangesOverlap <- function(cr, chrom, start, end) {
         cr,
         as.character(chrom),
         as.integer(start),
-        as.integer(end)
+        as.integer(end),
+        PACKAGE = "RBCFLib"
     )
 }
 #' @export
-CGRangesDestroy <- function(cr) .Call(RC_cgranges_destroy, cr)
+CGRangesDestroy <- function(cr) {
+    .Call(RC_cgranges_destroy, cr, PACKAGE = "RBCFLib")
+}
 #' Load a VBI index file and return an external pointer
 #'
 #' @param vbi_path Path to the VBI index file
@@ -103,7 +109,8 @@ VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
         RC_VBI_index,
         as.character(VcfPath),
         as.character(VbiPath),
-        as.integer(Threads)
+        as.integer(Threads),
+        PACKAGE = "RBCFLib"
     )
 }
 
