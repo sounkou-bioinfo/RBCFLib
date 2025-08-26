@@ -41,14 +41,14 @@ print(length(hits2))
 # Benchmark: compare linear scan vs cgranges region query
 cat("[Benchmark] Querying region 10x (linear scan)...\n")
 tm1 <- system.time({
-    for (i in 1:10) {
-        VBIQueryRange(vcf, vbi_ptr, region_str)
+    for (i in 1:20) {
+        VBIQueryRange(vcf, vbi_ptr, sample(region_str))
     }
 })
 cat("[Benchmark] Querying region 10x (cgranges)...\n")
 tm2 <- system.time({
-    for (i in 1:10) {
-        VBIQueryRegionCGRanges(vcf, vbi_ptr, region_str)
+    for (i in 1:20) {
+        VBIQueryRegionCGRanges(vcf, vbi_ptr, sample(region_str))
     }
 })
 cat(sprintf("[Benchmark] Linear scan: %g sec\n", tm1[3]))
