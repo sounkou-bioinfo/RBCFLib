@@ -39,5 +39,5 @@ SEXP RC_cgranges_destroy(SEXP cr_ptr);
 // CGRanges vectorized overlap and extract by index
 SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end);
 SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices);
-
+SEXP RC_VBI_index_memory_usage(SEXP extPtr);
 #endif /* RBCFLIB_H */

@@ -15,7 +15,7 @@
 SEXP RC_cgranges_destroy(SEXP cr_ptr);
 // Forward declarations from vbi_index.c and vbi_index_capi.h
 int do_index(const char *infile, const char *outfile, int n_threads);
-
+SEXP RC_VBI_index_memory_usage(SEXP extPtr);
 // Minimal cr_chrom implementation for cgranges_t (do not modify cgranges library files)
 // Reconstruct contig index for interval i by searching ctg ranges
 static inline const char *cr_chrom(const cgranges_t *cr, int64_t i) {
@@ -454,4 +454,44 @@ SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices) {
     setAttrib(df, R_NamesSymbol, names);
     UNPROTECT(6);
     return df;
+}
+
+
+// Return the memory usage in bytes of a vbi_index_t structure
+SEXP RC_VBI_index_memory_usage(SEXP extPtr) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(extPtr);
+    if (!idx) return ScalarReal(NA_REAL);
+    size_t vbi_bytes = sizeof(vbi_index_t);
+    if (idx->chrom_ids) vbi_bytes += idx->num_marker * sizeof(int32_t);
+    if (idx->positions) vbi_bytes += idx->num_marker * sizeof(int64_t);
+    if (idx->offsets) vbi_bytes += idx->num_marker * sizeof(int64_t);
+    if (idx->chrom_names) {
+        for (int i = 0; i < idx->n_chroms; ++i) {
+            if (idx->chrom_names[i]) vbi_bytes += strlen(idx->chrom_names[i]) + 1;
+        }
+        vbi_bytes += idx->n_chroms * sizeof(char*);
+    }
+    size_t cr_bytes = 0;
+    if (idx->cr) {
+        cgranges_t *cr = (cgranges_t*) idx->cr;
+        cr_bytes += sizeof(cgranges_t);
+        if (cr->r) cr_bytes += cr->m_r * sizeof(cr_intv_t);
+        if (cr->ctg) cr_bytes += cr->m_ctg * sizeof(cr_ctg_t);
+        if (cr->hc) {/* skip, unknown size */}
+        // Add up contig name strings
+        if (cr->ctg) {
+            for (int i = 0; i < cr->n_ctg; ++i) {
+                if (cr->ctg[i].name) cr_bytes += strlen(cr->ctg[i].name) + 1;
+            }
+        }
+    }
+    SEXP out = PROTECT(allocVector(VECSXP, 2));
+    SEXP nms = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(nms, 0, mkChar("vbi_index_t_bytes"));
+    SET_STRING_ELT(nms, 1, mkChar("cgranges_t_bytes"));
+    SET_VECTOR_ELT(out, 0, ScalarReal((double)vbi_bytes));
+    SET_VECTOR_ELT(out, 1, ScalarReal((double)cr_bytes));
+    setAttrib(out, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return out;
 }

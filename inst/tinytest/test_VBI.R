@@ -4,8 +4,8 @@ library(RBCFLib)
 # get script path
 exdata <- system.file("exdata", package = "RBCFLib")
 vcf <- file.path(exdata, "imputed.gt.vcf.gz")
-#vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
-vcf <- "../data/clinvar_20250504.vcf.gz"
+vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
+#vcf <- "../data/clinvar_20250504.vcf.gz"
 vbi <- paste0(vcf, ".vbi")
 
 # Indexing
@@ -22,9 +22,17 @@ system.time(vbi_ptr <- VBIIndexLoad(vbi))
 # Print the first 5 lines of the VBI index (for debug/coverage)
 system.time(expect_silent(VBIPrintIndex(vbi_ptr, 5)))
 VBIPrintIndex(vbi_ptr, 100) |> cat()
+rmem <- VBIIndexMemoryUsage(vbi_ptr)
+cat(sprintf(
+  "[Info] vbi_index_t C-level memory usage: %.2f MB\n",
+  rmem[["vbi_index_t_bytes"]] / 1e6
+))
+cat(sprintf(
+  "[Info] cgranges_t  C-level memory usage: %.2f MB\n",
+  rmem[["cgranges_t_bytes"]] / 1e6
+))
 ranges <- VBIExtractRanges(vbi_ptr)
 print(length(ranges[[1]]))
-quit()
 # Compare outputs for the same region
 region_str <- paste0(ranges$chrom, ":", ranges$start, "-", ranges$end)
 region_str_cgranges <- paste0(

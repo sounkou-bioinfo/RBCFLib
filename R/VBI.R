@@ -1,3 +1,10 @@
+#' Get C-level memory usage of a VBI index pointer (in bytes)
+#' @param vbi_ptr External pointer to VBI index
+#' @return Numeric, memory usage in bytes
+#' @export
+VBIIndexMemoryUsage <- function(vbi_ptr) {
+    .Call(RC_VBI_index_memory_usage, vbi_ptr, PACKAGE = "RBCFLib")
+}
 #' Vectorized overlap for CGRanges
 #' @export
 CGRangesOverlapVec <- function(cr, chrom, start, end) {

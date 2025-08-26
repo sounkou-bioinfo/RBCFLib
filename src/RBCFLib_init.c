@@ -5,6 +5,7 @@
 #include "RBCFLib.h"
 
 /* R native routine registration */
+extern SEXP RC_VBI_index_memory_usage(SEXP);
 static const R_CallMethodDef CallEntries[] = {
     {"RC_VBI_extract_ranges", (DL_FUNC) &RC_VBI_extract_ranges, 2},
     {"RC_cgranges_create", (DL_FUNC) &RC_cgranges_create, 0},
@@ -27,6 +28,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"RC_VBI_print_index", (DL_FUNC) &RC_VBI_print_index, 2},
     {"RC_VBI_query_region_cgranges", (DL_FUNC) &RC_VBI_query_region_cgranges, 3},
     {"RC_cgranges_extract_by_index", (DL_FUNC) &RC_cgranges_extract_by_index, 2},
+    {"RC_VBI_index_memory_usage", (DL_FUNC) &RC_VBI_index_memory_usage, 1},
     {NULL, NULL, 0}
 };
 
