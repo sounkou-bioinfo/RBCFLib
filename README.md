@@ -2,7 +2,7 @@
 
 **RBCFLib** provides a minimalist and GWAS-VCF centric R wrapper for `htslib` and `bcftools`, enabling efficient manipulation of BCF/VCF genomic data files directly within R. The package includes bundled bcftools source code that is compiled during installation, then executes bcftools commands as optimized subprocesses through a C interface that handles piping, error capture, and process management. Some other convenience functions for common tasks are also provided including a custom index re-implementing the [`Seqminer2`](https://github.com/zhanxw/seqminer) vbi index format for fast random access.
 
-The goal of **RBCFLib** is to provide a minimalist infrastructure for performant R-based GWAS-VCF conversion and analysis tool as an fast and low dependency alternative to existing sumstats manipulation tools by leveraging the speed of [`bcftools munge`](https://github.com/freeseek/score).
+The goal of **RBCFLib** is to provide a minimalist infrastructure for performant R-based GWAS-VCF conversion and analysis tool as a fast and low dependency alternative to existing sumstats manipulation tools by leveraging the speed of [`bcftools munge`](https://github.com/freeseek/score).
 
 RBCFLib executes the full bcftools CLI as optimized subprocesses, ensuring compatibility with all bcftools features and plugins while maintaining high performance through efficient process management and piping.
 
@@ -113,3 +113,16 @@ hits <- VBIQueryRange("file.vcf.gz", vbi_ptr, "chr1:1000-2000")
 
 - RgwasVCF: Advanced GWAS-VCF manipulation and analysis with convenient interfaces, depending on RBCFLib.
 - RArrowBCF: High-performance BCF/VCF I/O using Apache Arrow for in-memory data representation.
+
+  
+## Requirements
+
+- R 
+- Unix-like OS (Linux, macOS)
+- htslib/bcftools system dependencies
+- optional: CHOLMOD for BCFToolsPGS
+
+## TODO
+
+- [ ] autoconvert the range request outputs to be lists or data.frames and not strings
+- [ ] BCF iterator for sequential reading of BCF/VCF files with automatic decompression and parsing, this will provide infrastructure for the nanoarrow implementation
