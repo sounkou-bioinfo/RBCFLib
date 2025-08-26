@@ -140,7 +140,11 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
 SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
+    //Rprintf("[DEBUG] vbi_ptr address: %p\n", (void*)idx_ptr);
+    //Rprintf("[DEBUG] vbi_index_t address: %p\n", (void*)idx);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
+    //Rprintf("[DEBUG] num_marker: %ld\n", (long)idx->num_marker);
+    //Rprintf("[DEBUG] offsets array address: %p\n", (void*)idx->offsets);
     int n_threads = asInteger(threads);
     int start = asInteger(start_idx) - 1;
     int end = asInteger(end_idx) - 1;
@@ -148,12 +152,20 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     PROTECT_INDEX idx_prot;
     PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
     int nfound = 0;
-    nfound = end - start + 1;
-    if (nfound <= 0) {
+    // Bounds check
+    if (start < 0) start = 0;
+    if (end >= idx->num_marker) end = idx->num_marker - 1;
+    if (end < start || start >= idx->num_marker) {
+        Rprintf("[VBI] Query indices out of bounds: start=%d end=%d num_marker=%ld\n", start, end, (long)idx->num_marker);
         lines = allocVector(STRSXP, 0);
         REPROTECT(lines, idx_prot);
         UNPROTECT(1);
         return lines;
+    }
+    nfound = end - start + 1;
+    //Rprintf("[DEBUG] Querying indices: start=%d end=%d nfound=%d\n", start, end, nfound);
+    for (int i = 0; i < 5 && (start + i) <= end; ++i) {
+        Rprintf("[DEBUG] offsets[%d] = %ld\n", start + i, (long)idx->offsets[start + i]);
     }
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
@@ -170,6 +182,7 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     REPROTECT(lines, idx_prot);
     bcf1_t *rec = bcf_init();
     // Seek once to the first offset
+    Rprintf("[DEBUG] Seeking to offset[%d]=%ld\n", start, (long)idx->offsets[start]);
     int seek_ok = 0;
     if (fp->format.compression == bgzf) {
         BGZF *bg = (BGZF *)fp->fp.bgzf;
@@ -179,6 +192,7 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
         seek_ok = (hseek(hf, (off_t)idx->offsets[start], SEEK_SET) == 0);
     }
     if (!seek_ok) {
+        Rprintf("[DEBUG] Failed to seek to offset[%d]=%ld\n", start, (long)idx->offsets[start]);
         bcf_destroy(rec);
         bcf_hdr_destroy(hdr);
         hts_close(fp);
@@ -202,6 +216,17 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     hts_close(fp);
     UNPROTECT(1);
     return lines;
+// Debug: VBI index finalizer
+void vbi_index_finalizer(SEXP extPtr) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(extPtr);
+    Rprintf("[DEBUG] vbi_index_finalizer called for extPtr=%p, idx=%p\n", (void*)extPtr, (void*)idx);
+    if (idx) {
+        Rprintf("[DEBUG] Freeing offsets array at %p\n", (void*)idx->offsets);
+    }
+    // Call the original finalizer if it exists
+    // (Assume original code frees idx and its arrays)
+    // ...existing code...
+}
 }
 
 

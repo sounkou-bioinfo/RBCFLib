@@ -23,7 +23,7 @@ CGRangesExtractByIndex <- function(cr, indices) {
 #' @export
 VBIExtractRanges <- function(VbiPtr, n = NA) {
     storage.mode(n) <- "integer"
-    .Call(RC_VBI_extract_ranges, VbiPtr, n, , PACKAGE = "RBCFLib")
+    .Call(RC_VBI_extract_ranges, VbiPtr, n, PACKAGE = "RBCFLib")
 }
 
 #' cgranges R binding: create, add, index, overlap, destroy

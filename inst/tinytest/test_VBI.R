@@ -42,11 +42,13 @@ print(length(hits))
 expect_true(is.character(hits))
 
 # Query by index range
-system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 10, 10000))
+tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
 expect_true(is.character(hits2))
-print(length(hits2))
+cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
+tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
+cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
 
-# Benchmark: compare linear scan vs cgranges region query
+quit()
 cat("[Benchmark] Querying region 100x (linear scan)...\n")
 nrange <- min(100, length(ranges[[1]]))
 tm1 <- system.time({
