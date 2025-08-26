@@ -7,37 +7,37 @@
 const char* BCFToolsBinaryPath(void);
 
 /* Version function declarations */
-SEXP RC_HTSLibVersion(void);
-SEXP RC_BCFToolsVersion(void);
+extern SEXP RC_HTSLibVersion(void);
+extern SEXP RC_BCFToolsVersion(void);
 
 /* Unified bcftools pipeline function */
 #ifndef _WIN32
 
-SEXP RC_bcftools_pipeline(SEXP commands, SEXP args, SEXP n_commands,
+extern SEXP RC_bcftools_pipeline(SEXP commands, SEXP args, SEXP n_commands,
                     SEXP capture_stdout, SEXP capture_stderr, SEXP stdout_file, SEXP stderr_file);
 #endif
 /* FASTA index and retrieval functions */
-SEXP RC_FaidxIndexFasta(SEXP fasta_path);
-SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
+extern SEXP RC_FaidxIndexFasta(SEXP fasta_path);
+extern SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
 
 /* VBI index and query functions */
 extern SEXP RC_VBI_index(SEXP vcf_path, SEXP vbi_path, SEXP threads);
 extern SEXP RC_VBI_query_range(SEXP vcf_path, SEXP vbi_path, SEXP region, SEXP threads);
 extern SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP vbi_path, SEXP start_idx, SEXP end_idx, SEXP threads);
 extern SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n);
-SEXP RC_VBI_load_index(SEXP vbi_path);
-SEXP RC_VBI_query_region_cgranges(SEXP idx_ptr, SEXP region_str);
+extern SEXP RC_VBI_load_index(SEXP vbi_path);
+extern SEXP RC_VBI_query_region_cgranges(SEXP idx_ptr, SEXP region_str);
 // VBI extract ranges
-SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n);
+extern SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n);
 
 // cgranges R bindings
-SEXP RC_cgranges_create();
-SEXP RC_cgranges_add(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end, SEXP label);
-SEXP RC_cgranges_index(SEXP cr_ptr);
-SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end);
-SEXP RC_cgranges_destroy(SEXP cr_ptr);
+extern SEXP RC_cgranges_create();
+extern SEXP RC_cgranges_add(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end, SEXP label);
+extern SEXP RC_cgranges_index(SEXP cr_ptr);
+extern SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end);
+extern SEXP RC_cgranges_destroy(SEXP cr_ptr);
 // CGRanges vectorized overlap and extract by index
-SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end);
-SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices);
-SEXP RC_VBI_index_memory_usage(SEXP extPtr);
+extern SEXP RC_cgranges_overlap(SEXP cr_ptr, SEXP chrom, SEXP start, SEXP end);
+extern SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices);
+extern SEXP RC_VBI_index_memory_usage(SEXP extPtr);
 #endif /* RBCFLIB_H */
