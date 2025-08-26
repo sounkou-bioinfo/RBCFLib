@@ -5,6 +5,7 @@ library(RBCFLib)
 exdata <- system.file("exdata", package = "RBCFLib")
 vcf <- file.path(exdata, "imputed.gt.vcf.gz")
 #vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
+#vcf <- "../data/clinvar_20250504.vcf.gz"
 vbi <- paste0(vcf, ".vbi")
 
 # Indexing
@@ -46,8 +47,8 @@ expect_true(is.character(hits2))
 print(length(hits2))
 
 # Benchmark: compare linear scan vs cgranges region query
-cat("[Benchmark] Querying region 10x (linear scan)...\n")
-nrange <- 10
+cat("[Benchmark] Querying region 100x (linear scan)...\n")
+nrange <- min(100, length(ranges[[1]]))
 tm1 <- system.time({
   for (i in 1:20) {
     VBIQueryRange(
@@ -57,7 +58,7 @@ tm1 <- system.time({
     )
   }
 })
-cat("[Benchmark] Querying region 10x (cgranges)...\n")
+cat("[Benchmark] Querying region 100x (cgranges)...\n")
 tm2 <- system.time({
   for (i in 1:20) {
     VBIQueryRegionCGRanges(
