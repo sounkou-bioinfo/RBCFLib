@@ -21,6 +21,7 @@ CGRangesExtractByIndex <- function(cr, indices) {
 #' @return data.frame with chrom, start, end, label
 #' @export
 VBIExtractRanges <- function(VbiPtr, n = NA) {
+    storage.mode(n) <- "integer"
     .Call(RC_VBI_extract_ranges, VbiPtr, n)
 }
 

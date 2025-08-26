@@ -4,9 +4,8 @@ library(RBCFLib)
 # get script path
 exdata <- system.file("exdata", package = "RBCFLib")
 vcf <- file.path(exdata, "imputed.gt.vcf.gz")
-vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.vcf.gz"
-vbi <- tempfile(fileext = ".vbi")
-vbi <- "test.vbi"
+vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
+vbi <- paste0(vcf, ".vbi")
 
 # Indexing
 if (!file.exists(vbi)) {
@@ -22,13 +21,16 @@ system.time(vbi_ptr <- VBIIndexLoad(vbi))
 # Print the first 5 lines of the VBI index (for debug/coverage)
 system.time(expect_silent(VBIPrintIndex(vbi_ptr, 5)))
 VBIPrintIndex(vbi_ptr, 5) |> cat()
-# Compare outputs for the same region
-region_str <- "chr21:5030578-5030596"
-# Query by region
-system.time(
-    hits <- VBIQueryRange(vcf, vbi_ptr, rep(region_str, 10))
-)
+ranges <- VBIExtractRanges(vbi_ptr)
 
+# Compare outputs for the same region
+region_str <- paste0(ranges$chrom, ":", ranges$start, "-", ranges$end)
+# Query by region
+print(head(region_str))
+system.time(
+    hits <- VBIQueryRange(vcf, vbi_ptr, region_str)
+)
+print(length(hits))
 expect_true(is.character(hits))
 
 # Query by index range
