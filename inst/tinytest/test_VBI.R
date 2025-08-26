@@ -11,11 +11,13 @@ vbi <- paste0(vcf, ".vbi")
 
 # Indexing
 if (!file.exists(vbi)) {
-  system.time(res_idx <- VBIIndex(vcf, vbi, Threads = 1))
+  timing <- system.time(res_idx <- VBIIndex(vcf, vbi, Threads = 1))
   expect_true(file.exists(vbi))
+  cat(sprintf("[Info] VBI indexing took %g sec\n", timing[3]))
 } else {
   message("VBI index file found, skipping indexing step.")
 }
+
 
 # Load the VBI index once as an external pointer
 cat("\n[Benchmark] Loading VBI index as external pointer...\n")
