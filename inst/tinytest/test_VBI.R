@@ -5,7 +5,7 @@ library(RBCFLib)
 exdata <- system.file("exdata", package = "RBCFLib")
 vcf <- file.path(exdata, "imputed.gt.vcf.gz")
 #vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
-#vcf <- "../data/clinvar_20250504.vcf.gz"
+vcf <- "../data/clinvar_20250504.vcf.gz"
 vbi <- paste0(vcf, ".vbi")
 
 # Indexing
@@ -21,9 +21,10 @@ cat("\n[Benchmark] Loading VBI index as external pointer...\n")
 system.time(vbi_ptr <- VBIIndexLoad(vbi))
 # Print the first 5 lines of the VBI index (for debug/coverage)
 system.time(expect_silent(VBIPrintIndex(vbi_ptr, 5)))
-VBIPrintIndex(vbi_ptr, 5) |> cat()
+VBIPrintIndex(vbi_ptr, 100) |> cat()
 ranges <- VBIExtractRanges(vbi_ptr)
-
+print(length(ranges[[1]]))
+quit()
 # Compare outputs for the same region
 region_str <- paste0(ranges$chrom, ":", ranges$start, "-", ranges$end)
 region_str_cgranges <- paste0(

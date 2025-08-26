@@ -223,7 +223,13 @@ SEXP RC_VBI_print_index(SEXP idx_ptr, SEXP n) {
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
     int nlines = asInteger(n);
-    vbi_index_print(idx, nlines);
+    if (nlines > idx->num_marker) nlines = idx->num_marker;
+    Rprintf("[VBI] num_marker: %ld\n", (long)idx->num_marker);
+    for (int i = 0; i < nlines; ++i) {
+        int chrom_id = idx->chrom_ids[i];
+        const char *chrom_name = idx->chrom_names ? idx->chrom_names[chrom_id] : "?";
+        Rprintf("[VBI] %d: %s\t%ld offset=%ld\n", i+1, chrom_name, (long)idx->positions[i], (long)idx->offsets[i]);
+    }
     return R_NilValue;
 }
 
