@@ -216,17 +216,6 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     hts_close(fp);
     UNPROTECT(1);
     return lines;
-// Debug: VBI index finalizer
-void vbi_index_finalizer(SEXP extPtr) {
-    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(extPtr);
-    Rprintf("[DEBUG] vbi_index_finalizer called for extPtr=%p, idx=%p\n", (void*)extPtr, (void*)idx);
-    if (idx) {
-        Rprintf("[DEBUG] Freeing offsets array at %p\n", (void*)idx->offsets);
-    }
-    // Call the original finalizer if it exists
-    // (Assume original code frees idx and its arrays)
-    // ...existing code...
-}
 }
 
 

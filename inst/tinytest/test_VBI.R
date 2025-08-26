@@ -48,7 +48,7 @@ cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
 tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
 cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
 
-quit()
+
 cat("[Benchmark] Querying region 100x (linear scan)...\n")
 nrange <- min(100, length(ranges[[1]]))
 tm1 <- system.time({
