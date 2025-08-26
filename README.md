@@ -10,13 +10,12 @@ RBCFLib executes the full bcftools CLI as optimized subprocesses, ensuring compa
 -   **Piping and Pipeline Support:** Create complex data processing workflows with idiomatic R syntax
     -   **`BCFToolsPipeline`**: Chain multiple bcftools commands in efficient pipelines, with automatic process management and piping handled in optimized C code for maximum performance
 -   **Download Reference Genomes:** download human reference genomes and liftover files files with `DownloadHumanReferenceGenomes` .
--   
+
 -   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
 -   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()` and the plugins `BCFTOOLS_PLUGINS()` installation directory
 
-**Installation**
+## Installation
 
-The package includes bundled bcftools source code and automatically compiles the complete bcftools suite during installation, ensuring compatibility and performance across different systems without requiring external dependencies.
 
 ``` r
 
@@ -126,3 +125,4 @@ hits <- VBIQueryRange("file.vcf.gz", vbi_ptr, "chr1:1000-2000")
 
 - [ ] autoconvert the range request outputs to be lists or data.frames and not strings
 - [ ] BCF iterator for sequential reading of BCF/VCF files with automatic decompression and parsing, this will provide infrastructure for the nanoarrow implementation
+- [ ] Use the bundled hmmap plugin ?
