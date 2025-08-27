@@ -67,7 +67,7 @@ For more details, see the [BCFTools Score documentation](https://github.com/free
 
 ## VBI Indexes and CGRanges
 
-RBCFLib includes a fast, custom index format (VBI) that uses a format similar to [Seqminer2](https://github.com/zhanxw/seqminer2), but with additional [cgranges](https://github.com/lh3/cgranges/) support when loading the index as C-level pointers. This enables rapid random access and region queries on large VCF/BCF files. The cgranges library is integrated to provide fast overlap retrieval of BCF/VCF ranges from VBI-indexed files or for basic range-based tests.
+RBCFLib includes a fast, custom index format (VBI) that uses a format similar to [Seqminer2](https://github.com/zhanxw/seqminer), but with additional [cgranges](https://github.com/lh3/cgranges/) support when loading the index as C-level pointers. This enables rapid random access and region queries on large VCF/BCF files. The cgranges library is integrated to provide fast overlap retrieval of BCF/VCF ranges from VBI-indexed files or for basic range-based tests.
 
 ### CGRanges Functions
 
@@ -99,13 +99,14 @@ vbi <- VBIIndex("file.vcf.gz", "file.vcf.gz.vbi")
 vbi_ptr <- VBIIndexLoad("file.vcf.gz.vbi")
 ranges <- VBIExtractRanges(vbi_ptr)
 hits <- VBIQueryRange("file.vcf.gz", vbi_ptr, "chr21:5030082")
+hits2 <- VBIQueryRegionCGRanges("file.vcf.gz", vbi_ptr,"chr21:5030081-5030083")
 ```
 
 ## Related Projects
 
 - [gwasvcf](https://github.com/MRCIEU/gwasvcf): R package for manipulating GWAS summary statistics in VCF format.
 - [MungeSumstats](https://github.com/Al-Murphy/MungeSumstats): R package for standardizing GWAS summary statistics.
-- [Seqminer2](https://github.com/zhanxw/seqminer2): Fast random access to BCF/VCF files using a custom index format.
+- [Seqminer2](https://github.com/zhanxw/seqminer): Fast random access to BCF/VCF files using a custom index format.
 - [vcfppR](https://github.com/Zilong-Li/vcfppR): Ultra-fast BCF/VCF I/O in R using Rcpp.
 
 ## Future Directions
