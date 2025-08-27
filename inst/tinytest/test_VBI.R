@@ -25,7 +25,7 @@ system.time(vbi_ptr <- VBIIndexLoad(vbi))
 # Print the first 5 lines of the VBI index (for debug/coverage)
 system.time(expect_silent(VBIPrintIndex(vbi_ptr, 5)))
 VBIPrintIndex(vbi_ptr, 100) |> cat()
-rmem <- VBIIndexMemoryUsage(vbi_ptr)
+tim <- system.time(rmem <- VBIIndexMemoryUsage(vbi_ptr))
 cat(sprintf(
   "[Info] vbi_index_t C-level memory usage: %.2f MB\n",
   rmem[["vbi_index_t_bytes"]] / 1e6
@@ -34,6 +34,11 @@ cat(sprintf(
   "[Info] cgranges_t  C-level memory usage: %.2f MB\n",
   rmem[["cgranges_t_bytes"]] / 1e6
 ))
+cat(sprintf(
+  "[Info] Total       C-level memory usage: %.2f MB\n",
+  sum(unlist(rmem)) / 1e6
+))
+cat("timing for memory usage: ", tim[3])
 ranges <- VBIExtractRanges(vbi_ptr)
 print(length(ranges[[1]]))
 # Compare outputs for the same region
@@ -64,22 +69,26 @@ cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
 cat("[Benchmark] Querying region 100x (linear scan)...\n")
 nrange <- min(100, length(ranges[[1]]))
 tm1 <- system.time({
-  for (i in 1:20) {
+  for (i in 1:2) {
     VBIQueryRange(
       vcf,
       vbi_ptr,
       sample(region_str, size = nrange) |> paste0(collapse = ",")
-    )
+    ) |>
+      length() |>
+      print()
   }
 })
 cat("[Benchmark] Querying region 100x (cgranges)...\n")
 tm2 <- system.time({
-  for (i in 1:20) {
+  for (i in 1:2) {
     VBIQueryRegionCGRanges(
       vcf,
       vbi_ptr,
       sample(region_str_cgranges, size = nrange) |> paste0(collapse = ",")
-    )
+    ) |>
+      length() |>
+      print()
   }
 })
 cat(sprintf("[Benchmark] Linear scan: %g sec\n", tm1[3]))

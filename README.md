@@ -98,7 +98,7 @@ CGRangesDestroy(cr)
 vbi <- VBIIndex("file.vcf.gz", "file.vcf.gz.vbi")
 vbi_ptr <- VBIIndexLoad("file.vcf.gz.vbi")
 ranges <- VBIExtractRanges(vbi_ptr)
-hits <- VBIQueryRange("file.vcf.gz", vbi_ptr, "chr1:1000-2000")
+hits <- VBIQueryRange("file.vcf.gz", vbi_ptr, "chr21:5030082")
 ```
 
 ## Related Projects
