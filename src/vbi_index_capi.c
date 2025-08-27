@@ -121,7 +121,8 @@ const char *vbi_index_chrom_name(vbi_index_t *idx, int idx_var) {
 int64_t vbi_index_position(vbi_index_t *idx, int idx_var) {
     return idx->positions[idx_var];
 }
-
+// we should move this in reality
+// this part is supposed to not interact with the R C api at all
 // credit: https://cran.r-project.org/web/packages/callme/vignettes/checking-for-interrupts.html
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // As suggested by Simon Urbanek

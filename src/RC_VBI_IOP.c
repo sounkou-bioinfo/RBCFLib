@@ -137,14 +137,14 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
 }
 
 //' Query VCF/BCF by contiguous variant index range (nth to kth, 1-based, inclusive, no header)
+// we are reopening the vcf everytime
+// this might be slow for many small queries
+// an alternative would be to memory mapped the vcf
+// issue with ths is that we file may be  remote
 SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
-    //Rprintf("[DEBUG] vbi_ptr address: %p\n", (void*)idx_ptr);
-    //Rprintf("[DEBUG] vbi_index_t address: %p\n", (void*)idx);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    //Rprintf("[DEBUG] num_marker: %ld\n", (long)idx->num_marker);
-    //Rprintf("[DEBUG] offsets array address: %p\n", (void*)idx->offsets);
     int n_threads = asInteger(threads);
     int start = asInteger(start_idx) - 1;
     int end = asInteger(end_idx) - 1;
@@ -163,10 +163,6 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
         return lines;
     }
     nfound = end - start + 1;
-    //Rprintf("[DEBUG] Querying indices: start=%d end=%d nfound=%d\n", start, end, nfound);
-  //  for (int i = 0; i < 5 && (start + i) <= end; ++i) {
-   //     Rprintf("[DEBUG] offsets[%d] = %ld\n", start + i, (long)idx->offsets[start + i]);
-   // }
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
         UNPROTECT(1);
@@ -181,9 +177,7 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     lines = allocVector(STRSXP, nfound);
     REPROTECT(lines, idx_prot);
     bcf1_t *rec = bcf_init();
-    // Seek once to the first offset
-   // Rprintf("[DEBUG] Seeking to offset[%d]=%ld\n", start, (long)idx->offsets[start]);
-    int seek_ok = 0;
+       int seek_ok = 0;
     if (fp->format.compression == bgzf) {
         BGZF *bg = (BGZF *)fp->fp.bgzf;
         seek_ok = (bgzf_seek(bg, idx->offsets[start], SEEK_SET) == 0);
