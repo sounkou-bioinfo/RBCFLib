@@ -203,7 +203,7 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
         offsets[n] = this_offset;
         n++;
         // check interupt every 1M records
-        if (n % 10000000 == 0) {
+        if (n % 1000000 == 0) {
             if( check_interrupt() ) {
                 Rprintf("Interrupted\n");
                 bcf_destroy(rec);
@@ -240,11 +240,11 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
         fwrite(&positions[i], sizeof(int64_t), 1, fidx);
         fwrite(&offsets[i], sizeof(int64_t), 1, fidx);
         // check interupt every 1M records
-        if (n % 10000000 == 0) {
+        if (i % 1000000 == 0) {
             if( check_interrupt() ) {
                 Rprintf("Interrupted\n");
                 fclose(fidx);
-            for (int i = 0; i < chrom_count; ++i) free(chrom_names[i]);
+            for (int j = 0; j < chrom_count; ++j) free(chrom_names[j]);
             free(chrom_names); free(chrom_ids); free(positions); free(offsets);
             return 1;
         }

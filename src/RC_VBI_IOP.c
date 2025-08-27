@@ -164,9 +164,9 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     }
     nfound = end - start + 1;
     //Rprintf("[DEBUG] Querying indices: start=%d end=%d nfound=%d\n", start, end, nfound);
-    for (int i = 0; i < 5 && (start + i) <= end; ++i) {
-        Rprintf("[DEBUG] offsets[%d] = %ld\n", start + i, (long)idx->offsets[start + i]);
-    }
+  //  for (int i = 0; i < 5 && (start + i) <= end; ++i) {
+   //     Rprintf("[DEBUG] offsets[%d] = %ld\n", start + i, (long)idx->offsets[start + i]);
+   // }
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
         UNPROTECT(1);
@@ -182,7 +182,7 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     REPROTECT(lines, idx_prot);
     bcf1_t *rec = bcf_init();
     // Seek once to the first offset
-    Rprintf("[DEBUG] Seeking to offset[%d]=%ld\n", start, (long)idx->offsets[start]);
+   // Rprintf("[DEBUG] Seeking to offset[%d]=%ld\n", start, (long)idx->offsets[start]);
     int seek_ok = 0;
     if (fp->format.compression == bgzf) {
         BGZF *bg = (BGZF *)fp->fp.bgzf;

@@ -8,7 +8,7 @@ vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.
 #vcf <- "../data/clinvar_20250504.vcf.gz"
 vcf <- "../concat.bcf"
 vbi <- paste0(vcf, ".vbi")
-force_index <- TRUE
+force_index <- FALSE
 # Indexing
 if (!file.exists(vbi) || force_index) {
   timing <- system.time(res_idx <- VBIIndex(vcf, vbi, Threads = 1))
@@ -39,41 +39,60 @@ cat(sprintf(
   sum(unlist(rmem)) / 1e6
 ))
 cat("timing for memory usage: ", tim[3])
-ranges <- VBIExtractRanges(vbi_ptr)
+cat("Extracting ranges from VBI index...\n")
+et <- system.time({
+  ranges <- VBIExtractRanges(vbi_ptr)
+})
+cat("Extracting ranges took: ", et[3], " sec\n")
 print(length(ranges[[1]]))
-# Compare outputs for the same region
-region_str <- paste0(ranges$chrom, ":", ranges$start, "-", ranges$end)
-region_str_cgranges <- paste0(
-  ranges$chrom,
-  ":",
-  ranges$start - 1,
-  "-",
-  ranges$end + 1
-)
-# Query by region
-print(head(region_str))
-system.time(
-  hits <- VBIQueryRange(vcf, vbi_ptr, region_str)
-)
-print(length(hits))
-expect_true(is.character(hits))
-
 # Query by index range
+cat("\n[Benchmark] Querying by index range...\n")
 tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
 expect_true(is.character(hits2))
 cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
 tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
 cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
-
-
 cat("[Benchmark] Querying region 100x (linear scan)...\n")
 nrange <- min(100, length(ranges[[1]]))
+nsamples <- 2
+region_str <- vector("list", nsamples)
+region_str_cgranges <- vector("list", nsamples)
+# make the region_str and region_str_cgranges  samples
+for (i in 1:nsamples) {
+  thisSample <- sample(1:length(ranges[[1]]), size = nrange)
+  region_str[[i]] <- sample(
+    paste0(
+      ranges$chrom[thisSample],
+      ":",
+      ranges$start[thisSample],
+      "-",
+      ranges$end[thisSample]
+    ),
+    size = nrange
+  ) |>
+    paste0(collapse = ",")
+  region_str_cgranges[[i]] <- sample(
+    paste0(
+      ranges$chrom[thisSample],
+      ":",
+      ranges$start[thisSample] - 1,
+      "-",
+      ranges$end[thisSample] + 1
+    ),
+    size = nrange
+  ) |>
+    paste0(collapse = ",")
+}
 tm1 <- system.time({
-  for (i in 1:2) {
+  for (i in 1:nsamples) {
+    cat(sprintf(
+      "[Benchmark] Querying region 100x (linear scan), iteration %d...\n",
+      i
+    ))
     VBIQueryRange(
       vcf,
       vbi_ptr,
-      sample(region_str, size = nrange) |> paste0(collapse = ",")
+      region_str[[i]]
     ) |>
       length() |>
       print()
@@ -85,7 +104,7 @@ tm2 <- system.time({
     VBIQueryRegionCGRanges(
       vcf,
       vbi_ptr,
-      sample(region_str_cgranges, size = nrange) |> paste0(collapse = ",")
+      region_str_cgranges[[i]]
     ) |>
       length() |>
       print()
