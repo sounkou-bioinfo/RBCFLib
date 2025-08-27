@@ -8,9 +8,9 @@ vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.
 #vcf <- "../data/clinvar_20250504.vcf.gz"
 vcf <- "../concat.bcf"
 vbi <- paste0(vcf, ".vbi")
-
+force_index <- TRUE
 # Indexing
-if (!file.exists(vbi)) {
+if (!file.exists(vbi) || force_index) {
   timing <- system.time(res_idx <- VBIIndex(vcf, vbi, Threads = 1))
   expect_true(file.exists(vbi))
   cat(sprintf("[Info] VBI indexing took %g sec\n", timing[3]))

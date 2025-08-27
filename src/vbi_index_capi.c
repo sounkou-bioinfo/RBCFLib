@@ -1,3 +1,6 @@
+#include <R.h>
+#include <Rinternals.h>
+#include <R_ext/Print.h>
 #include <stdint.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -5,7 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "vbi_index_capi.h"
-#include <R_ext/Print.h>
+
 
 // Parse a single region string (chr, chr:pos, chr:start-end)
 int parse_region(const char *str, region_t *reg) {
@@ -119,6 +122,24 @@ int64_t vbi_index_position(vbi_index_t *idx, int idx_var) {
     return idx->positions[idx_var];
 }
 
+// credit: https://cran.r-project.org/web/packages/callme/vignettes/checking-for-interrupts.html
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// As suggested by Simon Urbanek
+// https://stat.ethz.ch/pipermail/r-devel/2011-April/060702.html
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+static void check_interrupt_internal(void *dummy) {
+  R_CheckUserInterrupt();
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// this will call the above in a top-level context so it won't 
+// longjmp-out of your context
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bool check_interrupt(void) {
+  return (R_ToplevelExec(check_interrupt_internal, NULL) == FALSE);
+}
+// indexing workhorse
+// TODO : interrupt checking
 
 int do_index(const char *infile, const char *outfile, int n_threads) {
     htsFile *fp = NULL;
@@ -181,7 +202,22 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
         positions[n] = rec->pos + 1;
         offsets[n] = this_offset;
         n++;
+        // check interupt every 1M records
+        if (n % 10000000 == 0) {
+            if( check_interrupt() ) {
+                Rprintf("Interrupted\n");
+                bcf_destroy(rec);
+                bcf_hdr_destroy(hdr);
+                hts_close(fp);
+            for (int i = 0; i < chrom_count; ++i) free(chrom_names[i]);
+            free(chrom_names); free(chrom_ids); free(positions); free(offsets);
+            return 1;
+        }
+         // print number of records processed
+        Rprintf("Processed %" PRId64 " records\n", n);
     }
+   
+}
     num_marker = n;
     bcf_destroy(rec);
     bcf_hdr_destroy(hdr);
@@ -203,6 +239,18 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
         fwrite(&chrom_ids[i], sizeof(int32_t), 1, fidx);
         fwrite(&positions[i], sizeof(int64_t), 1, fidx);
         fwrite(&offsets[i], sizeof(int64_t), 1, fidx);
+        // check interupt every 1M records
+        if (n % 10000000 == 0) {
+            if( check_interrupt() ) {
+                Rprintf("Interrupted\n");
+                fclose(fidx);
+            for (int i = 0; i < chrom_count; ++i) free(chrom_names[i]);
+            free(chrom_names); free(chrom_ids); free(positions); free(offsets);
+            return 1;
+        }
+         // print number of records processed
+        Rprintf("Wrote %" PRId64 " index records into, ""%s\n", n, outfile);
+    }
     }
     fclose(fidx);
     for (int i = 0; i < chrom_count; ++i) free(chrom_names[i]);
