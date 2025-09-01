@@ -76,6 +76,7 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
     const char *reg = CHAR(STRING_ELT(region, 0));
     int n_threads = asInteger(threads);
+    (void)n_threads; // Suppress unused variable warning
     SEXP lines = R_NilValue;
     PROTECT_INDEX idx_prot;
     PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
@@ -146,6 +147,7 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
     int n_threads = asInteger(threads);
+    (void)n_threads; // Suppress unused variable warning
     int start = asInteger(start_idx) - 1;
     int end = asInteger(end_idx) - 1;
     SEXP lines = R_NilValue;
