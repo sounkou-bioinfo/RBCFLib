@@ -174,4 +174,4 @@ sed \
     -e "s|@HAVE_GSL@|${HAVE_GSL}|g" \
     -e "s|@GSL_LIBS@|${GSL_LIBS}|g" \
     -e "s|@USE_GPL@|${USE_GPL}|g" \
-    src/Makevars.win.in > src/Makevars
+    src/Makevars.win.in > src/Makevars.win
