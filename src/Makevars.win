@@ -1,0 +1,15 @@
+HTSLIB_DIR=$(CURDIR)/bcftools-1.22/htslib-1.22
+BCFTOOLS_VERSION_DIR=$(CURDIR)/bcftools-1.22
+
+# Windows-specific compiler flags
+PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(BCFTOOLS_VERSION_DIR) -DNDEBUG -D_WIN32_WINNT=0x0600
+
+# Windows libraries needed for htslib and bcftools
+# Core: zlib, math, compression libraries
+# Network: ws2_32, wsock32 for Windows socket functions
+# Regex: pcre2-8 (modern PCRE) or pcre (older PCRE) - commonly available in Rtools
+PKG_LIBS=$(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate -lws2_32 -lwsock32 -lpcre2-8
+
+.PHONY: all
+
+all: $(SHLIB)
