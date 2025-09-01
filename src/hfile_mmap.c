@@ -21,8 +21,16 @@ THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
-#ifndef _WIN32
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include "./bcftools-1.22/htslib-1.22/hfile_internal.h"
+#endif
+
+#ifndef _WIN32
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -148,6 +156,184 @@ int hfile_plugin_init(struct hFILE_plugin *self)
 {
     static const struct hFILE_scheme_handler handler =
         { hopen_mmap, hfile_always_local, "mmap", 10 };
+
+    if (self) self->name = "mmap";
+    hfile_add_scheme_handler("mmap", &handler);
+    return 0;
+}
+
+// Wrapper function for easier calling
+int hfile_plugin_init_mmap(void) {
+    return hfile_plugin_init(NULL);
+}
+#endif
+
+#ifdef _WIN32
+// Windows implementation using CreateFileMapping and MapViewOfFile
+
+typedef struct {
+    hFILE base;
+    char *buffer;
+    size_t length, pos;
+    HANDLE file_handle;
+    HANDLE mapping_handle;
+} hFILE_mmap_win;
+
+static ssize_t mmap_read_win(hFILE *fpv, void *buffer, size_t nbytes)
+{
+    hFILE_mmap_win *fp = (hFILE_mmap_win *) fpv;
+    size_t avail = fp->length - fp->pos;
+    if (nbytes > avail) nbytes = avail;
+    memcpy(buffer, fp->buffer + fp->pos, nbytes);
+    fp->pos += nbytes;
+    return nbytes;
+}
+
+static ssize_t mmap_write_win(hFILE *fpv, const void *buffer, size_t nbytes)
+{
+    hFILE_mmap_win *fp = (hFILE_mmap_win *) fpv;
+    size_t avail = fp->length - fp->pos;
+    if (nbytes > avail) nbytes = avail;
+    memcpy(fp->buffer + fp->pos, buffer, nbytes);
+    fp->pos += nbytes;
+    return nbytes;
+}
+
+static off_t mmap_seek_win(hFILE *fpv, off_t offset, int whence)
+{
+    hFILE_mmap_win *fp = (hFILE_mmap_win *) fpv;
+    size_t absoffset = (offset >= 0)? offset : -offset;
+    size_t origin;
+
+    switch (whence) {
+    case SEEK_SET: origin = 0; break;
+    case SEEK_CUR: origin = fp->pos; break;
+    case SEEK_END: origin = fp->length; break;
+    default: 
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return -1;
+    }
+
+    if ((offset  < 0 && absoffset > origin) ||
+        (offset >= 0 && absoffset > fp->length - origin)) {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return -1;
+    }
+
+    fp->pos = origin + offset;
+    return fp->pos;
+}
+
+static int mmap_close_win(hFILE *fpv)
+{
+    hFILE_mmap_win *fp = (hFILE_mmap_win *) fpv;
+    int ret = 0;
+    
+    if (fp->buffer) {
+        if (!UnmapViewOfFile(fp->buffer)) ret = -1;
+    }
+    if (fp->mapping_handle != NULL && fp->mapping_handle != INVALID_HANDLE_VALUE) {
+        if (!CloseHandle(fp->mapping_handle)) ret = -1;
+    }
+    if (fp->file_handle != NULL && fp->file_handle != INVALID_HANDLE_VALUE) {
+        if (!CloseHandle(fp->file_handle)) ret = -1;
+    }
+    return ret;
+}
+
+static const struct hFILE_backend mmap_backend_win =
+{
+    mmap_read_win, mmap_write_win, mmap_seek_win, NULL, mmap_close_win
+};
+
+static hFILE *hopen_mmap_win(const char *filename, const char *modestr)
+{
+    int mode = hfile_oflags(modestr);
+    HANDLE file_handle = INVALID_HANDLE_VALUE;
+    HANDLE mapping_handle = INVALID_HANDLE_VALUE;
+    void *data = NULL;
+    hFILE_mmap_win *fp = NULL;
+    DWORD access, protect, map_access;
+    LARGE_INTEGER file_size;
+
+    // Strip mmap:// prefixes
+    if (strncmp(filename, "mmap://localhost/", 17) == 0) filename += 16;
+    else if (strncmp(filename, "mmap:///", 8) == 0) filename += 7;
+    else if (strncmp(filename, "mmap:", 5) == 0) filename += 5;
+
+    // Convert Unix-style file access modes to Windows
+    switch (mode & O_ACCMODE) {
+    case O_RDONLY: 
+        access = GENERIC_READ;
+        protect = PAGE_READONLY;
+        map_access = FILE_MAP_READ;
+        break;
+    case O_WRONLY:
+    case O_RDWR:   
+        access = GENERIC_READ | GENERIC_WRITE;
+        protect = PAGE_READWRITE;
+        map_access = FILE_MAP_WRITE;
+        break;
+    default:       
+        SetLastError(ERROR_INVALID_PARAMETER);
+        goto error;
+    }
+
+    // Open the file
+    file_handle = CreateFile(filename, access, FILE_SHARE_READ, NULL, 
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file_handle == INVALID_HANDLE_VALUE) goto error;
+
+    // Get file size
+    if (!GetFileSizeEx(file_handle, &file_size)) goto error;
+    if (file_size.QuadPart == 0) {
+        // Handle empty files
+        fp = (hFILE_mmap_win *) hfile_init(sizeof(hFILE_mmap_win), modestr, 4096);
+        if (fp == NULL) goto error;
+        
+        fp->file_handle = file_handle;
+        fp->mapping_handle = NULL;
+        fp->buffer = NULL;
+        fp->length = 0;
+        fp->pos = 0;
+        fp->base.backend = &mmap_backend_win;
+        return &fp->base;
+    }
+
+    // Create file mapping
+    mapping_handle = CreateFileMapping(file_handle, NULL, protect, 
+                                      file_size.HighPart, file_size.LowPart, NULL);
+    if (mapping_handle == NULL) goto error;
+
+    // Map view of file
+    data = MapViewOfFile(mapping_handle, map_access, 0, 0, 0);
+    if (data == NULL) goto error;
+
+    fp = (hFILE_mmap_win *) hfile_init(sizeof(hFILE_mmap_win), modestr, 4096);
+    if (fp == NULL) goto error;
+
+    fp->file_handle = file_handle;
+    fp->mapping_handle = mapping_handle;
+    fp->buffer = (char*)data;
+    fp->length = (size_t)file_size.QuadPart;
+    fp->pos = 0;
+    fp->base.backend = &mmap_backend_win;
+    return &fp->base;
+
+error:
+    if (fp) hfile_destroy((hFILE *) fp);
+    if (data) UnmapViewOfFile(data);
+    if (mapping_handle != NULL && mapping_handle != INVALID_HANDLE_VALUE) 
+        CloseHandle(mapping_handle);
+    if (file_handle != NULL && file_handle != INVALID_HANDLE_VALUE) 
+        CloseHandle(file_handle);
+    return NULL;
+}
+
+int hfile_plugin_init(struct hFILE_plugin *self)
+{
+    static const struct hFILE_scheme_handler handler =
+        { hopen_mmap_win, hfile_always_local, "mmap", 10 };
 
     if (self) self->name = "mmap";
     hfile_add_scheme_handler("mmap", &handler);

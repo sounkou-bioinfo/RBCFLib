@@ -1,8 +1,22 @@
+#ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L
+#endif
 #include <stdio.h>
 #include <assert.h>
 #include "cgranges.h"
 #include "khash.h"
+
+#ifdef _WIN32
+// Windows compatibility for POSIX functions
+static char* win32_strdup(const char* s) {
+    size_t len = strlen(s) + 1;
+    char* copy = malloc(len);
+    if (copy) memcpy(copy, s, len);
+    return copy;
+}
+
+#define strdup win32_strdup
+#endif
 
 /**************
  * Radix sort *

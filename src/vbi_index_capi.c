@@ -10,6 +10,23 @@
 #include <stdbool.h>
 #include "vbi_index_capi.h"
 
+#ifdef _WIN32
+// Windows compatibility for POSIX functions
+static char* win32_strdup(const char* s) {
+    size_t len = strlen(s) + 1;
+    char* copy = malloc(len);
+    if (copy) memcpy(copy, s, len);
+    return copy;
+}
+
+static char* win32_strtok_r(char* str, const char* delim, char** saveptr) {
+    return strtok_s(str, delim, saveptr);
+}
+
+#define strdup win32_strdup
+#define strtok_r win32_strtok_r
+#endif
+
 
 // Parse a single region string (chr, chr:pos, chr:start-end)
 int parse_region(const char *str, region_t *reg) {

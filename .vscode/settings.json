@@ -5,7 +5,9 @@
         "*.S": "r",
         "bcftools.rbcflib.h": "c",
         "cgranges.h": "c",
-        "rbcflib.h": "c"
+        "rbcflib.h": "c",
+        "string": "c",
+        "string_view": "c"
     },
     "[r]": {
         "editor.formatOnSave": true,
