@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "vbi_index_capi.h"
 
 
@@ -215,7 +216,7 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
             return 1;
         }
          // print number of records processed
-        Rprintf("Processed %" PRId64 " records\n", n);
+        Rprintf("Processed %zu records\n", n);
     }
    
 }
@@ -250,7 +251,7 @@ int do_index(const char *infile, const char *outfile, int n_threads) {
             return 1;
         }
          // print number of records processed
-        Rprintf("Wrote %" PRId64 " index records into, ""%s\n", n, outfile);
+        Rprintf("Wrote %zu index records into %s\n", n, outfile);
     }
     }
     fclose(fidx);
