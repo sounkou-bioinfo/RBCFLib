@@ -2,10 +2,19 @@
 % Please edit documentation in R/VBI.R
 \name{CGRangesExtractByIndex}
 \alias{CGRangesExtractByIndex}
-\title{Extract intervals by 1-based index from CGRanges}
+\title{Extract intervals by index from CGRanges}
 \usage{
 CGRangesExtractByIndex(cr, indices)
 }
+\arguments{
+\item{cr}{External pointer to CGRanges object}
+
+\item{indices}{Integer vector of 1-based indices of intervals to extract}
+}
+\value{
+Data frame with columns: chrom, start, end, label
+}
 \description{
-Extract intervals by 1-based index from CGRanges
+Retrieves specific intervals from a CGRanges object using their 1-based indices.
+Useful for extracting intervals found through overlap queries.
 }

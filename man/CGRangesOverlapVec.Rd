@@ -2,10 +2,23 @@
 % Please edit documentation in R/VBI.R
 \name{CGRangesOverlapVec}
 \alias{CGRangesOverlapVec}
-\title{Vectorized overlap for CGRanges}
+\title{Vectorized overlap query for CGRanges}
 \usage{
 CGRangesOverlapVec(cr, chrom, start, end)
 }
+\arguments{
+\item{cr}{External pointer to CGRanges object}
+
+\item{chrom}{Character vector of chromosome names}
+
+\item{start}{Integer vector of start positions (1-based)}
+
+\item{end}{Integer vector of end positions (1-based, inclusive)}
+}
+\value{
+List of integer vectors, each containing the indices of overlapping intervals
+}
 \description{
-Vectorized overlap for CGRanges
+Performs overlap queries against a CGRanges index for multiple intervals simultaneously.
+This is more efficient than calling CGRangesOverlap multiple times.
 }

@@ -2,10 +2,33 @@
 % Please edit documentation in R/VBI.R
 \name{CGRangesCreate}
 \alias{CGRangesCreate}
-\title{cgranges R binding: create, add, index, overlap, destroy}
+\title{Create a new CGRanges object}
 \usage{
 CGRangesCreate()
 }
+\value{
+External pointer to a new CGRanges object
+}
 \description{
-cgranges R binding: create, add, index, overlap, destroy
+Creates a new empty CGRanges object for storing genomic intervals.
+CGRanges provides fast interval overlap queries using an interval tree data structure.
+}
+\examples{
+\dontrun{
+# Create a new CGRanges object
+cr <- CGRangesCreate()
+
+# Add some intervals
+CGRangesAdd(cr, "chr1", 100, 200, 1)
+CGRangesAdd(cr, "chr1", 150, 250, 2)
+
+# Index for fast queries
+CGRangesIndex(cr)
+
+# Query overlaps
+overlaps <- CGRangesOverlap(cr, "chr1", 180, 220)
+}
+}
+\seealso{
+\code{\link{CGRangesAdd}}, \code{\link{CGRangesIndex}}, \code{\link{CGRangesOverlap}}
 }
