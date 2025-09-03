@@ -1,3 +1,1 @@
-library(tinytest)
-
-print("Nothing to see here")
+tinytest::run_test_dir("./inst/tinytest")
