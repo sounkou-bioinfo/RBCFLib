@@ -4,9 +4,9 @@ library(RBCFLib)
 # get script path
 exdata <- system.file("exdata", package = "RBCFLib")
 vcf <- file.path(exdata, "imputed.gt.vcf.gz")
-vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
-#vcf <- "../data/clinvar_20250504.vcf.gz"
-vcf <- "../concat.bcf"
+# vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
+# vcf <- "../data/clinvar_20250504.vcf.gz"
+# vcf <- "../concat.bcf"
 vbi <- paste0(vcf, ".vbi")
 force_index <- FALSE
 # Indexing
