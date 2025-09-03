@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/* Function declarations */
+/* Function declarations 
+TO BE moved after
+*/
 SEXP RC_HTSLibVersion(void);
 SEXP RC_BCFToolsVersion(void);
 SEXP RC_FaidxIndexFasta(SEXP fasta_path);
@@ -17,6 +19,7 @@ static char *cached_bcftools_path = NULL;
 
 /* 
  * Function to get bcftools binary path
+ quite bad, should use lang4
  */
 const char* BCFToolsBinaryPath(void) {
     if (cached_bcftools_path == NULL) {

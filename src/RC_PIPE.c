@@ -32,6 +32,7 @@ static void setup_sigpipe_handling(void) {
     if (!sigpipe_handled) {
         // Ignore SIGPIPE globally - we'll handle EPIPE errors locally
         // This prevents the process from being terminated by SIGPIPE
+        // More precisely, we avoid R's default SIGPIPE handler
         signal(SIGPIPE, SIG_IGN);
         sigpipe_handled = 1;
         
@@ -238,7 +239,7 @@ SEXP RC_bcftools_pipeline(
         if (pids[i] == 0) {
             // Child process for command i
             
-            // CRITICAL: Isolate child process to prevent R state corruption
+            // Isolate child process to prevent R state corruption
             // Create new process group to isolate from parent
             setpgid(0, 0);
             
@@ -249,6 +250,7 @@ SEXP RC_bcftools_pipeline(
             
             // Set up BCFTOOLS_PLUGINS environment variable
             // Get the bcftools binary path and derive plugins directory
+            // FIX: ME actually get plugin from function or environment variable
             const char *bcftools_path = BCFToolsBinaryPath();
             if (bcftools_path != NULL) {
                 // Extract directory from bcftools path and append plugins

@@ -14,6 +14,7 @@ R_CPICFLAGS=`"${R_HOME}/bin/R" CMD config CPICFLAGS`
 R_LDFLAGS=`"${R_HOME}/bin/R" CMD config LDFLAGS`
 HTSLIB_BUNDLED_MK=${THISDir}/inst/makefiles/htscodecs_bundled.mk
 RSCRIPT="${R_HOME}/bin/Rscript"
+PGS_MK_IN=${THISDir}/src/bcftools-1.22/plugins/pgs.mk.in
 # -fPIC is ensential for shared lib
 # CFLAGS="${R_CFLAGS} ${R_CPICFLAGS} -fPIC -D_FILE_OFFSET_BITS=64"
 CFLAGS="-Wall -g -O2 -fPIC -D_FILE_OFFSET_BITS=64"
@@ -83,7 +84,8 @@ else
   echo "WARNING: GSL development files not found. Install libgsl-dev (Debian/Ubuntu) or gsl-devel (RPM-based) for polysomy support."
   echo "Continuing with --disable-libgsl to prevent build failure."
 fi
-
+echo ${HAVE_CHOLMOD} 
+exit 0
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
 cd $HTSLIB_DIR
 
@@ -143,6 +145,17 @@ if [ "$HAVE_GSL" = "yes" ]; then
     export GSL_CFLAGS="${GSL_CFLAGS}"
     export GSL_LIBS="${GSL_LIBS}"
 fi
+export HAVE_CHOLMOD="${HAVE_CHOLMOD}"
+export CHOLMOD_CPPFLAGS="${CHOLMOD_CPPFLAGS}"
+export CHOLMOD_LIBS="${CHOLMOD_LIBS}"
+#HAVE_CHOLMOD=@HAVE_CHOLMOD@
+#CHOLMOD_LIBS=@CHOLMOD_LIBS@
+#CHOLMOD_CPPFLAGS=@CHOLMOD_CPPFLAGS@
+sed \
+    -e "s|@HAVE_CHOLMOD@|${HAVE_CHOLMOD}|g" \
+    -e "s|@CHOLMOD_LIBS@|${CHOLMOD_LIBS}|g" \
+    -e "s|@CHOLMOD_CPPFLAGS@|${CHOLMOD_CPPFLAGS}|g" \
+    "${PGS_MK_IN}" > "${PGS_MK_IN%.in}"
 
 ./configure \
     ${BCFTOOLS_CONFIGURE_FLAGS} \
