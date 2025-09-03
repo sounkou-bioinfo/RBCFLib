@@ -45,7 +45,17 @@ int main() { cholmod_common c; return 0; }' | \
     echo "CHOLMOD found via pkg-config but linking test failed - BCFToolsPGS will be disabled"
   fi
 else
-  echo "CHOLMOD not found via pkg-config, BCFToolsPGS will be disabled"
+  echo "CHOLMOD not found via pkg-config, linking to the MATRIX package CHOLMOD"
+  # check if matrix package is installed
+  if "${RSCRIPT}" -e 'if (!requireNamespace("Matrix", quietly=TRUE)) quit(status=1)' 2>/dev/null; then
+    MATRIX_DIR=$("${RSCRIPT}" -e 'cat(system.file("libs", package="Matrix"))' 2>/dev/null)
+    CHOLMOD_CPPFLAGS="-I${MATRIX_DIR}/../include"
+    CHOLMOD_LIBS="-L${MATRIX_DIR}"
+    HAVE_CHOLMOD="yes"
+    if [ -d "${MATRIX_DIR}" ]; then
+      echo "Matrix package found at ${MATRIX_DIR}"
+    fi
+  fi
 fi
 
 # Check for GSL
@@ -84,8 +94,7 @@ else
   echo "WARNING: GSL development files not found. Install libgsl-dev (Debian/Ubuntu) or gsl-devel (RPM-based) for polysomy support."
   echo "Continuing with --disable-libgsl to prevent build failure."
 fi
-echo ${HAVE_CHOLMOD} 
-exit 0
+echo ${HAVE_CHOLMOD} ${CHOLMOD_CPPFLAGS} ${CHOLMOD_LIBS}
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
 cd $HTSLIB_DIR
 
