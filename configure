@@ -58,7 +58,8 @@ int main() { cholmod_common c; return 0; }' | \
     echo "CHOLMOD found in system paths - BCFToolsPGS will be enabled"
   else
     echo "CHOLMOD not found in system paths either"
-    # check if matrix package is installed
+    # check if matrix package is installed, we may try in future to use it
+    # or implement the method using R Package Matrix
     #if "${RSCRIPT}" -e 'if (!requireNamespace("Matrix", quietly=TRUE)) quit(status=1)' 2>/dev/null; then
      # MATRIX_DIR=$("${RSCRIPT}" -e 'cat(system.file("libs", package="Matrix"))' 2>/dev/null)
      # CHOLMOD_CPPFLAGS="-I${MATRIX_DIR}/../include"
