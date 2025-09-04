@@ -1,49 +1,34 @@
-#include "RBCFLib.h"
-#include "htslib/hts.h"
-#include "htslib/faidx.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "RBCFLib.h"
 
-/* Function declarations 
-TO BE moved after
-*/
-SEXP RC_HTSLibVersion(void);
-SEXP RC_BCFToolsVersion(void);
-SEXP RC_FaidxIndexFasta(SEXP fasta_path);
-SEXP RC_FaidxFetchRegion(SEXP fasta_path, SEXP seqname, SEXP start, SEXP end);
-extern char *bcftools_version(void);
+/* Binary path storage - actual definitions */
+char *cached_bcftools_path = NULL;
+char *cached_bcftools_plugins_path = NULL;
 
-/* Binary path storage */
-static char *cached_bcftools_path = NULL;
 
 /* 
  * Function to get bcftools binary path
- quite bad, should use lang4
  */
 const char* BCFToolsBinaryPath(void) {
     if (cached_bcftools_path == NULL) {
-        // Construct the call: system.file("bin", "bcftools", package = "RBCFLib")
-        SEXP call, result;
+        // Call the R function RBCFLib::BCFToolsBinaryPath() directly
+        SEXP call, result, pkg_env;
         
-        // Create the call with positional and named arguments
-        PROTECT(call = allocVector(LANGSXP, 4));
-        SETCAR(call, install("system.file"));
-        SETCADR(call, mkString("bin"));
-        SETCADDR(call, mkString("bcftools"));
+        // Get the RBCFLib namespace
+        PROTECT(pkg_env = R_FindNamespace(mkString("RBCFLib")));
         
-        // Create named argument package = "RBCFLib"
-        SEXP cdddr_call = CDDDR(call);
-        SETCAR(cdddr_call, mkString("RBCFLib"));
-        SET_TAG(cdddr_call, install("package"));
+        PROTECT(call = allocVector(LANGSXP, 1));
+        SETCAR(call, install("BCFToolsBinaryPath"));
         
-        result = PROTECT(eval(call, R_GlobalEnv));
+        result = PROTECT(eval(call, pkg_env));
         
         if (TYPEOF(result) == STRSXP && length(result) > 0) {
             const char *path_str = CHAR(STRING_ELT(result, 0));
             cached_bcftools_path = strdup(path_str);
         }
-        UNPROTECT(2);
+        UNPROTECT(3);
         
         if (cached_bcftools_path == NULL) {
             error("Failed to get bcftools binary path");
@@ -51,6 +36,33 @@ const char* BCFToolsBinaryPath(void) {
     }
     
     return cached_bcftools_path;
+}
+
+const char* BCFToolsPluginsPath(void){
+    if (cached_bcftools_plugins_path == NULL) {
+        // Call the R function RBCFLib::BCFTOOLS_PLUGINS() directly
+        SEXP call, result, pkg_env;
+        
+        // Get the RBCFLib namespace
+        PROTECT(pkg_env = R_FindNamespace(mkString("RBCFLib")));
+        
+        PROTECT(call = allocVector(LANGSXP, 1));
+        SETCAR(call, install("BCFTOOLS_PLUGINS"));
+        
+        result = PROTECT(eval(call, pkg_env));
+        
+        if (TYPEOF(result) == STRSXP && length(result) > 0) {
+            const char *path_str = CHAR(STRING_ELT(result, 0));
+            cached_bcftools_plugins_path = strdup(path_str);
+        }
+        UNPROTECT(3);
+        
+        if (cached_bcftools_plugins_path == NULL) {
+            error("Failed to get bcftools plugins path");
+        }
+    }
+    
+    return cached_bcftools_plugins_path;
 }
 
 /* Function implementations */

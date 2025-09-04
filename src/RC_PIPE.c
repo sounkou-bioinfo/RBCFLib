@@ -192,6 +192,8 @@ SEXP RC_bcftools_pipeline(
                 Rprintf("    argv[%d]: %s\n", j, argv_values[i][j]);
             }
         }
+        const char * bcftools_plugins_path = BCFToolsPluginsPath();
+        Rprintf("Using BCFTOOLS_PLUGINS: %s\n", bcftools_plugins_path);
     }
     
     // Create pipes between commands
@@ -252,25 +254,12 @@ SEXP RC_bcftools_pipeline(
             // Get the bcftools binary path and derive plugins directory
             // FIX: ME actually get plugin from function or environment variable
             const char *bcftools_path = BCFToolsBinaryPath();
-            if (bcftools_path != NULL) {
-                // Extract directory from bcftools path and append plugins
-                char *bcftools_dir = strdup(bcftools_path);
-                char *last_slash = strrchr(bcftools_dir, '/');
-                if (last_slash != NULL) {
-                    *last_slash = '\0'; // Remove bcftools binary name
-                    
-                    // Create plugins path: <bin_dir>/plugins
-                    char plugins_path[1024];
-                    snprintf(plugins_path, sizeof(plugins_path), "%s/plugins", bcftools_dir);
-                    
-                    // Set BCFTOOLS_PLUGINS environment variable
-                    setenv("BCFTOOLS_PLUGINS", plugins_path, 1);
-                    
-                    if (getenv("RBCFLIB_DEBUG") != NULL) {
-                        fprintf(stderr, "Set BCFTOOLS_PLUGINS=%s\n", plugins_path);
-                    }
+            const char *bcftools_plugins_path = BCFToolsPluginsPath();
+            if (bcftools_plugins_path != NULL && strlen(bcftools_plugins_path) > 0) {
+                setenv("BCFTOOLS_PLUGINS", bcftools_plugins_path, 1);
+                if(getenv("RBCFLIB_DEBUG") != NULL) {
+                    Rprintf("Set BCFTOOLS_PLUGINS to %s\n", bcftools_plugins_path);
                 }
-                free(bcftools_dir);
             }
             
             // Setup stdin (for all but first command)
