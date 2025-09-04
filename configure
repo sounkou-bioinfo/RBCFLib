@@ -45,17 +45,30 @@ int main() { cholmod_common c; return 0; }' | \
     echo "CHOLMOD found via pkg-config but linking test failed - BCFToolsPGS will be disabled"
   fi
 else
-  echo "CHOLMOD not found via pkg-config, linking to the MATRIX package CHOLMOD"
-  # check if matrix package is installed
-  #if "${RSCRIPT}" -e 'if (!requireNamespace("Matrix", quietly=TRUE)) quit(status=1)' 2>/dev/null; then
-   # MATRIX_DIR=$("${RSCRIPT}" -e 'cat(system.file("libs", package="Matrix"))' 2>/dev/null)
-   # CHOLMOD_CPPFLAGS="-I${MATRIX_DIR}/../include"
-   # CHOLMOD_LIBS="-L${MATRIX_DIR}"
-   # HAVE_CHOLMOD="yes"
-   # if [ -d "${MATRIX_DIR}" ]; then
-   #   echo "Matrix package found at ${MATRIX_DIR}"
-   # fi
-  #fi
+  echo "CHOLMOD not found via pkg-config"
+  
+  # Try to compile with just -lcholmod (assume headers are in standard paths)
+  echo "Trying to find CHOLMOD in standard system paths..."
+  if echo '#include <cholmod.h>
+int main() { cholmod_common c; return 0; }' | \
+     ${CC} ${CFLAGS} -x c - -lcholmod -o /dev/null 2>/dev/null; then
+    HAVE_CHOLMOD="yes"
+    CHOLMOD_CPPFLAGS=""
+    CHOLMOD_LIBS="-lcholmod"
+    echo "CHOLMOD found in system paths - BCFToolsPGS will be enabled"
+  else
+    echo "CHOLMOD not found in system paths either"
+    # check if matrix package is installed
+    #if "${RSCRIPT}" -e 'if (!requireNamespace("Matrix", quietly=TRUE)) quit(status=1)' 2>/dev/null; then
+     # MATRIX_DIR=$("${RSCRIPT}" -e 'cat(system.file("libs", package="Matrix"))' 2>/dev/null)
+     # CHOLMOD_CPPFLAGS="-I${MATRIX_DIR}/../include"
+     # CHOLMOD_LIBS="-L${MATRIX_DIR}"
+     # HAVE_CHOLMOD="yes"
+     # if [ -d "${MATRIX_DIR}" ]; then
+     #   echo "Matrix package found at ${MATRIX_DIR}"
+     # fi
+    #fi
+  fi
 fi
 
 # Check for GSL
