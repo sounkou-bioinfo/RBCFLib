@@ -11,12 +11,16 @@
 #include "htslib/hfile.h"
 #include "vbi_index_capi.h"
 #include "cgranges.h"
-// Forward declaration for finalizer (after SEXP is defined)
-SEXP RC_cgranges_destroy(SEXP cr_ptr);
-// Forward declarations from vbi_index.c and vbi_index_capi.h
+#include "RBCFLib.h"
+
+
+// Forward declarations
+
 int do_index(const char *infile, const char *outfile, int n_threads);
-SEXP RC_VBI_index_memory_usage(SEXP extPtr);
-// Minimal cr_chrom implementation for cgranges_t (do not modify cgranges library files)
+
+
+// Minimal cr_chrom implementation for cgranges_t 
+// we do not modify cgranges library files
 // Reconstruct contig index for interval i by searching ctg ranges
 static inline const char *cr_chrom(const cgranges_t *cr, int64_t i) {
     if (!cr || i < 0 || i >= cr->n_r) return NULL;
