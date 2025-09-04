@@ -240,7 +240,7 @@ SEXP RC_VBI_load_index(SEXP vbi_path) {
             Rf_error("Failed to download VBI index: %s", path);
         }
         path = local_path;
-    }
+        }
     vbi_index_t *idx = vbi_index_load(path);
     if (!idx) Rf_error("[VBI] Failed to load index: %s", path);
     SEXP ptr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
