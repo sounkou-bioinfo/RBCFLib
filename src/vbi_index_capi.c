@@ -341,11 +341,11 @@ void vbi_index_print(const vbi_index_t *idx, int n) {
         Rprintf("[VBI] %d: %s  %" PRId64 " offset=%" PRId64 "\n", i+1, chr, pos, off);
     }
 }
-// Robust R finalizer for VBI index external pointer
+// R finalizer for VBI index external pointer
 void vbi_index_finalizer(SEXP extPtr) {
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(extPtr);
     if (idx) {
-        Rprintf("[VBI] vbi_index_finalizer: freeing %p\n", idx);
+        Rprintf("[VBI] vbi_index_finalizer: freeing %p\n", (void*)idx);
         vbi_index_free(idx);
         R_SetExternalPtrAddr(extPtr, NULL);
     }
