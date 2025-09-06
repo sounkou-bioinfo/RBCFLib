@@ -1,18 +1,48 @@
+
 # RBCFLIB
 
-**RBCFLib** provides a minimalist and GWAS-VCF centric R wrapper for `htslib` and `bcftools`, enabling efficient manipulation of BCF/VCF genomic data files directly within R. The package includes bundled bcftools source code that is compiled during installation, then executes bcftools commands as optimized subprocesses through a C interface that handles piping, error capture, and process management. Some other convenience functions for common tasks are also provided including a custom index re-implementing the [`Seqminer2`](https://github.com/zhanxw/seqminer) single chromosome index format for fast random access to records.
+**RBCFLib** provides a minimalist and GWAS-VCF centric R wrapper for
+`htslib` and `bcftools`, enabling efficient manipulation of BCF/VCF
+genomic data files directly within R. The package includes bundled
+bcftools source code that is compiled during installation, then executes
+bcftools commands as optimized subprocesses through a C interface that
+handles piping, error capture, and process management. Some other
+convenience functions for common tasks are also provided including a
+custom index re-implementing the
+[`Seqminer2`](https://github.com/zhanxw/seqminer) single chromosome
+index format for fast random access to records.
 
-The goal of **RBCFLib** is to provide a minimalist infrastructure for performant R-based GWAS-VCF conversion and analysis tool as a fast and low dependency alternative to existing sumstats manipulation tools by leveraging the speed of [`bcftools munge`](https://github.com/freeseek/score).
+The goal of **RBCFLib** is to provide a minimalist infrastructure for
+performant R-based GWAS-VCF conversion and analysis tool as a fast and
+low dependency alternative to existing sumstats manipulation tools by
+leveraging the speed of
+[`bcftools munge`](https://github.com/freeseek/score).
 
-RBCFLib executes the full bcftools CLI as C Level subprocesses, ensuring compatibility with all bcftools features and plugins while maintaining high performance through efficient process management and piping.
+RBCFLib executes the full bcftools CLI as C Level subprocesses, ensuring
+compatibility with all bcftools features and plugins while maintaining
+high performance through efficient process management and piping.
 
--   **BCFTools Executable Wrapper:** Execute any `bcftools` command directly from R using `BCFToolsRun()` - the package bundles the complete bcftools executable and runs it as optimized subprocesses with full error handling and output capture.
+- **BCFTools Executable Wrapper:** Execute any `bcftools` command
+  directly from R using `BCFToolsRun()` - the package bundles the
+  complete bcftools executable and runs it as optimized subprocesses
+  with full error handling and output capture.
 
--   **Piping and Pipeline Support:**  `BCFToolsPipeline` creates bcftools data processing workflows with idiomatic R syntax, chaining multiple bcftools commands in efficient pipelines with automatic process management and piping implemented in optimized C code.
+- **Piping and Pipeline Support:** `BCFToolsPipeline` creates bcftools
+  data processing workflows with idiomatic R syntax, chaining multiple
+  bcftools commands in efficient pipelines with automatic process
+  management and piping implemented in optimized C code.
 
--   **Download Reference Genomes:** download human reference genomes and liftover files with `DownloadHumanReferenceGenomes` .
+- **Download Reference Genomes:** download human reference genomes and
+  liftover files with `DownloadHumanReferenceGenomes` .
 
--   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()` and the plugins `BCFTOOLS_PLUGINS()` installation directory if you want to add custom plugins to the bundled bcftools or swap out the bcftools version. This might be useful if you want to use a custom compiled version of bcftools or it's plugins( e.g `bcftools pgs` which requires CHOLMOD but pre-compile versions are available here https://software.broadinstitute.org/software/score/ ).
+- **Utility Functions:** Access the path to the bundled `bcftools`
+  executable via `BCFToolsBinaryPath()` and the plugins
+  `BCFTOOLS_PLUGINS()` installation directory if you want to add custom
+  plugins to the bundled bcftools or swap out the bcftools version. This
+  might be useful if you want to use a custom compiled version of
+  bcftools or it’s plugins( e.g `bcftools pgs` which requires CHOLMOD
+  but pre-compile versions are available here
+  <https://software.broadinstitute.org/software/score/> ).
 
 ## Installation
 
@@ -27,97 +57,145 @@ install.packages('RBCFLib', repos = c('https://sounkou-bioinfo.r-universe.dev'))
 devtools::install_github("sounkou-bioinfo/RBCFLib@develop")
 ```
 
-## Low-Level BCFTools Wrapper
+## BCFTools Wrapper
 
-RBCFLib provides direct access to the full bcftools CLI from R, supporting all bcftools features and plugins with high performance and robust error handling.
+RBCFLib provides direct access to the full bcftools CLI from R,
+supporting all bcftools features and plugins with high performance and
+robust error handling.
 
--   **BCFTools Executable Wrapper:** Execute any `bcftools` command directly from R using `BCFToolsRun()`.
--   **Piping and Pipeline Support:** Create complex data processing workflows with idiomatic R syntax using `BCFToolsPipeline()`, which chains multiple bcftools commands in efficient pipelines with automatic process management and piping in optimized C code.
--   **Version Information:** Retrieve `htslib` and `bcftools` library versions using `HTSLibVersion()` and `BCFToolsVersion()`.
--   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()` and the plugins installation directory with `BCFTOOLS_PLUGINS()`.
+- **BCFTools Executable Wrapper:** Execute any `bcftools` command
+  directly from R using `BCFToolsRun()`.
+- **Piping and Pipeline Support:** Create processing workflows within R
+  using `BCFToolsPipeline()`, which chains multiple bcftools commands in
+  efficient pipelines with automatic process management and piping in
+  optimized C code. The chain needs to be valid bcftools commands.
+- **Version Information:** Retrieve `htslib` and `bcftools` library
+  versions using `HTSLibVersion()` and `BCFToolsVersion()`.
+- **Utility Functions:** Access the path to the bundled `bcftools`
+  executable via `BCFToolsBinaryPath()` and the plugins installation
+  directory with `BCFTOOLS_PLUGINS()`.
 
 **Example:**
 
 ``` r
 library(RBCFLib)
+```
+
+``` r
 BCFToolsVersion()
+#> [1] "1.22"
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
 results <- BCFToolsRun("+vcf2table", vcfFile)
+print(results$stdout |> head())
+#> [1] "<<< chr21:5030082:G (n. 1)"     ""                              
+#> [3] "# Variant"                      "+--------+-------------------+"
+#> [5] "| KEY    | VALUE             |" "+--------+-------------------+"
 results <- BCFToolsPipeline(
     "view", c("-r", "chr21", "-Ob", vcfFile),
     "view", c("--no-version"),
-    "query", c("-f", "%CHROM\t%POS\t%REF\t%ALT\n")
+    "query", c("-f", "%CHROM\t%POS\t%REF\t%ALT\n"),
+    catchStdout = TRUE
 )
-print(results$stdout)
+print(results$stdout |> head())
+#> character(0)
 ```
 
 ## BCFTools Score Plugins
 
-RBCFLib provides R wrappers for the bcftools score plugin suite, enabling GWAS-VCF conversion and polygenic score analysis:
+RBCFLib provides R wrappers for the bcftools score plugin suite,
+enabling GWAS-VCF conversion and polygenic score analysis:
 
--   **`BCFToolsMunge`**: Convert summary statistics to GWAS-VCF format
--   **`BCFToolsScore`**: Compute polygenic scores using genotype data and weights
--   **`BCFToolsLiftover`**: Convert variants between genome assemblies
--   **`BCFToolsMetal`**: Perform meta-analysis on GWAS-VCF files
--   **`BCFToolsPGS`**: Compute polygenic score loadings (requires CHOLMOD, checked at install time)
--   **`BCFToolsBLUP`**: Compute BLUP
+- **`BCFToolsMunge`**: Convert summary statistics to GWAS-VCF format
+- **`BCFToolsScore`**: Compute polygenic scores using genotype data and
+  weights
+- **`BCFToolsLiftover`**: Convert variants between genome assemblies
+- **`BCFToolsMetal`**: Perform meta-analysis on GWAS-VCF files
+- **`BCFToolsPGS`**: Compute polygenic score loadings (requires CHOLMOD,
+  checked at install time)
+- **`BCFToolsBLUP`**: Compute BLUP
 
-For more details, see the [BCFTools Score documentation](https://github.com/freeseek/score).
+For more details, see the [BCFTools Score
+documentation](https://github.com/freeseek/score).
 
 ## VBI Indexes and CGRanges
 
-RBCFLib includes a fast, custom index format (VBI) that uses a format similar to [Seqminer2](https://github.com/zhanxw/seqminer), but with additional [cgranges](https://github.com/lh3/cgranges/) support when loading the index as C-level pointers. This enables rapid random access and region queries on large VCF/BCF files. The cgranges library is integrated to provide fast overlap retrieval of BCF/VCF ranges from VBI-indexed files or for basic range-based tests.
+RBCFLib includes a fast, custom index format (VBI) that uses a format
+similar to [Seqminer2](https://github.com/zhanxw/seqminer), but with
+additional [cgranges](https://github.com/lh3/cgranges/) support when
+loading the index as C-level pointers. This enables rapid random access
+and region queries on large VCF/BCF files. The cgranges library is
+integrated to provide fast overlap retrieval of BCF/VCF ranges from
+VBI-indexed files or for basic range-based tests.
 
 ### CGRanges Functions
 
--   `CGRangesCreate()`, `CGRangesAdd()`, `CGRangesIndex()`, `CGRangesOverlap()`, `CGRangesOverlapVec()`, `CGRangesExtractByIndex()`, `CGRangesDestroy()`
+- `CGRangesCreate()`, `CGRangesAdd()`, `CGRangesIndex()`,
+  `CGRangesOverlap()`, `CGRangesOverlapVec()`,
+  `CGRangesExtractByIndex()`, `CGRangesDestroy()`
 
 **Example:**
 
 ``` r
 cr <- CGRangesCreate()
 CGRangesAdd(cr, "chr1", 10, 20, 1)
+#> NULL
 CGRangesAdd(cr, "chr1", 15, 25, 2)
+#> NULL
 CGRangesIndex(cr)
+#> NULL
 hits <- CGRangesOverlap(cr, "chr1", 18, 22)
+print(hits)
+#> [[1]]
+#> [1] 1 2
 CGRangesDestroy(cr)
+#> NULL
 ```
 
 ### VBI Index Functions
 
--   `VBIIndex()`: Create a VBI index for a VCF/BCF file.
--   `VBIIndexLoad()`: Load a VBI index file as an external pointer.
--   `VBIExtractRanges()`: Extract variant ranges from a VBI index.
--   `VBIPrintIndex()`: Print lines from a VBI index.
--   `VBIQueryRange()`: Query VBI index by region.
--   `VBIQueryByIndices()`: Query VBI index by marker index range.
--   `VBIQueryRegionCGRanges()`: Query VBI index by region using CGRanges.
+- `VBIIndex()`: Create a VBI index for a VCF/BCF file.
+- `VBIIndexLoad()`: Load a VBI index file as an external pointer.
+- `VBIExtractRanges()`: Extract variant ranges from a VBI index.
+- `VBIPrintIndex()`: Print lines from a VBI index.
+- `VBIQueryRange()`: Query VBI index by region.
+- `VBIQueryByIndices()`: Query VBI index by marker index range.
+- `VBIQueryRegionCGRanges()`: Query VBI index by region using CGRanges.
 
 **Example:**
 
 ``` r
-vbi <- VBIIndex("file.vcf.gz", "file.vcf.gz.vbi")
+vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
+vbiIndex <- VBIIndex(vcfFile, "file.vcf.gz.vbi")
+#> Wrote 15 index records into file.vcf.gz.vbi
+#> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
+#> VBI index created: file.vcf.gz.vbi
 vbi_ptr <- VBIIndexLoad("file.vcf.gz.vbi")
 ranges <- VBIExtractRanges(vbi_ptr)
-hits <- VBIQueryRange("file.vcf.gz", vbi_ptr, "chr21:5030082")
-hits2 <- VBIQueryRegionCGRanges("file.vcf.gz", vbi_ptr,"chr21:5030081-5030083")
+hits <- VBIQueryRange(vcfFile, vbi_ptr, "chr21:5030082")
+hits2 <- VBIQueryRegionCGRanges(vcfFile, vbi_ptr,"chr21:5030081-5030083")
 ```
 
 ## Related Projects
 
--   [gwasvcf](https://github.com/MRCIEU/gwasvcf): R package for manipulating GWAS summary statistics in VCF format.
--   [MungeSumstats](https://github.com/Al-Murphy/MungeSumstats): R package for standardizing GWAS summary statistics.
--   [Seqminer2](https://github.com/zhanxw/seqminer): Fast random access to BCF/VCF files using a custom index format.
--   [vcfppR](https://github.com/Zilong-Li/vcfppR): Ultra-fast BCF/VCF I/O in R using Rcpp.
+- [gwasvcf](https://github.com/MRCIEU/gwasvcf): R package for
+  manipulating GWAS summary statistics in VCF format.
+- [MungeSumstats](https://github.com/Al-Murphy/MungeSumstats): R package
+  for standardizing GWAS summary statistics.
+- [Seqminer2](https://github.com/zhanxw/seqminer): Fast random access to
+  BCF/VCF files using a custom index format.
+- [vcfppR](https://github.com/Zilong-Li/vcfppR): Ultra-fast BCF/VCF I/O
+  in R using Rcpp.
 
 ## Requirements
 
--   R
--   Unix-like OS (Linux, macOS) or Windows WSL2
--   htslib/bcftools system dependencies
--   optional: CHOLMOD for BCFToolsPGS
+- R
+- Unix-like OS (Linux, macOS) or Windows WSL2
+- htslib/bcftools system dependencies
+- optional: CHOLMOD for BCFToolsPGS
 
 ## Future Directions
 
--   RgwasVCF: Advanced GWAS-VCF manipulation and analysis with convenient interfaces, depending on RBCFLib.
--   RArrowBCF: High-performance BCF/VCF I/O using Apache Arrow for in-memory data representation.
+- RgwasVCF: Advanced GWAS-VCF manipulation and analysis with convenient
+  interfaces, depending on RBCFLib.
+- RArrowBCF: High-performance BCF/VCF I/O using Apache Arrow for
+  in-memory data representation.
