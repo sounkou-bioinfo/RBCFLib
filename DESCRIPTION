@@ -4,8 +4,8 @@ Version: 1.22-0.0.3.1.90000
 Authors@R: c(
     person(given = "Sounkou Mahamane", family = "Toure", 
     email = "sounkoutoure@gmail.com", role = c("aut", "cre")),
-    person( given = "James K and Marshall, John and Danecek, Petr and Li, Heng and Ohan, Valeriu and Whitwham, Andrew and Keane, Thomas and Davies, Robert M",  role = "cph",
-           comment = "Authors of included htslib library"),
+    person( given = "samtools authors",  role = "cph",
+           comment = "Authors of included htslib library and bcftools command line tools"),
     person(given = "Heng", family = "Li", role = "cph", comment = "Author of cgranges library used for fast interval overlap"),
     person(given = "Zilong", family = "Li", email = "zilong.dk@gmail.com", role = c("cph"),
            comment = "Author of the vcfpp library from whom makefiles and configure strategy is borrowed"),
