@@ -3,7 +3,7 @@
 #' @return Numeric, memory usage in bytes
 #' @export
 VBIIndexMemoryUsage <- function(vbi_ptr) {
-    .Call(RC_VBI_index_memory_usage, vbi_ptr, PACKAGE = "RBCFLib")
+  .Call(RC_VBI_index_memory_usage, vbi_ptr, PACKAGE = "RBCFLib")
 }
 #' Vectorized overlap query for CGRanges
 #'
@@ -17,14 +17,14 @@ VBIIndexMemoryUsage <- function(vbi_ptr) {
 #' @return List of integer vectors, each containing the indices of overlapping intervals
 #' @export
 CGRangesOverlapVec <- function(cr, chrom, start, end) {
-    .Call(
-        RC_cgranges_overlap,
-        cr,
-        as.character(chrom),
-        as.integer(start),
-        as.integer(end),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_cgranges_overlap,
+    cr,
+    as.character(chrom),
+    as.integer(start),
+    as.integer(end),
+    PACKAGE = "RBCFLib"
+  )
 }
 
 #' Extract intervals by index from CGRanges
@@ -37,7 +37,7 @@ CGRangesOverlapVec <- function(cr, chrom, start, end) {
 #' @return Data frame with columns: chrom, start, end, label
 #' @export
 CGRangesExtractByIndex <- function(cr, indices) {
-    .Call(RC_cgranges_extract_by_index, cr, as.integer(indices))
+  .Call(RC_cgranges_extract_by_index, cr, as.integer(indices))
 }
 #' Extract variant ranges from a VBI index pointer
 #' @param VbiPtr External pointer to VBI index
@@ -45,8 +45,8 @@ CGRangesExtractByIndex <- function(cr, indices) {
 #' @return data.frame with chrom, start, end, label
 #' @export
 VBIExtractRanges <- function(VbiPtr, n = NA) {
-    storage.mode(n) <- "integer"
-    .Call(RC_VBI_extract_ranges, VbiPtr, n, PACKAGE = "RBCFLib")
+  storage.mode(n) <- "integer"
+  .Call(RC_VBI_extract_ranges, VbiPtr, n, PACKAGE = "RBCFLib")
 }
 
 #' Create a new CGRanges object
@@ -87,15 +87,15 @@ CGRangesCreate <- function() .Call(RC_cgranges_create)
 #' @seealso \code{\link{CGRangesCreate}}, \code{\link{CGRangesIndex}}
 #' @export
 CGRangesAdd <- function(cr, chrom, start, end, label) {
-    .Call(
-        RC_cgranges_add,
-        cr,
-        as.character(chrom),
-        as.integer(start),
-        as.integer(end),
-        as.integer(label),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_cgranges_add,
+    cr,
+    as.character(chrom),
+    as.integer(start),
+    as.integer(end),
+    as.integer(label),
+    PACKAGE = "RBCFLib"
+  )
 }
 #' Index CGRanges for fast queries
 #'
@@ -120,14 +120,14 @@ CGRangesIndex <- function(cr) .Call(RC_cgranges_index, cr)
 #' @seealso \code{\link{CGRangesIndex}}, \code{\link{CGRangesOverlapVec}}
 #' @export
 CGRangesOverlap <- function(cr, chrom, start, end) {
-    .Call(
-        RC_cgranges_overlap,
-        cr,
-        as.character(chrom),
-        as.integer(start),
-        as.integer(end),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_cgranges_overlap,
+    cr,
+    as.character(chrom),
+    as.integer(start),
+    as.integer(end),
+    PACKAGE = "RBCFLib"
+  )
 }
 #' Destroy a CGRanges object
 #'
@@ -140,7 +140,7 @@ CGRangesOverlap <- function(cr, chrom, start, end) {
 #'   but can be called explicitly to free memory immediately.
 #' @export
 CGRangesDestroy <- function(cr) {
-    .Call(RC_cgranges_destroy, cr, PACKAGE = "RBCFLib")
+  .Call(RC_cgranges_destroy, cr, PACKAGE = "RBCFLib")
 }
 #' Load a VBI index file and return an external pointer
 #'
@@ -148,7 +148,7 @@ CGRangesDestroy <- function(cr) {
 #' @return External pointer to the loaded VBI index
 #' @export
 VBIIndexLoad <- function(vbi_path) {
-    .Call(RC_VBI_load_index, as.character(vbi_path), PACKAGE = "RBCFLib")
+  .Call(RC_VBI_load_index, as.character(vbi_path), PACKAGE = "RBCFLib")
 }
 #' Query VBI index by region using cgranges (fast interval tree)
 #'
@@ -158,13 +158,13 @@ VBIIndexLoad <- function(vbi_path) {
 #' @return Character vector of VCF records for the region
 #' @export
 VBIQueryRegionCGRanges <- function(VcfPath, vbi_ptr, region) {
-    .Call(
-        RC_VBI_query_region_cgranges,
-        as.character(VcfPath),
-        vbi_ptr,
-        as.character(region),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_VBI_query_region_cgranges,
+    as.character(VcfPath),
+    vbi_ptr,
+    as.character(region),
+    PACKAGE = "RBCFLib"
+  )
 }
 #' Print the first n lines of a VBI index (from an external pointer)
 #'
@@ -172,12 +172,12 @@ VBIQueryRegionCGRanges <- function(VcfPath, vbi_ptr, region) {
 #' @param n Number of lines to print (default: 10)
 #' @export
 VBIPrintIndex <- function(vbi_ptr, n = 10) {
-    invisible(.Call(
-        RC_VBI_print_index,
-        vbi_ptr,
-        as.integer(n),
-        PACKAGE = "RBCFLib"
-    ))
+  invisible(.Call(
+    RC_VBI_print_index,
+    vbi_ptr,
+    as.integer(n),
+    PACKAGE = "RBCFLib"
+  ))
 }
 #' VBI Index
 #'
@@ -189,13 +189,13 @@ VBIPrintIndex <- function(vbi_ptr, n = 10) {
 #' @return Path to index file
 #' @export
 VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
-    .Call(
-        RC_VBI_index,
-        as.character(VcfPath),
-        as.character(VbiPath),
-        as.integer(Threads),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_VBI_index,
+    as.character(VcfPath),
+    as.character(VbiPath),
+    as.integer(Threads),
+    PACKAGE = "RBCFLib"
+  )
 }
 
 #' Query VBI index by region
@@ -207,14 +207,14 @@ VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
 #' @return List of results
 #' @export
 VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
-    .Call(
-        RC_VBI_query_range,
-        as.character(VcfPath),
-        VbiPath,
-        as.character(Region),
-        as.integer(Threads),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_VBI_query_range,
+    as.character(VcfPath),
+    VbiPath,
+    as.character(Region),
+    as.integer(Threads),
+    PACKAGE = "RBCFLib"
+  )
 }
 
 #' Query VBI index by marker index range
@@ -227,19 +227,19 @@ VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
 #' @return List of results
 #' @export
 VBIQueryByIndices <- function(
-    VcfPath,
-    VbiPath,
-    StartingIndice,
-    EndingIndice,
-    Threads = 1
+  VcfPath,
+  VbiPath,
+  StartingIndice,
+  EndingIndice,
+  Threads = 1
 ) {
-    .Call(
-        RC_VBI_query_by_indices,
-        as.character(VcfPath),
-        VbiPath,
-        as.integer(StartingIndice),
-        as.integer(EndingIndice),
-        as.integer(Threads),
-        PACKAGE = "RBCFLib"
-    )
+  .Call(
+    RC_VBI_query_by_indices,
+    as.character(VcfPath),
+    VbiPath,
+    as.integer(StartingIndice),
+    as.integer(EndingIndice),
+    as.integer(Threads),
+    PACKAGE = "RBCFLib"
+  )
 }
