@@ -222,7 +222,6 @@ VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
 #' @param VcfPath Path to the VCF/BCF file
 #' @param VbiPath Path to the VBI index file
 #' @param StartIdx Start index for index-based query
-
 #' @param EndingIndice End index for index-based query
 #' @param Threads Number of threads to use (default: 1)
 #' @return List of results

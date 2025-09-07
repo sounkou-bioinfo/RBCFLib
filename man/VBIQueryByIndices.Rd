@@ -11,11 +11,11 @@ VBIQueryByIndices(VcfPath, VbiPath, StartingIndice, EndingIndice, Threads = 1)
 
 \item{VbiPath}{Path to the VBI index file}
 
+\item{StartingIndice}{Start index for index-based query}
+
 \item{EndingIndice}{End index for index-based query}
 
 \item{Threads}{Number of threads to use (default: 1)}
-
-\item{StartIdx}{Start index for index-based query}
 }
 \value{
 List of results
