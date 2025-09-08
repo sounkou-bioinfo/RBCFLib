@@ -1,6 +1,5 @@
 #include <Rinternals.h>
 #include <R.h>
-#ifndef _WIN32
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
@@ -377,4 +376,3 @@ SEXP RC_bcftools_pipeline(
     UNPROTECT(2);
     return res;
 }
-#endif
