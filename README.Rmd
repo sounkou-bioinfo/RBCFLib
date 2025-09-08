@@ -14,6 +14,19 @@ knitr::opts_chunk$set(
 
 **RBCFLib** provides a minimalist and GWAS-VCF centric R wrapper for `htslib` and `bcftools`, enabling efficient manipulation of BCF/VCF genomic data files directly within R. The package includes bundled bcftools source code that is compiled during installation, then executes bcftools commands as optimized subprocesses through a C interface that handles piping, error capture, and process management. Some other convenience functions for common tasks are also provided including a custom index re-implementing the [`Seqminer2`](https://github.com/zhanxw/seqminer) single chromosome index format for fast random access to records.
 
+## Included original `rbcf` low-level API
+
+This repository now embeds (with minor updates for htslib 1.21 and current R API) the archived low-level VCF/BCF binding code authored by Pierre Lindenbaum (original project: lindenb/rbcf). These functions expose opaque external pointer contexts and direct accessor helpers:
+
+- Open / iterate / write: `BCFOpen()`, `BCFNext()`, `BCFNewWriter()`, `BCFWriteVariant()`, `BCFClose()`
+- Header & samples: `BCFNSamples()`, `BCFSamples()`, `BCFSampleAt()`, `BCFSample2Index()`, `BCFChromosomes()`, `BCFDictionary()`
+- Variant access: `VariantPos()`, `VariantAlleles()`, `VariantReference()`, `VariantAltAlleles()`, `VariantHasQual()`, `VariantQual()`, `VariantFilters()` etc.
+- INFO / FORMAT: `VariantHasAttribute()`, `VariantStringAttribute()`, `VariantIntAttribute()`, `VariantFloatAttribute()`, `VariantFlagAttribute()`
+- Genotypes: `VariantGenotype()`, `VariantGenotypesAlleleIdx0()`, `GenotypePloidy()`, `GenotypeHomRef()`, `GenotypeHet()` …
+- Annotations: `VariantVep()`, `VariantSnpEff()`
+
+They coexist with the higher-level bcftools process wrappers so you can mix streaming (low-level) and pipeline (bcftools) workflows. See tinytests and man pages for concise examples. Attribution: Pierre Lindenbaum PhD (@yokofakun).
+
 The goal of **RBCFLib** is to provide a minimalist infrastructure for performant R-based GWAS-VCF conversion and analysis tool as a fast and low dependency alternative to existing sumstats manipulation tools by leveraging the speed of [`bcftools munge`](https://github.com/freeseek/score).
 
 RBCFLib executes the full bcftools CLI as C Level subprocesses, ensuring compatibility with all bcftools features and plugins while maintaining high performance through efficient process management and piping.
