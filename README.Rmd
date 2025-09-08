@@ -14,33 +14,16 @@ knitr::opts_chunk$set(
 
 **RBCFLib** provides a minimalist and GWAS-VCF centric R wrapper for `htslib` and `bcftools`, enabling efficient manipulation of BCF/VCF genomic data files directly within R. The package includes bundled bcftools source code that is compiled during installation, then executes bcftools commands as optimized subprocesses through a C interface that handles piping, error capture, and process management. Some other convenience functions for common tasks are also provided including a custom index re-implementing the [`Seqminer2`](https://github.com/zhanxw/seqminer) single chromosome index format for fast random access to records.
 
-## Included original `rbcf` low-level API
-
-This repository now embeds (with minor updates for htslib 1.21 and current R API) the archived low-level VCF/BCF binding code authored by Pierre Lindenbaum (original project: lindenb/rbcf). These functions expose opaque external pointer contexts and direct accessor helpers:
-
-- Open / iterate / write: `BCFOpen()`, `BCFNext()`, `BCFNewWriter()`, `BCFWriteVariant()`, `BCFClose()`
-- Header & samples: `BCFNSamples()`, `BCFSamples()`, `BCFSampleAt()`, `BCFSample2Index()`, `BCFChromosomes()`, `BCFDictionary()`
-- Variant access: `VariantPos()`, `VariantAlleles()`, `VariantReference()`, `VariantAltAlleles()`, `VariantHasQual()`, `VariantQual()`, `VariantFilters()` etc.
-- INFO / FORMAT: `VariantHasAttribute()`, `VariantStringAttribute()`, `VariantIntAttribute()`, `VariantFloatAttribute()`, `VariantFlagAttribute()`
-- Genotypes: `VariantGenotype()`, `VariantGenotypesAlleleIdx0()`, `GenotypePloidy()`, `GenotypeHomRef()`, `GenotypeHet()` …
-- Annotations: `VariantVep()`, `VariantSnpEff()`
-
-They coexist with the higher-level bcftools process wrappers so you can mix streaming (low-level) and pipeline (bcftools) workflows. See tinytests and man pages for concise examples. Attribution: Pierre Lindenbaum PhD (@yokofakun).
-
-The goal of **RBCFLib** is to provide a minimalist infrastructure for performant R-based GWAS-VCF conversion and analysis tool as a fast and low dependency alternative to existing sumstats manipulation tools by leveraging the speed of [`bcftools munge`](https://github.com/freeseek/score).
-
-RBCFLib executes the full bcftools CLI as C Level subprocesses, ensuring compatibility with all bcftools features and plugins while maintaining high performance through efficient process management and piping.
-
--   **BCFTools Executable Wrapper:** Execute any `bcftools` command directly from R using `BCFToolsRun()` - the package bundles the complete bcftools executable and runs it as optimized subprocesses with full error handling and output capture.
-
--   **Piping and Pipeline Support:**  `BCFToolsPipeline` creates bcftools data processing workflows with idiomatic R syntax, chaining multiple bcftools commands in efficient pipelines with automatic process management and piping implemented in optimized C code.
-
--   **Download Reference Genomes:** download human reference genomes and liftover files with `DownloadHumanReferenceGenomes` .
-
--   **Utility Functions:** Access the path to the bundled `bcftools` executable via `BCFToolsBinaryPath()` and the plugins `BCFTOOLS_PLUGINS()` installation directory if you want to add custom plugins to the bundled bcftools or swap out the bcftools version. This might be useful if you want to use a custom compiled version of bcftools or it's plugins( e.g `bcftools pgs` which requires CHOLMOD but pre-compile versions are available here https://software.broadinstitute.org/software/score/ ).
+Originally this project focused solely on lightweight bcftools wrapping for GWAS-VCF workflows; over time it added score plugin helpers, a custom VBI index + CGRanges integration, and finally the embedded archived low-level `rbcf` bindings.
 
 ## Installation
 
+### Requirements
+
+-   R
+-   Unix-like OS (Linux, macOS) or Windows WSL2
+-   htslib/bcftools system dependencies
+-   optional: CHOLMOD for BCFToolsPGS
 ``` r
 
 # to install from r-universe
@@ -137,6 +120,166 @@ print(hits)
 print(hits2)
 ```
 
+## Embedded original `rbcf` low-level API
+
+This repository now embeds (with minor updates for htslib 1.21 and current R API) the archived low-level VCF/BCF binding code authored by Pierre Lindenbaum (original project: lindenb/rbcf). These functions expose opaque external pointer contexts and direct accessor helpers. They coexist with the higher-level bcftools process wrappers, letting you mix streaming (low-level) and pipeline (bcftools) workflows. See tinytests and man pages for concise examples. Attribution: Pierre Lindenbaum PhD (@yokofakun).
+
+- Open / iterate / write: `BCFOpen()`, `BCFNext()`, `BCFNewWriter()`, `BCFWriteVariant()`, `BCFClose()`
+- Header & samples: `BCFNSamples()`, `BCFSamples()`, `BCFSampleAt()`, `BCFSample2Index()`, `BCFChromosomes()`, `BCFDictionary()`
+- Variant access: `VariantPos()`, `VariantAlleles()`, `VariantReference()`, `VariantAltAlleles()`, `VariantHasQual()`, `VariantQual()`, `VariantFilters()` etc.
+- INFO / FORMAT: `VariantHasAttribute()`, `VariantStringAttribute()`, `VariantIntAttribute()`, `VariantFloatAttribute()`, `VariantFlagAttribute()`
+- Genotypes: `VariantGenotype()`, `VariantGenotypesAlleleIdx0()`, `GenotypePloidy()`, `GenotypeHomRef()`, `GenotypeHet()` …
+- Annotations: `VariantVep()`, `VariantSnpEff()`
+
+### Low-level examples (adapted from original `rbcf`)
+
+All examples use packaged example data via `system.file("exdata", ..., package = "RBCFLib")`.
+
+#### Versions
+```{r low_versions}
+library(RBCFLib)
+HTSLibVersion()
+BCFToolsVersion()
+```
+
+#### Open and close a VCF (no index required)
+```{r low_open_close}
+vcf <- system.file("exdata","rotavirus_rf.01.vcf", package="RBCFLib")
+fp <- BCFOpen(vcf, requireIndex = FALSE)
+stopifnot(!is.null(fp))
+BCFClose(fp)
+```
+
+#### List INFO / FORMAT / FILTER header fields
+```{r low_header_fields}
+fp <- BCFOpen(vcf, requireIndex = FALSE)
+head(BCFInfos(fp))      # show first rows
+head(BCFFormats(fp))
+BCFFilters(fp)
+BCFClose(fp)
+```
+
+#### Samples and dictionary
+```{r low_samples_dict}
+fp <- BCFOpen(vcf, requireIndex = FALSE)
+BCFNSamples(fp)
+BCFSamples(fp)
+BCFSampleAt(fp, 1)
+BCFSample2Index(fp, c("S1","S2","missing"))
+BCFDictionary(fp)
+BCFClose(fp)
+```
+
+#### Indexed chromosomes / contigs
+```{r low_indexed_chrom}
+vcf_gz <- system.file("exdata","rotavirus_rf.02.vcf.gz", package="RBCFLib")
+fp <- BCFOpen(vcf_gz)
+BCFChromosomes(fp)
+BCFClose(fp)
+```
+
+#### Scan all variants (count)
+```{r low_scan_count}
+count_variants <- function(f, requireIndex = FALSE) {
+  fp <- BCFOpen(f, requireIndex=requireIndex)
+  if(is.null(fp)) return(NA_integer_)
+  n <- 0L
+  while(!is.null(vc <- BCFNext(fp))) n <- n + 1L
+  BCFClose(fp); n
+}
+count_variants(vcf)
+```
+
+#### Predicate scan (e.g. count PASS SNPs)
+```{r low_predicate_scan}
+fp <- BCFOpen(system.file("exdata","gnomad.exomes.r2.0.1.sites.bcf", package="RBCFLib"))
+pass_snps <- 0L
+while(!is.null(vc <- BCFNext(fp))) {
+  if(length(VariantFilters(vc))==0L && VariantAlleles(vc)[1] %in% c("A","C","G","T") &&
+     all(nchar(VariantAlleles(vc))==1L)) pass_snps <- pass_snps + 1L
+}
+BCFClose(fp)
+pass_snps
+```
+
+#### Query regions
+```{r low_query_regions}
+fp <- BCFOpen(vcf_gz)
+count_RF03 <- NA_integer_
+if(BCFQuery(fp, "RF03")) {
+  k <- 0L
+  while(!is.null(vc <- BCFNext(fp))) k <- k + 1L
+  count_RF03 <- k
+}
+# window query (sets iterator)
+BCFQuery(fp, "RF03:2000-3000")
+BCFClose(fp)
+count_RF03
+```
+
+#### Find a specific variant & access INFO attributes
+```{r low_find_variant}
+find_variant <- function(f, region) {
+  fp <- BCFOpen(f)
+  on.exit(BCFClose(fp))
+  if(!BCFQuery(fp, region)) return(NULL)
+  BCFNext(fp)
+}
+site_bcf <- system.file("exdata","gnomad.exomes.r2.0.1.sites.bcf", package="RBCFLib")
+vc_site <- find_variant(site_bcf, "1:905608-905608")
+if(!is.null(vc_site) && VariantHasAttribute(vc_site, "AF_POPMAX")) {
+  VariantFloatAttribute(vc_site, "AF_POPMAX")
+}
+```
+
+#### VEP / SnpEff annotations
+```{r low_annotations}
+# VEP (CSQ)
+vc_vep <- find_variant(site_bcf, "1:905608-905608")
+if(!is.null(vc_vep) && VariantHasAttribute(vc_vep, "CSQ")) {
+  head(VariantVep(vc_vep))
+}
+# SnpEff (ANN)
+ann_vcf <- system.file("exdata","rotavirus_rf.ann.vcf.gz", package="RBCFLib")
+vc_ann <- find_variant(ann_vcf, "RF03:2150-2150")
+if(!is.null(vc_ann) && VariantHasAttribute(vc_ann, "ANN")) {
+  head(VariantSnpEff(vc_ann))
+}
+```
+
+#### Genotype access (single sample)
+```{r low_genotype_single}
+geno_bcf <- system.file("exdata","1000G.ALL.2of4intersection.20100804.genotypes.bcf", package="RBCFLib")
+vc_gt <- find_variant(geno_bcf, "1:10583-10583")
+if(!is.null(vc_gt)) {
+  ns <- VariantNSamples(vc_gt)
+  gt10 <- VariantGenotype(vc_gt, 10)
+  list(sample=GenotypeSample(gt10), ploidy=GenotypePloidy(gt10), het=GenotypeHet(gt10))
+}
+```
+
+#### Vectorized genotype attributes
+```{r low_genotype_vector}
+if(!is.null(vc_gt)) {
+  dp <- VariantGenotypesIntAttribute(vc_gt, "DP")
+  gt_idx <- VariantGenotypesAlleleIdx0(vc_gt)
+  gt_ref_counts <- VariantGenotypesAlleleCounts(vc_gt, 0)
+  gt_str <- VariantGenotypesAlleleStrings(vc_gt)
+  list(DP=head(dp), GT_IDX=head(gt_idx), REF_COUNTS=head(gt_ref_counts), GT_STR=head(gt_str))
+}
+```
+
+#### Write filtered variants to stdout
+```{r low_write_filtered}
+fp_in <- BCFOpen(vcf, requireIndex=FALSE)
+out <- BCFNewWriter(fp_in, "-")
+while(!is.null(v <- BCFNext(fp_in))) {
+  if(VariantPos(v) %% 10 == 0) BCFWriteVariant(out, v)
+}
+BCFClose(fp_in); BCFClose(out)
+```
+
+
 ## Related Projects
 
 -   [gwasvcf](https://github.com/MRCIEU/gwasvcf): R package for manipulating GWAS summary statistics in VCF format.
@@ -144,12 +287,7 @@ print(hits2)
 -   [Seqminer2](https://github.com/zhanxw/seqminer): Fast random access to BCF/VCF files using a custom index format.
 -   [vcfppR](https://github.com/Zilong-Li/vcfppR): Ultra-fast BCF/VCF I/O in R using Rcpp.
 
-## Requirements
 
--   R
--   Unix-like OS (Linux, macOS) or Windows WSL2
--   htslib/bcftools system dependencies
--   optional: CHOLMOD for BCFToolsPGS
 
 ## Future Directions
 
