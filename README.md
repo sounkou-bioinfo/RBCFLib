@@ -498,8 +498,5 @@ All examples use packaged example data via
 -   ☐ autoconvert the range request outputs to be lists or data.frames
     and not strings
 
--   ☐ BCF iterator for sequential reading of BCF/VCF files with
-    automatic decompression and parsing, this will provide
-    infrastructure for the nanoarrow implementation
 
 -   ☐ Use the bundled hmmap plugin ?
