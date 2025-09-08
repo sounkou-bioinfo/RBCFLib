@@ -75,35 +75,115 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
     const char *reg = CHAR(STRING_ELT(region, 0));
-    int n_threads = asInteger(threads);
-    (void)n_threads; // Suppress unused variable warning
-    SEXP lines = R_NilValue;
-    PROTECT_INDEX idx_prot;
-    PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
+    int n_threads = asInteger(threads); (void)n_threads; // reserved, not yet used
+
     int nfound = 0;
     int *indices = vbi_index_query_region(idx, reg, &nfound);
     if (!indices || nfound == 0) {
-        lines = allocVector(STRSXP, 0);
-        REPROTECT(lines, idx_prot);
-        UNPROTECT(1);
-        return lines;
+        // return 0-row data.frame
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        if (indices) free(indices);
+        return df;
     }
+
     htsFile *fp = hts_open(vcf, "r");
     if (!fp) {
         free(indices);
-        UNPROTECT(1);
         Rf_error("Failed to open VCF/BCF: %s", vcf);
     }
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
     if (!hdr) {
         hts_close(fp);
         free(indices);
-        UNPROTECT(1);
         Rf_error("Failed to read VCF/BCF header: %s", vcf);
     }
-    lines = allocVector(STRSXP, nfound);
-    REPROTECT(lines, idx_prot);
+
+    // Detect presence of CSQ / ANN INFO annotations (VEP/SnpEff)
+    bcf_hrec_t *csq_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "CSQ", NULL);
+    bcf_hrec_t *ann_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "ANN", NULL);
+
+    // Pre-parse CSQ/ANN subfield names if available
+    char **csq_fields = NULL; int n_csq_fields = 0;
+    char **ann_fields = NULL; int n_ann_fields = 0;
+
+    // helper lambda-like static functions not available; implement inline parsing
+    if (csq_hrec) {
+        const char *desc = NULL;
+        for (int i=0;i<csq_hrec->nkeys;i++) if (strcmp(csq_hrec->keys[i],"Description")==0) { desc = csq_hrec->vals[i]; break; }
+        if (desc) {
+            const char *fmt = strstr(desc, "Format:");
+            if (fmt) {
+                fmt += 7; // skip 'Format:'
+                while (*fmt==' ' || *fmt=='\t') fmt++;
+                // copy until end
+                char *tmp = strdup(fmt);
+                // trim trailing quote / parenthesis if any
+                size_t L = strlen(tmp);
+                while (L>0 && (tmp[L-1]=='"' || tmp[L-1]==')' || tmp[L-1]==' ')) { tmp[--L]='\0'; }
+                // split by '|'
+                // first count
+                for (size_t i=0;i<L;i++) if (tmp[i]=='|') n_csq_fields++;
+                n_csq_fields++; // items = pipes + 1
+                csq_fields = (char**)calloc(n_csq_fields, sizeof(char*));
+                int fld=0; char *p=tmp; char *start=p;
+                for (; *p; ++p) {
+                    if (*p=='|') { *p='\0'; csq_fields[fld++] = strdup(start); start = p+1; }
+                }
+                if (fld < n_csq_fields) csq_fields[fld++] = strdup(start);
+                free(tmp);
+            }
+        }
+    }
+    if (ann_hrec) {
+        const char *desc = NULL;
+        for (int i=0;i<ann_hrec->nkeys;i++) if (strcmp(ann_hrec->keys[i],"Description")==0) { desc = ann_hrec->vals[i]; break; }
+        if (desc) {
+            const char *fmt = strstr(desc, "'|"); // heuristics to find ANN format after first "'"
+            const char *fmt2 = strstr(desc, "Format:");
+            const char *use = fmt2?fmt2:fmt; // try Format: first
+            if (use) {
+                if (fmt2) { use += 7; while (*use==' '||*use=='\t') use++; }
+                char *tmp = strdup(use);
+                size_t L = strlen(tmp);
+                while (L>0 && (tmp[L-1]=='"' || tmp[L-1]==')' || tmp[L-1]==' ')) { tmp[--L]='\0'; }
+                for (size_t i=0;i<L;i++) if (tmp[i]=='|') n_ann_fields++;
+                n_ann_fields++;
+                ann_fields = (char**)calloc(n_ann_fields, sizeof(char*));
+                int fld=0; char *p=tmp; char *start=p;
+                for (; *p; ++p) {
+                    if (*p=='|') { *p='\0'; ann_fields[fld++] = strdup(start); start = p+1; }
+                }
+                if (fld < n_ann_fields) ann_fields[fld++] = strdup(start);
+                free(tmp);
+            }
+        }
+    }
+
+    // Allocate core columns
+    SEXP chrom_col = PROTECT(allocVector(STRSXP, nfound));
+    SEXP pos_col   = PROTECT(allocVector(INTSXP, nfound));
+    SEXP id_col    = PROTECT(allocVector(STRSXP, nfound));
+    SEXP ref_col   = PROTECT(allocVector(STRSXP, nfound));
+    SEXP alt_col   = PROTECT(allocVector(STRSXP, nfound));
+    SEXP qual_col  = PROTECT(allocVector(REALSXP, nfound));
+    SEXP filter_col= PROTECT(allocVector(STRSXP, nfound));
+    SEXP nallele_col=PROTECT(allocVector(INTSXP, nfound));
+    SEXP index_col = PROTECT(allocVector(INTSXP, nfound));
+    SEXP csq_col   = csq_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_csx = csq_hrec?1:0;
+    SEXP ann_col   = ann_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_ann = ann_hrec?1:0;
+
+    int nprotect = 9 + prot_csx + prot_ann;
+
     bcf1_t *rec = bcf_init();
+    kstring_t kalt = {0,0,0};
+    kstring_t kflt = {0,0,0};
+
     for (int i = 0; i < nfound; ++i) {
         int idx_var = indices[i];
         int seek_ok = 0;
@@ -114,27 +194,183 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
             hFILE *hf = (hFILE *)fp->fp.hfile;
             seek_ok = (hseek(hf, (off_t)idx->offsets[idx_var], SEEK_SET) == 0);
         }
-        if (!seek_ok) {
-            SET_STRING_ELT(lines, i, mkChar(""));
+        if (!seek_ok || bcf_read(fp, hdr, rec) < 0) {
+            SET_STRING_ELT(chrom_col, i, NA_STRING);
+            INTEGER(pos_col)[i] = NA_INTEGER;
+            SET_STRING_ELT(id_col, i, NA_STRING);
+            SET_STRING_ELT(ref_col, i, NA_STRING);
+            SET_STRING_ELT(alt_col, i, NA_STRING);
+            REAL(qual_col)[i] = NA_REAL;
+            SET_STRING_ELT(filter_col, i, NA_STRING);
+            INTEGER(nallele_col)[i] = NA_INTEGER;
+            if (csq_hrec) SET_VECTOR_ELT(csq_col, i, R_NilValue);
+            if (ann_hrec) SET_VECTOR_ELT(ann_col, i, R_NilValue);
+            INTEGER(index_col)[i] = NA_INTEGER;
             continue;
         }
-        int r = bcf_read(fp, hdr, rec);
-        if (r < 0) {
-            SET_STRING_ELT(lines, i, mkChar(""));
-            continue;
+        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO|BCF_UN_FLT);
+        // chrom
+        const char *chrom = bcf_hdr_id2name(hdr, rec->rid);
+        SET_STRING_ELT(chrom_col, i, chrom?mkChar(chrom):NA_STRING);
+        // pos (1-based)
+        INTEGER(pos_col)[i] = rec->pos + 1;
+        // id
+        if (rec->d.id && strcmp(rec->d.id, ".")!=0) SET_STRING_ELT(id_col, i, mkChar(rec->d.id)); else SET_STRING_ELT(id_col, i, NA_STRING);
+        // ref & alt
+        if (rec->d.allele && rec->n_allele>0) {
+            SET_STRING_ELT(ref_col, i, mkChar(rec->d.allele[0]));
+            // build alt string
+            kalt.l = 0; if (rec->n_allele>1) {
+                for (int a=1;a<rec->n_allele;a++) {
+                    if (a>1) kputc(',', &kalt);
+                    kputs(rec->d.allele[a], &kalt);
+                }
+                SET_STRING_ELT(alt_col, i, mkChar(kalt.s));
+            } else {
+                SET_STRING_ELT(alt_col, i, mkChar("."));
+            }
+        } else {
+            SET_STRING_ELT(ref_col, i, NA_STRING);
+            SET_STRING_ELT(alt_col, i, NA_STRING);
         }
-        bcf_unpack(rec, BCF_UN_STR);
-        kstring_t str = {0,0,0};
-        vcf_format1(hdr, rec, &str);
-        SET_STRING_ELT(lines, i, mkChar(str.s));
-        free(str.s);
+        INTEGER(nallele_col)[i] = rec->n_allele;
+        INTEGER(index_col)[i] = idx_var + 1; // 1-based index of variant in VBI
+        // qual
+        REAL(qual_col)[i] = bcf_float_is_missing(rec->qual) ? NA_REAL : rec->qual;
+        // filters
+        kflt.l = 0;
+        if (rec->d.n_flt == 0) {
+            kputs("PASS", &kflt);
+        } else {
+            for (int f=0; f<rec->d.n_flt; ++f) {
+                if (f) kputc(';', &kflt);
+                const char *flt = bcf_hdr_int2id(hdr, BCF_DT_ID, rec->d.flt[f]);
+                if (flt) kputs(flt, &kflt);
+            }
+        }
+        SET_STRING_ELT(filter_col, i, kflt.s?mkChar(kflt.s):mkChar(""));
+
+        // CSQ parsing
+        if (csq_hrec) {
+            bcf_info_t *info = bcf_get_info(hdr, rec, "CSQ");
+            if (!info) {
+                SET_VECTOR_ELT(csq_col, i, R_NilValue);
+            } else {
+                // get string value
+                char *csq_str = NULL; int ns = 0;
+                if (bcf_get_info_string(hdr, rec, "CSQ", &csq_str, &ns) > 0) {
+                    // split by ',' entries
+                    int ntrans=1; for (char *p=csq_str; *p; ++p) if (*p==',') ntrans++;
+                    // allocate data.frame columns per field
+                    SEXP cols = PROTECT(allocVector(VECSXP, n_csq_fields));
+                    for (int c=0;c<n_csq_fields;c++) SET_VECTOR_ELT(cols, c, allocVector(STRSXP, ntrans));
+                    // parse
+                    int t=0; char *entry = csq_str; char *p=csq_str;
+                    while (1) {
+                        if (*p==',' || *p=='\0') {
+                            char save = *p; *p='\0';
+                            // parse one transcript entry by '|'
+                            int fld=0; char *seg=entry; char *q=entry;
+                            while (1) {
+                                if (*q=='|' || *q=='\0') {
+                                    char save2=*q; *q='\0';
+                                    if (fld<n_csq_fields) {
+                                        SEXP col = VECTOR_ELT(cols,fld);
+                                        SET_STRING_ELT(col, t, seg && *seg? mkChar(seg): NA_STRING);
+                                    }
+                                    *q = save2;
+                                    fld++; seg = q+1;
+                                }
+                                if (*q=='\0') break; q++;
+                            }
+                            *p = save;
+                            t++;
+                            if (save=='\0') break; // done
+                            entry = p+1;
+                        }
+                        if (*p=='\0') break; else p++;
+                    }
+                    // set names
+                    SEXP fn = PROTECT(allocVector(STRSXP, n_csq_fields));
+                    for (int c=0;c<n_csq_fields;c++) SET_STRING_ELT(fn,c,mkChar(csq_fields[c]));
+                    setAttrib(cols, R_NamesSymbol, fn);
+                    // row.names
+                    SEXP rn = PROTECT(allocVector(INTSXP, ntrans)); for (int r=0;r<ntrans;r++) INTEGER(rn)[r]=r+1; setAttrib(cols, R_RowNamesSymbol, rn);
+                    setAttrib(cols, R_ClassSymbol, mkString("data.frame"));
+                    SET_VECTOR_ELT(csq_col, i, cols);
+                    UNPROTECT(3); // cols names rn
+                    free(csq_str);
+                } else {
+                    if (csq_str) free(csq_str);
+                    SET_VECTOR_ELT(csq_col, i, R_NilValue);
+                }
+            }
+        }
+        // ANN parsing (similar but simpler: store raw entries list)
+        if (ann_hrec) {
+            bcf_info_t *info = bcf_get_info(hdr, rec, "ANN");
+            if (!info) {
+                SET_VECTOR_ELT(ann_col, i, R_NilValue);
+            } else {
+                char *ann_str=NULL; int ns=0;
+                if (bcf_get_info_string(hdr, rec, "ANN", &ann_str, &ns) > 0) {
+                    int ntrans=1; for (char *p=ann_str; *p; ++p) if (*p==',') ntrans++;
+                    SEXP entries = PROTECT(allocVector(STRSXP, ntrans));
+                    int t=0; char *entry=ann_str; char *p=ann_str;
+                    while (1) {
+                        if (*p==',' || *p=='\0') {
+                            char save=*p; *p='\0';
+                            SET_STRING_ELT(entries, t, entry && *entry?mkChar(entry):NA_STRING);
+                            *p=save; t++; if (save=='\0') break; entry=p+1;
+                        }
+                        if (*p=='\0') break; else p++;
+                    }
+                    SET_VECTOR_ELT(ann_col, i, entries);
+                    UNPROTECT(1);
+                    free(ann_str);
+                } else {
+                    if (ann_str) free(ann_str);
+                    SET_VECTOR_ELT(ann_col, i, R_NilValue);
+                }
+            }
+        }
     }
+
     bcf_destroy(rec);
+    if (kalt.s) free(kalt.s);
+    if (kflt.s) free(kflt.s);
     bcf_hdr_destroy(hdr);
     hts_close(fp);
-    free(indices);
-    UNPROTECT(1);
-    return lines;
+
+    // Build final data.frame
+    int ncols = 9 + (csq_hrec?1:0) + (ann_hrec?1:0);
+    SEXP df = PROTECT(allocVector(VECSXP, ncols)); nprotect++;
+    SEXP names = PROTECT(allocVector(STRSXP, ncols)); nprotect++;
+    int col=0;
+    SET_VECTOR_ELT(df, col, chrom_col); SET_STRING_ELT(names, col++, mkChar("chrom"));
+    SET_VECTOR_ELT(df, col, pos_col);   SET_STRING_ELT(names, col++, mkChar("pos"));
+    SET_VECTOR_ELT(df, col, id_col);    SET_STRING_ELT(names, col++, mkChar("id"));
+    SET_VECTOR_ELT(df, col, ref_col);   SET_STRING_ELT(names, col++, mkChar("ref"));
+    SET_VECTOR_ELT(df, col, alt_col);   SET_STRING_ELT(names, col++, mkChar("alt"));
+    SET_VECTOR_ELT(df, col, qual_col);  SET_STRING_ELT(names, col++, mkChar("qual"));
+    SET_VECTOR_ELT(df, col, filter_col);SET_STRING_ELT(names, col++, mkChar("filter"));
+    SET_VECTOR_ELT(df, col, nallele_col);SET_STRING_ELT(names, col++, mkChar("n_allele"));
+    SET_VECTOR_ELT(df, col, index_col); SET_STRING_ELT(names, col++, mkChar("index"));
+    if (csq_hrec) { SET_VECTOR_ELT(df, col, csq_col); SET_STRING_ELT(names, col++, mkChar("CSQ")); }
+    if (ann_hrec) { SET_VECTOR_ELT(df, col, ann_col); SET_STRING_ELT(names, col++, mkChar("ANN")); }
+    setAttrib(df, R_NamesSymbol, names);
+    SEXP rn = PROTECT(allocVector(INTSXP, nfound)); nprotect++;
+    for (int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1;
+    setAttrib(df, R_RowNamesSymbol, rn);
+    setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+
+    // free temps
+    if (indices) free(indices);
+    if (csq_fields) { for (int i=0;i<n_csq_fields;i++) free(csq_fields[i]); free(csq_fields);}    
+    if (ann_fields) { for (int i=0;i<n_ann_fields;i++) free(ann_fields[i]); free(ann_fields);}    
+
+    UNPROTECT(nprotect); // all protected objects
+    return df;
 }
 
 //' Query VCF/BCF by contiguous variant index range (nth to kth, 1-based, inclusive, no header)
@@ -146,40 +382,63 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    int n_threads = asInteger(threads);
-    (void)n_threads; // Suppress unused variable warning
+    int n_threads = asInteger(threads); (void)n_threads;
     int start = asInteger(start_idx) - 1;
     int end = asInteger(end_idx) - 1;
-    SEXP lines = R_NilValue;
-    PROTECT_INDEX idx_prot;
-    PROTECT_WITH_INDEX(lines = R_NilValue, &idx_prot);
-    int nfound = 0;
-    // Bounds check
     if (start < 0) start = 0;
     if (end >= idx->num_marker) end = idx->num_marker - 1;
     if (end < start || start >= idx->num_marker) {
-        Rprintf("[VBI] Query indices out of bounds: start=%d end=%d num_marker=%ld\n", start, end, (long)idx->num_marker);
-        lines = allocVector(STRSXP, 0);
-        REPROTECT(lines, idx_prot);
-        UNPROTECT(1);
-        return lines;
+        // return empty data.frame
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
     }
-    nfound = end - start + 1;
+    int nfound = end - start + 1;
+
     htsFile *fp = hts_open(vcf, "r");
-    if (!fp) {
-        UNPROTECT(1);
-        Rf_error("Failed to open VCF/BCF: %s", vcf);
-    }
+    if (!fp) Rf_error("Failed to open VCF/BCF: %s", vcf);
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
-    if (!hdr) {
-        hts_close(fp);
-        UNPROTECT(1);
-        Rf_error("Failed to read VCF/BCF header: %s", vcf);
+    if (!hdr) { hts_close(fp); Rf_error("Failed to read VCF/BCF header: %s", vcf);}    
+
+    bcf_hrec_t *csq_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "CSQ", NULL);
+    bcf_hrec_t *ann_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "ANN", NULL);
+
+    char **csq_fields = NULL; int n_csq_fields = 0;
+    char **ann_fields = NULL; int n_ann_fields = 0;
+    if (csq_hrec) {
+        const char *desc = NULL; for (int i=0;i<csq_hrec->nkeys;i++) if (strcmp(csq_hrec->keys[i],"Description")==0) { desc = csq_hrec->vals[i]; break; }
+        if (desc) {
+            const char *fmt = strstr(desc, "Format:");
+            if (fmt) { fmt += 7; while (*fmt==' '||*fmt=='\t') fmt++; char *tmp=strdup(fmt); size_t L=strlen(tmp); while (L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for (size_t i=0;i<L;i++) if (tmp[i]=='|') n_csq_fields++; n_csq_fields++; csq_fields=(char**)calloc(n_csq_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; csq_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_csq_fields) csq_fields[fld++]=strdup(startp); free(tmp);} }
     }
-    lines = allocVector(STRSXP, nfound);
-    REPROTECT(lines, idx_prot);
+    if (ann_hrec) {
+        const char *desc = NULL; for (int i=0;i<ann_hrec->nkeys;i++) if (strcmp(ann_hrec->keys[i],"Description")==0) { desc = ann_hrec->vals[i]; break; }
+        if (desc) {
+            const char *fmt2 = strstr(desc, "Format:");
+            const char *use = fmt2?fmt2:NULL; if (use){ use +=7; while(*use==' '||*use=='\t') use++; char *tmp=strdup(use); size_t L=strlen(tmp); while (L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for (size_t i=0;i<L;i++) if(tmp[i]=='|') n_ann_fields++; n_ann_fields++; ann_fields=(char**)calloc(n_ann_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; ann_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_ann_fields) ann_fields[fld++]=strdup(startp); free(tmp);} }
+    }
+
+    SEXP chrom_col = PROTECT(allocVector(STRSXP, nfound));
+    SEXP pos_col   = PROTECT(allocVector(INTSXP, nfound));
+    SEXP id_col    = PROTECT(allocVector(STRSXP, nfound));
+    SEXP ref_col   = PROTECT(allocVector(STRSXP, nfound));
+    SEXP alt_col   = PROTECT(allocVector(STRSXP, nfound));
+    SEXP qual_col  = PROTECT(allocVector(REALSXP, nfound));
+    SEXP filter_col= PROTECT(allocVector(STRSXP, nfound));
+    SEXP nallele_col=PROTECT(allocVector(INTSXP, nfound));
+    SEXP index_col = PROTECT(allocVector(INTSXP, nfound));
+    SEXP csq_col   = csq_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_csx = csq_hrec?1:0;
+    SEXP ann_col   = ann_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_ann = ann_hrec?1:0;
+    int nprotect = 9 + prot_csx + prot_ann;
+
     bcf1_t *rec = bcf_init();
-       int seek_ok = 0;
+    // seek to first
+    int seek_ok = 0;
     if (fp->format.compression == bgzf) {
         BGZF *bg = (BGZF *)fp->fp.bgzf;
         seek_ok = (bgzf_seek(bg, idx->offsets[start], SEEK_SET) == 0);
@@ -188,30 +447,70 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
         seek_ok = (hseek(hf, (off_t)idx->offsets[start], SEEK_SET) == 0);
     }
     if (!seek_ok) {
-        Rprintf("[DEBUG] Failed to seek to offset[%d]=%ld\n", start, (long)idx->offsets[start]);
-        bcf_destroy(rec);
-        bcf_hdr_destroy(hdr);
-        hts_close(fp);
-        UNPROTECT(1);
+        bcf_destroy(rec); bcf_hdr_destroy(hdr); hts_close(fp);
         Rf_error("Failed to seek to first record");
     }
-    for (int i = 0; i < nfound; ++i) {
-        int r = bcf_read(fp, hdr, rec);
-        if (r < 0) {
-            SET_STRING_ELT(lines, i, mkChar(""));
+    kstring_t kalt = {0,0,0};
+    kstring_t kflt = {0,0,0};
+    for (int i=0;i<nfound;i++) {
+        if (bcf_read(fp, hdr, rec) < 0) {
+            SET_STRING_ELT(chrom_col, i, NA_STRING);
+            INTEGER(pos_col)[i] = NA_INTEGER;
+            SET_STRING_ELT(id_col, i, NA_STRING);
+            SET_STRING_ELT(ref_col, i, NA_STRING);
+            SET_STRING_ELT(alt_col, i, NA_STRING);
+            REAL(qual_col)[i] = NA_REAL; SET_STRING_ELT(filter_col, i, NA_STRING); INTEGER(nallele_col)[i]=NA_INTEGER;
+            if (csq_hrec) SET_VECTOR_ELT(csq_col,i,R_NilValue);
+            if (ann_hrec) SET_VECTOR_ELT(ann_col,i,R_NilValue);
+            INTEGER(index_col)[i] = NA_INTEGER;
             continue;
         }
-        bcf_unpack(rec, BCF_UN_STR);
-        kstring_t str = {0,0,0};
-        vcf_format1(hdr, rec, &str);
-        SET_STRING_ELT(lines, i, mkChar(str.s));
-        free(str.s);
+        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO|BCF_UN_FLT);
+        const char *chrom = bcf_hdr_id2name(hdr, rec->rid);
+        SET_STRING_ELT(chrom_col, i, chrom?mkChar(chrom):NA_STRING);
+        INTEGER(pos_col)[i] = rec->pos + 1;
+        if (rec->d.id && strcmp(rec->d.id, ".")!=0) SET_STRING_ELT(id_col,i,mkChar(rec->d.id)); else SET_STRING_ELT(id_col,i,NA_STRING);
+        if (rec->d.allele && rec->n_allele>0) {
+            SET_STRING_ELT(ref_col,i,mkChar(rec->d.allele[0]));
+            kalt.l=0; if(rec->n_allele>1){ for(int a=1;a<rec->n_allele;a++){ if(a>1) kputc(',',&kalt); kputs(rec->d.allele[a],&kalt);} SET_STRING_ELT(alt_col,i,mkChar(kalt.s)); } else SET_STRING_ELT(alt_col,i,mkChar("."));
+        } else { SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); }
+        INTEGER(nallele_col)[i] = rec->n_allele;
+        INTEGER(index_col)[i] = (start + i) + 1; // 1-based global index
+        REAL(qual_col)[i] = bcf_float_is_missing(rec->qual) ? NA_REAL : rec->qual;
+        kflt.l=0; if(rec->d.n_flt==0){ kputs("PASS",&kflt);} else { for(int f=0;f<rec->d.n_flt;f++){ if(f) kputc(';',&kflt); const char *flt=bcf_hdr_int2id(hdr, BCF_DT_ID, rec->d.flt[f]); if(flt) kputs(flt,&kflt);} }
+        SET_STRING_ELT(filter_col,i, kflt.s?mkChar(kflt.s):mkChar(""));
+        if (csq_hrec) { bcf_info_t *info = bcf_get_info(hdr, rec, "CSQ"); if(!info){ SET_VECTOR_ELT(csq_col,i,R_NilValue);} else { char *csq_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"CSQ",&csq_str,&ns)>0){ int ntrans=1; for(char *p=csq_str;*p;++p) if(*p==',') ntrans++; SEXP cols=PROTECT(allocVector(VECSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_VECTOR_ELT(cols,c,allocVector(STRSXP,ntrans)); int t=0; char *entry=csq_str; char *p=csq_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; int fld=0; char *seg=entry; char *q=entry; while(1){ if(*q=='|' || *q=='\0'){ char save2=*q; *q='\0'; if(fld<n_csq_fields){ SEXP colv=VECTOR_ELT(cols,fld); SET_STRING_ELT(colv,t, seg && *seg?mkChar(seg):NA_STRING);} *q=save2; fld++; seg=q+1;} if(*q=='\0') break; q++; } *p=save; t++; if(save=='\0') break; entry=p+1; } if(*p=='\0') break; else p++; } SEXP fn=PROTECT(allocVector(STRSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_STRING_ELT(fn,c,mkChar(csq_fields[c])); setAttrib(cols,R_NamesSymbol,fn); SEXP rn=PROTECT(allocVector(INTSXP,ntrans)); for(int r=0;r<ntrans;r++) INTEGER(rn)[r]=r+1; setAttrib(cols,R_RowNamesSymbol,rn); setAttrib(cols,R_ClassSymbol,mkString("data.frame")); SET_VECTOR_ELT(csq_col,i,cols); UNPROTECT(3); free(csq_str);} else { if(csq_str) free(csq_str); SET_VECTOR_ELT(csq_col,i,R_NilValue);} }}
+        if (ann_hrec) { bcf_info_t *info = bcf_get_info(hdr, rec, "ANN"); if(!info){ SET_VECTOR_ELT(ann_col,i,R_NilValue);} else { char *ann_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"ANN",&ann_str,&ns)>0){ int ntrans=1; for(char *p=ann_str;*p;++p) if(*p==',') ntrans++; SEXP entries=PROTECT(allocVector(STRSXP,ntrans)); int t=0; char *entry=ann_str; char *p=ann_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; SET_STRING_ELT(entries,t, entry && *entry?mkChar(entry):NA_STRING); *p=save; t++; if(save=='\0') break; entry=p+1;} if(*p=='\0') break; else p++; } SET_VECTOR_ELT(ann_col,i,entries); UNPROTECT(1); free(ann_str);} else { if(ann_str) free(ann_str); SET_VECTOR_ELT(ann_col,i,R_NilValue);} }}
     }
     bcf_destroy(rec);
-    bcf_hdr_destroy(hdr);
-    hts_close(fp);
-    UNPROTECT(1);
-    return lines;
+    if (kalt.s) free(kalt.s); if (kflt.s) free(kflt.s);
+    bcf_hdr_destroy(hdr); hts_close(fp);
+
+    int ncols = 9 + (csq_hrec?1:0) + (ann_hrec?1:0);
+    SEXP df = PROTECT(allocVector(VECSXP, ncols)); nprotect++;
+    SEXP names = PROTECT(allocVector(STRSXP, ncols)); nprotect++;
+    int col=0; SET_VECTOR_ELT(df,col,chrom_col); SET_STRING_ELT(names,col++,mkChar("chrom"));
+    SET_VECTOR_ELT(df,col,pos_col); SET_STRING_ELT(names,col++,mkChar("pos"));
+    SET_VECTOR_ELT(df,col,id_col); SET_STRING_ELT(names,col++,mkChar("id"));
+    SET_VECTOR_ELT(df,col,ref_col); SET_STRING_ELT(names,col++,mkChar("ref"));
+    SET_VECTOR_ELT(df,col,alt_col); SET_STRING_ELT(names,col++,mkChar("alt"));
+    SET_VECTOR_ELT(df,col,qual_col); SET_STRING_ELT(names,col++,mkChar("qual"));
+    SET_VECTOR_ELT(df,col,filter_col); SET_STRING_ELT(names,col++,mkChar("filter"));
+    SET_VECTOR_ELT(df,col,nallele_col); SET_STRING_ELT(names,col++,mkChar("n_allele"));
+    SET_VECTOR_ELT(df,col,index_col); SET_STRING_ELT(names,col++,mkChar("index"));
+    if (csq_hrec) { SET_VECTOR_ELT(df,col,csq_col); SET_STRING_ELT(names,col++,mkChar("CSQ")); }
+    if (ann_hrec) { SET_VECTOR_ELT(df,col,ann_col); SET_STRING_ELT(names,col++,mkChar("ANN")); }
+    setAttrib(df, R_NamesSymbol, names);
+    SEXP rn = PROTECT(allocVector(INTSXP, nfound)); nprotect++;
+    for (int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1;
+    setAttrib(df, R_RowNamesSymbol, rn);
+    setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+
+    if (csq_fields) { for (int i=0;i<n_csq_fields;i++) free(csq_fields[i]); free(csq_fields);}    
+    if (ann_fields) { for (int i=0;i<n_ann_fields;i++) free(ann_fields[i]); free(ann_fields);}    
+
+    UNPROTECT(nprotect);
+    return df;
 }
 
 
@@ -259,55 +558,84 @@ SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) 
     int nfound = 0;
     int *hits = vbi_index_query_region_cgranges(idx, reg, &nfound);
     if (!hits || nfound == 0) {
-        SEXP out = PROTECT(allocVector(STRSXP, 0));
-        UNPROTECT(1);
-        return out;
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        if (hits) free(hits);
+        return df;
     }
-    // For uniformity, seek and extract records from VCF for the found indices
     htsFile *fp = hts_open(vcf, "r");
-    if (!fp) {
-        free(hits);
-        Rf_error("Failed to open VCF/BCF: %s", vcf);
-    }
+    if (!fp) { free(hits); Rf_error("Failed to open VCF/BCF: %s", vcf);}    
     bcf_hdr_t *hdr = bcf_hdr_read(fp);
-    if (!hdr) {
-        hts_close(fp);
-        free(hits);
-        Rf_error("Failed to read VCF/BCF header: %s", vcf);
+    if (!hdr) { hts_close(fp); free(hits); Rf_error("Failed to read VCF/BCF header: %s", vcf);}    
+    bcf_hrec_t *csq_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "CSQ", NULL);
+    bcf_hrec_t *ann_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "ANN", NULL);
+    char **csq_fields=NULL; int n_csq_fields=0; char **ann_fields=NULL; int n_ann_fields=0; // consistent parsing (reuse code if needed later)
+    if (csq_hrec) {
+        const char *desc=NULL; for(int i=0;i<csq_hrec->nkeys;i++) if(strcmp(csq_hrec->keys[i],"Description")==0){ desc=csq_hrec->vals[i]; break; }
+        if(desc){ const char *fmt=strstr(desc,"Format:"); if(fmt){ fmt+=7; while(*fmt==' '||*fmt=='\t') fmt++; char *tmp=strdup(fmt); size_t L=strlen(tmp); while(L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for(size_t i=0;i<L;i++) if(tmp[i]=='|') n_csq_fields++; n_csq_fields++; csq_fields=(char**)calloc(n_csq_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; csq_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_csq_fields) csq_fields[fld++]=strdup(startp); free(tmp);} }
     }
-    SEXP out = PROTECT(allocVector(STRSXP, nfound));
+    if (ann_hrec) {
+        const char *desc=NULL; for(int i=0;i<ann_hrec->nkeys;i++) if(strcmp(ann_hrec->keys[i],"Description")==0){ desc=ann_hrec->vals[i]; break; }
+        if(desc){ const char *fmt2=strstr(desc,"Format:"); const char *use=fmt2?fmt2:NULL; if(use){ use+=7; while(*use==' '||*use=='\t') use++; char *tmp=strdup(use); size_t L=strlen(tmp); while (L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for(size_t i=0;i<L;i++) if(tmp[i]=='|') n_ann_fields++; n_ann_fields++; ann_fields=(char**)calloc(n_ann_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; ann_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_ann_fields) ann_fields[fld++]=strdup(startp); free(tmp);} }
+    }
+    SEXP chrom_col = PROTECT(allocVector(STRSXP, nfound));
+    SEXP pos_col   = PROTECT(allocVector(INTSXP, nfound));
+    SEXP id_col    = PROTECT(allocVector(STRSXP, nfound));
+    SEXP ref_col   = PROTECT(allocVector(STRSXP, nfound));
+    SEXP alt_col   = PROTECT(allocVector(STRSXP, nfound));
+    SEXP qual_col  = PROTECT(allocVector(REALSXP, nfound));
+    SEXP filter_col= PROTECT(allocVector(STRSXP, nfound));
+    SEXP nallele_col=PROTECT(allocVector(INTSXP, nfound));
+    SEXP index_col = PROTECT(allocVector(INTSXP, nfound));
+    SEXP csq_col   = csq_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_csx=csq_hrec?1:0;
+    SEXP ann_col   = ann_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_ann=ann_hrec?1:0;
+    int nprotect = 9 + prot_csx + prot_ann;
     bcf1_t *rec = bcf_init();
-    for (int i = 0; i < nfound; ++i) {
+    kstring_t kalt={0,0,0}; kstring_t kflt={0,0,0};
+    for(int i=0;i<nfound;i++) {
         int idx_var = hits[i];
-        int seek_ok = 0;
-        if (fp->format.compression == bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            seek_ok = (bgzf_seek(bg, idx->offsets[idx_var], SEEK_SET) == 0);
-        } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            seek_ok = (hseek(hf, (off_t)idx->offsets[idx_var], SEEK_SET) == 0);
-        }
-        if (!seek_ok) {
-            SET_STRING_ELT(out, i, mkChar(""));
-            continue;
-        }
-        int r = bcf_read(fp, hdr, rec);
-        if (r < 0) {
-            SET_STRING_ELT(out, i, mkChar(""));
-            continue;
-        }
-        bcf_unpack(rec, BCF_UN_STR);
-        kstring_t str = {0,0,0};
-        vcf_format1(hdr, rec, &str);
-        SET_STRING_ELT(out, i, mkChar(str.s));
-        free(str.s);
+        int seek_ok=0; if (fp->format.compression==bgzf){ BGZF *bg=(BGZF*)fp->fp.bgzf; seek_ok=(bgzf_seek(bg, idx->offsets[idx_var], SEEK_SET)==0);} else { hFILE *hf=(hFILE*)fp->fp.hfile; seek_ok=(hseek(hf,(off_t)idx->offsets[idx_var],SEEK_SET)==0);} 
+        if(!seek_ok || bcf_read(fp,hdr,rec)<0){ SET_STRING_ELT(chrom_col,i,NA_STRING); INTEGER(pos_col)[i]=NA_INTEGER; SET_STRING_ELT(id_col,i,NA_STRING); SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); REAL(qual_col)[i]=NA_REAL; SET_STRING_ELT(filter_col,i,NA_STRING); INTEGER(nallele_col)[i]=NA_INTEGER; INTEGER(index_col)[i]=NA_INTEGER; if(csq_hrec) SET_VECTOR_ELT(csq_col,i,R_NilValue); if(ann_hrec) SET_VECTOR_ELT(ann_col,i,R_NilValue); continue; }
+        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO|BCF_UN_FLT);
+        const char *chrom = bcf_hdr_id2name(hdr, rec->rid);
+        SET_STRING_ELT(chrom_col, i, chrom?mkChar(chrom):NA_STRING);
+        INTEGER(pos_col)[i] = rec->pos + 1;
+        if (rec->d.id && strcmp(rec->d.id, ".")!=0) SET_STRING_ELT(id_col,i,mkChar(rec->d.id)); else SET_STRING_ELT(id_col,i,NA_STRING);
+        if (rec->d.allele && rec->n_allele>0) {
+            SET_STRING_ELT(ref_col,i,mkChar(rec->d.allele[0]));
+            kalt.l=0; if(rec->n_allele>1){ for(int a=1;a<rec->n_allele;a++){ if(a>1) kputc(',',&kalt); kputs(rec->d.allele[a],&kalt);} SET_STRING_ELT(alt_col,i,mkChar(kalt.s)); } else SET_STRING_ELT(alt_col,i,mkChar("."));
+        } else { SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); }
+        INTEGER(nallele_col)[i] = rec->n_allele; INTEGER(index_col)[i] = idx_var + 1;
+        REAL(qual_col)[i] = bcf_float_is_missing(rec->qual) ? NA_REAL : rec->qual;
+        kflt.l=0; if(rec->d.n_flt==0){ kputs("PASS",&kflt);} else { for(int f=0;f<rec->d.n_flt;f++){ if(f) kputc(';',&kflt); const char *flt=bcf_hdr_int2id(hdr, BCF_DT_ID, rec->d.flt[f]); if(flt) kputs(flt,&kflt);} }
+        SET_STRING_ELT(filter_col,i, kflt.s?mkChar(kflt.s):mkChar(""));
+        if (csq_hrec) { bcf_info_t *info=bcf_get_info(hdr, rec, "CSQ"); if(!info){ SET_VECTOR_ELT(csq_col,i,R_NilValue);} else { char *csq_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"CSQ",&csq_str,&ns)>0){ int ntrans=1; for(char *p=csq_str;*p;++p) if(*p==',') ntrans++; SEXP cols=PROTECT(allocVector(VECSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_VECTOR_ELT(cols,c,allocVector(STRSXP,ntrans)); int t=0; char *entry=csq_str; char *p=csq_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; int fld=0; char *seg=entry; char *q=entry; while(1){ if(*q=='|' || *q=='\0'){ char save2=*q; *q='\0'; if(fld<n_csq_fields){ SEXP colv=VECTOR_ELT(cols,fld); SET_STRING_ELT(colv,t, seg && *seg?mkChar(seg):NA_STRING);} *q=save2; fld++; seg=q+1;} if(*q=='\0') break; q++; } *p=save; t++; if(save=='\0') break; entry=p+1; } if(*p=='\0') break; else p++; } SEXP fn=PROTECT(allocVector(STRSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_STRING_ELT(fn,c,mkChar(csq_fields[c])); setAttrib(cols,R_NamesSymbol,fn); SEXP rn=PROTECT(allocVector(INTSXP,ntrans)); for(int r=0;r<ntrans;r++) INTEGER(rn)[r]=r+1; setAttrib(cols,R_RowNamesSymbol,rn); setAttrib(cols,R_ClassSymbol,mkString("data.frame")); SET_VECTOR_ELT(csq_col,i,cols); UNPROTECT(3); free(csq_str);} else { if(csq_str) free(csq_str); SET_VECTOR_ELT(csq_col,i,R_NilValue);} }}
+        if (ann_hrec) { bcf_info_t *info = bcf_get_info(hdr, rec, "ANN"); if(!info){ SET_VECTOR_ELT(ann_col,i,R_NilValue);} else { char *ann_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"ANN",&ann_str,&ns)>0){ int ntrans=1; for(char *p=ann_str;*p;++p) if(*p==',') ntrans++; SEXP entries=PROTECT(allocVector(STRSXP,ntrans)); int t=0; char *entry=ann_str; char *p=ann_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; SET_STRING_ELT(entries,t, entry && *entry?mkChar(entry):NA_STRING); *p=save; t++; if(save=='\0') break; entry=p+1;} if(*p=='\0') break; else p++; } SET_VECTOR_ELT(ann_col,i,entries); UNPROTECT(1); free(ann_str);} else { if(ann_str) free(ann_str); SET_VECTOR_ELT(ann_col,i,R_NilValue);} }}
     }
-    bcf_destroy(rec);
-    bcf_hdr_destroy(hdr);
-    hts_close(fp);
-    free(hits);
-    UNPROTECT(1);
-    return out;
+    bcf_destroy(rec); if(kalt.s) free(kalt.s); if(kflt.s) free(kflt.s); bcf_hdr_destroy(hdr); hts_close(fp); free(hits);
+    int ncols = 9 + (csq_hrec?1:0) + (ann_hrec?1:0);
+    SEXP df = PROTECT(allocVector(VECSXP, ncols)); nprotect++;
+    SEXP names = PROTECT(allocVector(STRSXP, ncols)); nprotect++;
+    int col=0; SET_VECTOR_ELT(df,col,chrom_col); SET_STRING_ELT(names,col++,mkChar("chrom"));
+    SET_VECTOR_ELT(df,col,pos_col); SET_STRING_ELT(names,col++,mkChar("pos"));
+    SET_VECTOR_ELT(df,col,id_col); SET_STRING_ELT(names,col++,mkChar("id"));
+    SET_VECTOR_ELT(df,col,ref_col); SET_STRING_ELT(names,col++,mkChar("ref"));
+    SET_VECTOR_ELT(df,col,alt_col); SET_STRING_ELT(names,col++,mkChar("alt"));
+    SET_VECTOR_ELT(df,col,qual_col); SET_STRING_ELT(names,col++,mkChar("qual"));
+    SET_VECTOR_ELT(df,col,filter_col); SET_STRING_ELT(names,col++,mkChar("filter"));
+    SET_VECTOR_ELT(df,col,nallele_col); SET_STRING_ELT(names,col++,mkChar("n_allele"));
+    SET_VECTOR_ELT(df,col,index_col); SET_STRING_ELT(names,col++,mkChar("index"));
+    if(csq_hrec){ SET_VECTOR_ELT(df,col,csq_col); SET_STRING_ELT(names,col++,mkChar("CSQ")); }
+    if(ann_hrec){ SET_VECTOR_ELT(df,col,ann_col); SET_STRING_ELT(names,col++,mkChar("ANN")); }
+    setAttrib(df,R_NamesSymbol,names); SEXP rn = PROTECT(allocVector(INTSXP,nfound)); nprotect++; for(int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1; setAttrib(df,R_RowNamesSymbol,rn); setAttrib(df,R_ClassSymbol,mkString("data.frame"));
+    if(csq_fields){ for(int i=0;i<n_csq_fields;i++) free(csq_fields[i]); free(csq_fields);} if(ann_fields){ for(int i=0;i<n_ann_fields;i++) free(ann_fields[i]); free(ann_fields);} 
+    UNPROTECT(nprotect);
+    return df;
 }
 
 

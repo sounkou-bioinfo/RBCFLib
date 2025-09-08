@@ -47,19 +47,22 @@ cat("Extracting ranges took: ", et[3], " sec\n")
 print(length(ranges[[1]]))
 # Query by index range
 cat("\n[Benchmark] Querying by index range...\n")
-tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
-expect_true(is.character(hits2))
-cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
-tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 554, 10000))
-cat(sprintf("Retrieved %d records in %g sec\n", length(hits2), tim[3]))
-cat("[Benchmark] Querying region 100x (linear scan)...\n")
-nrange <- min(100, length(ranges[[1]]))
+tim <- system.time(hits2 <- VBIQueryByIndices(vcf, vbi_ptr, 5, 11))
+expect_true(is.data.frame(hits2))
+expect_true(all(c('chrom', 'pos', 'ref', 'alt', 'index') %in% names(hits2)))
+expect_true(nrow(hits2) == 7)
+cat(sprintf("Retrieved %d records in %g sec\n", nrow(hits2), tim[3]))
+# second timing
+system.time(hits2b <- VBIQueryByIndices(vcf, vbi_ptr, 5, 11))
+stopifnot(identical(nrow(hits2), nrow(hits2b)))
+
+cat("[Benchmark] Querying region 5x (linear scan)...\n")
+nrange <- min(25, length(ranges[[1]]))
 nsamples <- 2
 region_str <- vector("list", nsamples)
 region_str_cgranges <- vector("list", nsamples)
-# make the region_str and region_str_cgranges  samples
 for (i in 1:nsamples) {
-  thisSample <- sample(1:length(ranges[[1]]), size = nrange)
+  thisSample <- sample(seq_along(ranges[[1]]), size = nrange)
   region_str[[i]] <- sample(
     paste0(
       ranges$chrom[thisSample],
@@ -85,29 +88,17 @@ for (i in 1:nsamples) {
 }
 tm1 <- system.time({
   for (i in 1:nsamples) {
-    cat(sprintf(
-      "[Benchmark] Querying region 100x (linear scan), iteration %d...\n",
-      i
-    ))
-    VBIQueryRange(
-      vcf,
-      vbi_ptr,
-      region_str[[i]]
-    ) |>
-      length() |>
-      print()
+    df <- VBIQueryRange(vcf, vbi_ptr, region_str[[i]])
+    expect_true(is.data.frame(df))
+    cat("rows=", nrow(df), "\n")
   }
 })
-cat("[Benchmark] Querying region 100x (cgranges)...\n")
+cat("[Benchmark] Querying region 5x (cgranges)...\n")
 tm2 <- system.time({
-  for (i in 1:2) {
-    VBIQueryRegionCGRanges(
-      vcf,
-      vbi_ptr,
-      region_str_cgranges[[i]]
-    ) |>
-      length() |>
-      print()
+  for (i in 1:nsamples) {
+    df <- VBIQueryRegionCGRanges(vcf, vbi_ptr, region_str_cgranges[[i]])
+    expect_true(is.data.frame(df))
+    cat("rows=", nrow(df), "\n")
   }
 })
 cat(sprintf("[Benchmark] Linear scan: %g sec\n", tm1[3]))

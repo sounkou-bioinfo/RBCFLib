@@ -83,7 +83,15 @@ RBCFLib includes a fast, custom index format (VBI) that uses a format similar to
 
 ### CGRanges Functions
 
--   `CGRangesCreate()`, `CGRangesAdd()`, `CGRangesIndex()`, `CGRangesOverlap()`, `CGRangesOverlapVec()`, `CGRangesExtractByIndex()`, `CGRangesDestroy()`
+Create and query genomic intervals using an efficient interval tree data structure:
+
+- `CGRangesCreate()`: Create a new CGRanges object
+- `CGRangesAdd()`: Add genomic intervals
+- `CGRangesIndex()`: Build the interval tree index
+- `CGRangesOverlap()`: Find overlapping intervals
+- `CGRangesOverlapVec()`: Vectorized overlap queries
+- `CGRangesExtractByIndex()`: Extract intervals by index
+- `CGRangesDestroy()`: Free memory
 
 **Example:**
 
@@ -99,25 +107,51 @@ CGRangesDestroy(cr)
 
 ### VBI Index Functions
 
--   `VBIIndex()`: Create a VBI index for a VCF/BCF file.
--   `VBIIndexLoad()`: Load a VBI index file as an external pointer.
--   `VBIExtractRanges()`: Extract variant ranges from a VBI index.
--   `VBIPrintIndex()`: Print lines from a VBI index.
--   `VBIQueryRange()`: Query VBI index by region.
--   `VBIQueryByIndices()`: Query VBI index by marker index range.
--   `VBIQueryRegionCGRanges()`: Query VBI index by region using CGRanges.
+The VBI (Variant Binary Index) system provides fast random access to variants in VCF/BCF files:
+
+- `VBIIndex()`: Create a VBI index for a VCF/BCF file
+- `VBIIndexLoad()`: Load a VBI index file as an external pointer
+- `VBIExtractRanges()`: Extract variant ranges from a VBI index
+- `VBIPrintIndex()`: Print lines from a VBI index for debugging
+- `VBIQueryRange()`: Query VBI index by genomic region (linear scan)
+- `VBIQueryByIndices()`: Query VBI index by variant index range
+- `VBIQueryRegionCGRanges()`: Query VBI index by region using CGRanges (fast interval tree)
+- `VBIIndexMemoryUsage()`: Get memory usage statistics
 
 **Example:**
 
 ```{r vbi-example}
 vcfFile <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
-vbiIndex <- VBIIndex(vcfFile, "file.vcf.gz.vbi")
-vbi_ptr <- VBIIndexLoad("file.vcf.gz.vbi")
+vbiFile <- tempfile(fileext = ".vbi")
+
+# Create VBI index
+VBIIndex(vcfFile, vbiFile)
+
+# Load index as external pointer
+vbi_ptr <- VBIIndexLoad(vbiFile)
+
+# Extract all variant ranges
 ranges <- VBIExtractRanges(vbi_ptr)
-hits <- VBIQueryRange(vcfFile, vbi_ptr, "chr21:5030082")
-hits2 <- VBIQueryRegionCGRanges(vcfFile, vbi_ptr,"chr21:5030081-5030083")
-print(hits)
-print(hits2)
+print(paste("Total variants:", nrow(ranges)))
+
+# Query by variant index range (1-based, inclusive)
+hits_by_index <- VBIQueryByIndices(vcfFile, vbi_ptr, 1, 5)
+print(paste("Variants 1-5:", nrow(hits_by_index)))
+
+# Query by genomic region (linear scan)
+hits_region <- VBIQueryRange(vcfFile, vbi_ptr, "chr21:5030082-5030356")
+print(paste("Region query hits:", nrow(hits_region)))
+
+# Query by genomic region (cgranges - faster for complex queries)
+hits_cgranges <- VBIQueryRegionCGRanges(vcfFile, vbi_ptr, "chr21:5030081-5030357")
+print(paste("CGRanges query hits:", nrow(hits_cgranges)))
+
+# Check memory usage
+mem_usage <- VBIIndexMemoryUsage(vbi_ptr)
+print(paste("VBI memory usage:", round(sum(unlist(mem_usage)) / 1e6, 3), "MB"))
+
+# Clean up
+unlink(vbiFile)
 ```
 
 ## Embedded original `rbcf` low-level API
