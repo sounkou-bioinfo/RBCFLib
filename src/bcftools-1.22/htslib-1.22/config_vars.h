@@ -1,0 +1,5 @@
+#define HTS_CC "gcc -std=gnu2x"
+#define HTS_CPPFLAGS ""
+#define HTS_CFLAGS "-Wall -g -O2 -fPIC -D_FILE_OFFSET_BITS=64 -fvisibility=hidden"
+#define HTS_LDFLAGS "-Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -fvisibility=hidden -rdynamic"
+#define HTS_LIBS "-ldeflate -llzma -lbz2 -lz -lm "
