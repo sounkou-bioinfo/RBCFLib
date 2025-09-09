@@ -500,10 +500,15 @@ VariantHasFilter <- function(vc, fn) {
 }
 
 
-#' return the types for this variant (as defined in htslib)
+#' Return the types for this variant (as defined in htslib)
+#'
+#' This function returns a character vector of variant types present in the record.
+#' Possible types include: "REF", "SNP", "MNP", "INDEL", "INS", "DEL", "BND",
+#' "OVERLAP", and "OTHER". Modern HTSlib supports structural variants through
+#' "BND" (breakends) and complex variants.
 #'
 #' @param vc the variant
-#' @return the types for this variant
+#' @return character vector of variant types present in this variant
 #' @title Get types for variant
 #' @export
 VariantTypes <- function(vc) {

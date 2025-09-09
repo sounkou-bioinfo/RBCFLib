@@ -1167,16 +1167,29 @@ SEXP RBcfCtxVariantTypes(SEXP sexpCtx) {
 	ctx = (bcf1_t*)R_ExternalPtrAddr(VECTOR_ELT(sexpCtx,1));
 	types = bcf_get_variant_types(ctx);
 	
-	// Count how many types are set
+	// Handle special case of reference variant (no other types present)
+	if (types == VCF_REF) {
+		PROTECT(ext = allocVector(STRSXP, 1));nprotect++;
+		SET_STRING_ELT(ext, 0, mkChar("REF"));
+		UNPROTECT(nprotect);
+		return ext;
+	}
+	
+	// Count how many types are set (check all modern HTSlib variant types)
 	if (types & VCF_SNP) type_count++;
 	if (types & VCF_MNP) type_count++;
 	if (types & VCF_INDEL) type_count++;
 	if (types & VCF_OTHER) type_count++;
+	if (types & VCF_BND) type_count++;      // Breakend/structural variant
+	if (types & VCF_OVERLAP) type_count++;  // Overlapping deletion
+	if (types & VCF_INS) type_count++;      // Insertion (more specific than INDEL)
+	if (types & VCF_DEL) type_count++;      // Deletion (more specific than INDEL)
 	
 	// Create character vector
 	PROTECT(ext = allocVector(STRSXP, type_count));nprotect++;
 	int idx = 0;
 	
+	// Add type labels in logical order
 	if (types & VCF_SNP) {
 		SET_STRING_ELT(ext, idx++, mkChar("SNP"));
 	}
@@ -1185,6 +1198,18 @@ SEXP RBcfCtxVariantTypes(SEXP sexpCtx) {
 	}
 	if (types & VCF_INDEL) {
 		SET_STRING_ELT(ext, idx++, mkChar("INDEL"));
+	}
+	if (types & VCF_INS) {
+		SET_STRING_ELT(ext, idx++, mkChar("INS"));
+	}
+	if (types & VCF_DEL) {
+		SET_STRING_ELT(ext, idx++, mkChar("DEL"));
+	}
+	if (types & VCF_BND) {
+		SET_STRING_ELT(ext, idx++, mkChar("BND"));
+	}
+	if (types & VCF_OVERLAP) {
+		SET_STRING_ELT(ext, idx++, mkChar("OVERLAP"));
 	}
 	if (types & VCF_OTHER) {
 		SET_STRING_ELT(ext, idx++, mkChar("OTHER"));
