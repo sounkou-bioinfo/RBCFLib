@@ -16,13 +16,18 @@ static int sigpipe_handled = 0;
 
 // Helper: Setup SIGPIPE handling for pipeline operations
 // this is needed to prevent subprocesses getting terminated by SIGPIPE
-// which is may be captured by R
+// which may be captured by R
+static struct sigaction old_sigpipe_action;
 static void setup_sigpipe_handling(void) {
     if (!sigpipe_handled) {
-        // Ignore SIGPIPE globally - we'll handle EPIPE errors locally
-        // This prevents the process from being terminated by SIGPIPE
-        // More precisely, we avoid R's default SIGPIPE handler
-        signal(SIGPIPE, SIG_IGN);
+        // Save the current SIGPIPE handler and set to ignore
+        // This is more respectful of R's signal handling than using signal()
+        struct sigaction ignore_sigpipe;
+        ignore_sigpipe.sa_handler = SIG_IGN;
+        sigemptyset(&ignore_sigpipe.sa_mask);
+        ignore_sigpipe.sa_flags = 0;
+        
+        sigaction(SIGPIPE, &ignore_sigpipe, &old_sigpipe_action);
         sigpipe_handled = 1;
         
         if (getenv("RBCFLIB_DEBUG") != NULL) {
@@ -31,16 +36,47 @@ static void setup_sigpipe_handling(void) {
     }
 }
 
+// Helper: Restore original SIGPIPE handling
+static void restore_sigpipe_handling(void) {
+    if (sigpipe_handled) {
+        sigaction(SIGPIPE, &old_sigpipe_action, NULL);
+        sigpipe_handled = 0;
+        
+        if (getenv("RBCFLIB_DEBUG") != NULL) {
+            Rprintf("SIGPIPE handling restored\n");
+        }
+    }
+}
+
+// Helper: Block SIGPIPE during critical operations
+static void block_sigpipe(sigset_t *old_mask) {
+    sigset_t sigpipe_mask;
+    sigemptyset(&sigpipe_mask);
+    sigaddset(&sigpipe_mask, SIGPIPE);
+    sigprocmask(SIG_BLOCK, &sigpipe_mask, old_mask);
+}
+
+// Helper: Restore signal mask
+static void restore_sigmask(sigset_t *old_mask) {
+    sigprocmask(SIG_SETMASK, old_mask, NULL);
+}
+
 // Helper: Safe close with SIGPIPE protection
 static void safe_close_fd(int fd) {
     if (fd >= 0 && fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
+        sigset_t old_mask;
+        block_sigpipe(&old_mask);
+        
         // Close might trigger SIGPIPE if there's buffered data and the other end is closed
-        // But we've set SIGPIPE to SIG_IGN, so this should just return an error
-        if (close(fd) == -1 && errno == EPIPE) {
+        // We've blocked SIGPIPE, so this should just return an error
+        int result = close(fd);
+        if (result == -1 && (errno == EPIPE || errno == ECONNRESET)) {
             if (getenv("RBCFLIB_DEBUG") != NULL) {
-                Rprintf("EPIPE error on close(fd=%d) - expected when other end closed early\n", fd);
+                Rprintf("EPIPE/ECONNRESET error on close(fd=%d) - expected when other end closed early\n", fd);
             }
         }
+        
+        restore_sigmask(&old_mask);
     }
 }
 
@@ -235,9 +271,16 @@ SEXP RC_bcftools_pipeline(
             setpgid(0, 0);
             
             // Signal protection - ensure child doesn't interfere with parent
+            // Reset all signal handlers to default to avoid R's signal handling
             signal(SIGINT, SIG_DFL);
             signal(SIGTERM, SIG_DFL);
-            signal(SIGPIPE, SIG_IGN);
+            signal(SIGPIPE, SIG_IGN);  // Still ignore SIGPIPE in child
+            signal(SIGCHLD, SIG_DFL);
+            
+            // Unblock all signals that might have been blocked by parent
+            sigset_t empty_mask;
+            sigemptyset(&empty_mask);
+            sigprocmask(SIG_SETMASK, &empty_mask, NULL);
             
             // Set up BCFTOOLS_PLUGINS environment variable
             // Get the bcftools binary path and derive plugins directory
@@ -256,7 +299,7 @@ SEXP RC_bcftools_pipeline(
                 // Take input from previous pipe
                 if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
                     perror("dup2 stdin");
-                    _exit(1);  // Use _exit instead of exit
+                    raise(SIGKILL);  // Use raise(SIGKILL) instead of _exit
                 }
             }
             
@@ -265,13 +308,13 @@ SEXP RC_bcftools_pipeline(
                 // Pipe output to next command
                 if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
                     perror("dup2 stdout");
-                    _exit(1);  // Use _exit instead of exit
+                    raise(SIGKILL);  // Use raise(SIGKILL) instead of _exit
                 }
             } else {
                 // Last command - write to file or stdout
                 if (dup2(fd_stdout, STDOUT_FILENO) == -1) {
                     perror("dup2 stdout");
-                    _exit(1);  // Use _exit instead of exit
+                    raise(SIGKILL);  // Use raise(SIGKILL) instead of _exit
                 }
             }
             
@@ -279,7 +322,7 @@ SEXP RC_bcftools_pipeline(
             if (do_capture_stderr) {
                 if (dup2(fd_stderr, STDERR_FILENO) == -1) {
                     perror("dup2 stderr");
-                    _exit(1);  // Use _exit instead of exit
+                    raise(SIGKILL);  // Use raise(SIGKILL) instead of _exit
                 }
             }
             
@@ -313,9 +356,10 @@ SEXP RC_bcftools_pipeline(
                 free_argv(argv_values[j]);
             }
             free(argv_values);
-            // use _exit to avoid R finalization code
- 
-            _exit(1);
+            
+            // Use raise(SIGKILL) instead of _exit to avoid R finalization code
+            // This is safer for R packages and avoids the _exit warning
+            raise(SIGKILL);
         }
     }
     
@@ -364,6 +408,10 @@ SEXP RC_bcftools_pipeline(
 
     if (fd_stdout != -1 && fd_stdout != STDOUT_FILENO) safe_close_fd(fd_stdout);
     if (fd_stderr != -1 && fd_stderr != STDERR_FILENO) safe_close_fd(fd_stderr);
+    
+    // Restore original SIGPIPE handling before returning to R
+    restore_sigpipe_handling();
+    
     // Create result
     PROTECT(res = allocVector(INTSXP, num_commands));
     for (int i = 0; i < num_commands; i++) {

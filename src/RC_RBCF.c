@@ -1154,6 +1154,9 @@ SEXP RBcfCtxVariantTypes(SEXP sexpCtx) {
 	int nprotect=0;
 	bcf1_t *ctx;
 	SEXP ext;
+	int types;
+	int type_count = 0;
+	
 	PROTECT(sexpCtx);nprotect++;
 	if(isNull(sexpCtx)) {
 		UNPROTECT(nprotect);
@@ -1162,7 +1165,31 @@ SEXP RBcfCtxVariantTypes(SEXP sexpCtx) {
 		}
 	
 	ctx = (bcf1_t*)R_ExternalPtrAddr(VECTOR_ELT(sexpCtx,1));
-	ext = ScalarInteger(bcf_get_variant_types(ctx));
+	types = bcf_get_variant_types(ctx);
+	
+	// Count how many types are set
+	if (types & VCF_SNP) type_count++;
+	if (types & VCF_MNP) type_count++;
+	if (types & VCF_INDEL) type_count++;
+	if (types & VCF_OTHER) type_count++;
+	
+	// Create character vector
+	PROTECT(ext = allocVector(STRSXP, type_count));nprotect++;
+	int idx = 0;
+	
+	if (types & VCF_SNP) {
+		SET_STRING_ELT(ext, idx++, mkChar("SNP"));
+	}
+	if (types & VCF_MNP) {
+		SET_STRING_ELT(ext, idx++, mkChar("MNP"));
+	}
+	if (types & VCF_INDEL) {
+		SET_STRING_ELT(ext, idx++, mkChar("INDEL"));
+	}
+	if (types & VCF_OTHER) {
+		SET_STRING_ELT(ext, idx++, mkChar("OTHER"));
+	}
+	
 	UNPROTECT(nprotect);
 	return ext;
 	}
