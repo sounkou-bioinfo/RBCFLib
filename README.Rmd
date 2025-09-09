@@ -125,6 +125,7 @@ The VBI (Variant Binary Index) system provides fast random access to variants in
 - `VBIPrintIndex()`: Print lines from a VBI index for debugging
 - `VBIQueryRange()`: Query VBI index by genomic region (linear scan)
 - `VBIQueryByIndices()`: Query VBI index by variant index range
+- `VBIQueryRegion()`: Query VBI index by region with INFO/FORMAT/genotype options
 - `VBIQueryRegionCGRanges()`: Query VBI index by region using CGRanges (fast interval tree)
 - `VBIIndexMemoryUsage()`: Get memory usage statistics
 
@@ -152,6 +153,14 @@ print(hits_by_index)
 hits_region <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356")
 print("Region query results (basic fields):")
 print(hits_region)
+
+# Query by genomic region using CGRanges (fast interval tree)
+hits_cgranges <- VBIQueryRegionCGRanges(vcf_ctx, "chr21:5030082-5030356")
+print("CGRanges query results (should be identical to region query):")
+print(hits_cgranges)
+
+# Verify equality between regular and CGRanges queries
+print(paste("Results are identical:", identical(hits_region, hits_cgranges)))
 
 # Query by genomic region with INFO fields
 hits_with_info <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_info = TRUE)
