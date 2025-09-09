@@ -1518,7 +1518,11 @@ SEXP RBcfCtxVariantAllGtStrings(SEXP sexpCtx) {
 		     buf_ptr[1] = '\0';
 				 buf_ptr += 2;
 		  } else {
-				buf_ptr += sprintf(buf_ptr, "%d", bcf_gt_allele(gt_arr[k]));
+				int remaining = buf + sizeof(buf) - buf_ptr;
+				int written = snprintf(buf_ptr, remaining, "%d", bcf_gt_allele(gt_arr[k]));
+				if (written > 0 && written < remaining) {
+					buf_ptr += written;
+				}
 		  }
 		}
 		SET_STRING_ELT(ext, i, mkChar(buf));
@@ -1757,7 +1761,7 @@ SEXP VariantVepTable(SEXP sexpCtx) {
 		FreeTokensPtr(components);
 		//set name for this row
 		char tmp[20];
-		sprintf(tmp,"%d",(y+1));
+		snprintf(tmp, sizeof(tmp), "%d", (y+1));
 		SET_STRING_ELT(rowNames, y, mkChar(tmp));
 
 		}
@@ -1864,7 +1868,7 @@ SEXP VariantSnpEffTable(SEXP sexpCtx) {
 		FreeTokensPtr(components);
 		//set name for this row
 		char tmp[20];
-		sprintf(tmp,"%d",(y+1));
+		snprintf(tmp, sizeof(tmp), "%d", (y+1));
 		SET_STRING_ELT(rowNames, y, mkChar(tmp));
 
 		}
