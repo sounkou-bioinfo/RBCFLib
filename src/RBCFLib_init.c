@@ -17,6 +17,8 @@ static const R_CallMethodDef CallEntries[] = {
     /* BCFTOOLS */
     {"RC_HTSLibVersion", (DL_FUNC) &RC_HTSLibVersion, 0},
     {"RC_BCFToolsVersion", (DL_FUNC) &RC_BCFToolsVersion, 0},
+    {"RC_BCFToolsScoreVersion", (DL_FUNC) &RC_BCFToolsScoreVersion, 0},
+    /* BCFTools Wrapper */
     #ifndef _WIN32
     {"RC_bcftools_pipeline", (DL_FUNC) &RC_bcftools_pipeline, 7},
     #endif

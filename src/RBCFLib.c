@@ -92,6 +92,15 @@ SEXP RC_BCFToolsVersion(void) {
     return result;
 }
 
+SEXP RC_BCFToolsScoreVersion(void) {
+    SEXP result;
+    char *version = bcftools_score_version();
+    
+    PROTECT(result = mkString(version));
+    UNPROTECT(1);
+    
+    return result;
+}
 /*
  * Function to index a FASTA file using htslib faidx and return the index path
  */

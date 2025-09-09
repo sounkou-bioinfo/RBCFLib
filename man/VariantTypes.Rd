@@ -10,8 +10,14 @@ VariantTypes(vc)
 \item{vc}{the variant}
 }
 \value{
-the types for this variant
+character vector of variant types present in this variant
 }
 \description{
-return the types for this variant (as defined in htslib)
+Return the types for this variant (as defined in htslib)
+}
+\details{
+This function returns a character vector of variant types present in the record.
+Possible types include: "REF", "SNP", "MNP", "INDEL", "INS", "DEL", "BND",
+"OVERLAP", and "OTHER". Modern HTSlib supports structural variants through
+"BND" (breakends) and complex variants.
 }

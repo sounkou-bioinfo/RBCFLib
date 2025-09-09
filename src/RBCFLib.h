@@ -12,9 +12,11 @@
 */
 // C level
 extern char *bcftools_version(void);
+extern char *bcftools_score_version(void);
 //  R Linkage
 extern SEXP RC_HTSLibVersion(void);
 extern SEXP RC_BCFToolsVersion(void);
+extern SEXP RC_BCFToolsScoreVersion(void);
 
 /* 
      * faidx
