@@ -254,7 +254,7 @@ VCFLoad <- function(vcf_path, vbi_path = NULL) {
     .Call(
         RC_VBI_vcf_load,
         as.character(vcf_path),
-        if (is.null(vbi_path)) R_NilValue else as.character(vbi_path),
+        if (is.null(vbi_path)) NULL else as.character(vbi_path),
         PACKAGE = "RBCFLib"
     )
 }

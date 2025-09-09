@@ -76,22 +76,49 @@ SEXP RC_VBI_print_index(SEXP vbi_ptr, SEXP n) {
 // Create VBI VCF context combining VCF file and VBI index
 SEXP RC_VBI_vcf_load(SEXP vcf_path, SEXP vbi_path) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
-    const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
+    const char *vbi = NULL;
+    char *auto_vbi = NULL;  // Track if we allocated memory
+    
+    // Handle NULL vbi_path (auto-detect VBI file)
+    if (vbi_path != R_NilValue && !isNull(vbi_path)) {
+        vbi = CHAR(STRING_ELT(vbi_path, 0));
+    } else {
+        // Auto-detect VBI file by appending .vbi to VCF path
+        auto_vbi = malloc(strlen(vcf) + 5);
+        strcpy(auto_vbi, vcf);
+        strcat(auto_vbi, ".vbi");
+        vbi = auto_vbi;
+    }
     
     VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_Calloc(1, VBIVcfContext);
     ctx->query_failed = 0;
     memset(&ctx->tmp_line, 0, sizeof(kstring_t));
     
-    // Load VBI index
+    // Load VBI index, create if it doesn't exist
     ctx->vbi_idx = vbi_index_load(vbi);
     if (!ctx->vbi_idx) {
-        R_Free(ctx);
-        Rf_error("[VBI] Failed to load index from %s", vbi);
+        // Try to create the index if it doesn't exist
+        Rprintf("[VBI] Index not found at %s, creating...\n", vbi);
+        int result = do_index(vcf, vbi, 1); // Use 1 thread for indexing
+        if (result != 0) {
+            if (auto_vbi) free(auto_vbi);
+            R_Free(ctx);
+            Rf_error("[VBI] Failed to create index for %s", vcf);
+        }
+        
+        // Try loading again after creation
+        ctx->vbi_idx = vbi_index_load(vbi);
+        if (!ctx->vbi_idx) {
+            if (auto_vbi) free(auto_vbi);
+            R_Free(ctx);
+            Rf_error("[VBI] Failed to load newly created index from %s", vbi);
+        }
     }
     
     // Open VCF file
     ctx->fp = hts_open(vcf, "r");
     if (!ctx->fp) {
+        if (auto_vbi) free(auto_vbi);
         vbi_index_free(ctx->vbi_idx);
         R_Free(ctx);
         Rf_error("[VBI] Failed to open VCF file %s", vcf);
@@ -100,6 +127,7 @@ SEXP RC_VBI_vcf_load(SEXP vcf_path, SEXP vbi_path) {
     // Read header
     ctx->hdr = bcf_hdr_read(ctx->fp);
     if (!ctx->hdr) {
+        if (auto_vbi) free(auto_vbi);
         hts_close(ctx->fp);
         vbi_index_free(ctx->vbi_idx);
         R_Free(ctx);
@@ -109,12 +137,16 @@ SEXP RC_VBI_vcf_load(SEXP vcf_path, SEXP vbi_path) {
     // Initialize temp variant context
     ctx->tmp_ctx = bcf_init();
     if (!ctx->tmp_ctx) {
+        if (auto_vbi) free(auto_vbi);
         bcf_hdr_destroy(ctx->hdr);
         hts_close(ctx->fp);
         vbi_index_free(ctx->vbi_idx);
         R_Free(ctx);
         Rf_error("[VBI] Failed to initialize variant context");
     }
+    
+    // Clean up auto-allocated memory
+    if (auto_vbi) free(auto_vbi);
     
     SEXP extPtr = PROTECT(R_MakeExternalPtr(ctx, R_NilValue, R_NilValue));
     R_RegisterCFinalizerEx(extPtr, (R_CFinalizer_t)RC_VBI_vcf_context_finalizer, 1);
