@@ -18,15 +18,9 @@ VBIQueryRegion(
 \item{region}{Region string (e.g., "chr1:1000-2000")}
 
 \item{include_info}{Logical, whether to include INFO fields (default: FALSE)}
-
-\item{include_format}{Logical, whether to include FORMAT fields (default: FALSE)}
-
-\item{include_genotypes}{Logical, whether to include genotype data (default: FALSE)}
 }
 \value{
 data.frame with comprehensive variant information including all INFO fields when requested
-
-data.frame with comprehensive variant information
 }
 \description{
 Query VCF variants by genomic region with comprehensive field extraction.
@@ -44,18 +38,6 @@ hits <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356")
 # Query with INFO fields
 hits_info <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356",
                            include_info = TRUE)
-}
-VBI query with genotype data access
-
-Query VCF variants by genomic region with genotype data access.
-Returns variant context that can be used with genotype accessor functions.
-
-\dontrun{
-vcf_file <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
-vcf_obj <- VCFLoad(vcf_file)
-
-# Basic query
-hits <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356")
 
 # Query with INFO and genotype data
 hits_full <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356",
