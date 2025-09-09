@@ -13,8 +13,8 @@ endif
 HAVE_CHOLMOD=no
 
 # Base flags - minimal for version functions and HTSlib only
-PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(BCFTOOLS_VERSION_DIR)  -DNDEBUG -DUSE_GSL -I/usr/include
-PKG_LIBS=$(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate -L/usr/lib/x86_64-linux-gnu -lgsl -lgslcblas -lm $(PKG_LIBS_EXTRA)
+PKG_CPPFLAGS=-I$(HTSLIB_DIR) -I$(HTSLIB_DIR) -I$(BCFTOOLS_VERSION_DIR) -I/usr/local/include -DNDEBUG
+PKG_LIBS=$(HTSLIB_DIR)/libhts.a -lz -lm -lbz2 -llzma -lcurl -ldeflate $(PKG_LIBS_EXTRA)
 
 # Add CHOLMOD support if available (for any remaining cholmod dependencies)
 ifeq ($(HAVE_CHOLMOD),yes)
