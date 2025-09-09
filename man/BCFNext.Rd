@@ -15,11 +15,13 @@ an opaque vcf context or NULL
 \description{
 read the next Variant Context in the VCF reader
 }
-\details{
+\examples{
+\dontrun{
 fp <- BCFOpen("in.vcf.gz")
 BCFQuery(fp,"RF02:1-1000")
 while(!is.null(vc<-BCFNext(fp))) {
-## do something with vc
-}
+     ## do something with vc
+     }
 BCFClose(fp)
+}
 }

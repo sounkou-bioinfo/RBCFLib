@@ -281,17 +281,18 @@ BCFQuery <- function(fp, interval, collect = FALSE) {
 
 #' read the next Variant Context in the VCF reader
 #'
-#'
+#' @param fp the vcf reader
+#' @return an opaque vcf context or NULL
+#' @title Read next variant context
+#' @examples
+#' \dontrun{
 #' fp <- BCFOpen("in.vcf.gz")
 #' BCFQuery(fp,"RF02:1-1000")
 #' while(!is.null(vc<-BCFNext(fp))) {
 #'      ## do something with vc
 #'      }
 #' BCFClose(fp)
-#'
-#' @param fp the vcf reader
-#' @return an opaque vcf context or NULL
-#' @title Read next variant context
+#' }
 #' @export
 BCFNext <- function(fp) {
   stopifnot(looks_like_vcf_context(fp))
