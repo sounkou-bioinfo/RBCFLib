@@ -26,11 +26,16 @@ HTSLIB_DIR="${THISDir}/src/bcftools-1.22/htslib-1.22"
 HTS_FILE="${THISDir}/src/bcftools-1.22/libhts.a"
 BCFTOOLS_DIR="${THISDir}/src/bcftools-1.22"
 
-# Check for CHOLMOD
+# Check for CHOLMOD - try system first, then build bundled version
 HAVE_CHOLMOD="no"
 CHOLMOD_CPPFLAGS=""
 CHOLMOD_LIBS=""
 
+# Initialize PGS-specific CHOLMOD variables
+PGS_CHOLMOD_CPPFLAGS=""
+PGS_CHOLMOD_LIBS=""
+
+echo "Checking for system CHOLMOD..."
 if pkg-config --exists cholmod 2>/dev/null; then
   echo "Found CHOLMOD via pkg-config"
   # Test if we can actually compile with CHOLMOD
@@ -40,36 +45,12 @@ int main() { cholmod_common c; return 0; }' | \
     HAVE_CHOLMOD="yes"
     CHOLMOD_CPPFLAGS=$(pkg-config --cflags cholmod)
     CHOLMOD_LIBS=$(pkg-config --libs cholmod)
-    echo "CHOLMOD linking test passed - BCFToolsPGS will be enabled"
+    echo "System CHOLMOD linking test passed - will use system version"
   else
-    echo "CHOLMOD found via pkg-config but linking test failed - BCFToolsPGS will be disabled"
+    echo "System CHOLMOD found but linking test failed - will build bundled version"
   fi
 else
-  echo "CHOLMOD not found via pkg-config"
-  
-  # Try to compile with just -lcholmod (assume headers are in standard paths)
-  echo "Trying to find CHOLMOD in standard system paths..."
-  if echo '#include <cholmod.h>
-int main() { cholmod_common c; return 0; }' | \
-     ${CC} ${CFLAGS} -x c - -lcholmod -o /dev/null 2>/dev/null; then
-    HAVE_CHOLMOD="yes"
-    CHOLMOD_CPPFLAGS=""
-    CHOLMOD_LIBS="-lcholmod"
-    echo "CHOLMOD found in system paths - BCFToolsPGS will be enabled"
-  else
-    echo "CHOLMOD not found in system paths either"
-    # check if matrix package is installed, we may try in future to use it
-    # or implement the method using R Package Matrix
-    #if "${RSCRIPT}" -e 'if (!requireNamespace("Matrix", quietly=TRUE)) quit(status=1)' 2>/dev/null; then
-     # MATRIX_DIR=$("${RSCRIPT}" -e 'cat(system.file("libs", package="Matrix"))' 2>/dev/null)
-     # CHOLMOD_CPPFLAGS="-I${MATRIX_DIR}/../include"
-     # CHOLMOD_LIBS="-L${MATRIX_DIR}"
-     # HAVE_CHOLMOD="yes"
-     # if [ -d "${MATRIX_DIR}" ]; then
-     #   echo "Matrix package found at ${MATRIX_DIR}"
-     # fi
-    #fi
-  fi
+  echo "System CHOLMOD not found via pkg-config - will try to build bundled version"
 fi
 
 # Check for GSL
@@ -109,11 +90,30 @@ else
   echo "Continuing with --disable-libgsl to prevent build failure."
 fi
 
-# Source SuiteSparse configuration and try to build bundled version
+# Source SuiteSparse configuration and build bundled version
 if [ -f "${THISDir}/configureWithSparseSuites" ]; then
     . "${THISDir}/configureWithSparseSuites"
-    # Try to build bundled SuiteSparse
+    # Always try to build bundled SuiteSparse as backup or primary
     configure_suitesparse
+fi
+
+# Configure CHOLMOD for PGS plugin - prefer bundled over system
+if [ -d "${THISDir}/src/SuiteSparse/install" ]; then
+    echo "Using bundled CHOLMOD for PGS plugin"
+    # Override any system CHOLMOD with bundled version
+    HAVE_CHOLMOD="yes"
+    PGS_CHOLMOD_CPPFLAGS="-I${THISDir}/src/SuiteSparse/install/include"
+    PGS_CHOLMOD_LIBS="-L${THISDir}/src/SuiteSparse/install/lib -lcholmod -lccolamd -lcolamd -lcamd -lamd -lsuitesparseconfig"
+    echo "Bundled CHOLMOD paths: ${PGS_CHOLMOD_CPPFLAGS} ${PGS_CHOLMOD_LIBS}"
+elif [ "${HAVE_CHOLMOD}" = "yes" ]; then
+    echo "Using system CHOLMOD for PGS plugin"
+    PGS_CHOLMOD_CPPFLAGS="${CHOLMOD_CPPFLAGS}"
+    PGS_CHOLMOD_LIBS="${CHOLMOD_LIBS}"
+else
+    echo "No CHOLMOD available for PGS plugin - plugin will be disabled"
+    HAVE_CHOLMOD="no"
+    PGS_CHOLMOD_CPPFLAGS=""
+    PGS_CHOLMOD_LIBS=""
 fi
 
 echo ${HAVE_CHOLMOD} ${CHOLMOD_CPPFLAGS} ${CHOLMOD_LIBS}
@@ -179,13 +179,13 @@ fi
 export HAVE_CHOLMOD="${HAVE_CHOLMOD}"
 export CHOLMOD_CPPFLAGS="${CHOLMOD_CPPFLAGS}"
 export CHOLMOD_LIBS="${CHOLMOD_LIBS}"
-#HAVE_CHOLMOD=@HAVE_CHOLMOD@
-#CHOLMOD_LIBS=@CHOLMOD_LIBS@
-#CHOLMOD_CPPFLAGS=@CHOLMOD_CPPFLAGS@
+
+# Generate pgs.mk with the correct CHOLMOD configuration
+echo "Generating pgs.mk with CHOLMOD configuration..."
 sed \
     -e "s|@HAVE_CHOLMOD@|${HAVE_CHOLMOD}|g" \
-    -e "s|@CHOLMOD_LIBS@|${CHOLMOD_LIBS}|g" \
-    -e "s|@CHOLMOD_CPPFLAGS@|${CHOLMOD_CPPFLAGS}|g" \
+    -e "s|@CHOLMOD_LIBS@|${PGS_CHOLMOD_LIBS}|g" \
+    -e "s|@CHOLMOD_CPPFLAGS@|${PGS_CHOLMOD_CPPFLAGS}|g" \
     "${PGS_MK_IN}" > "${PGS_MK_IN%.in}"
 
 ./configure \
@@ -215,8 +215,8 @@ sed \
     -e "s|@EXTRA_CPPFLAGS@|${CPPFLAGS}|g" \
     -e "s|@EXTRA_LIBS@|${EXTRA_LIBS}|g" \
     -e "s|@HAVE_CHOLMOD@|${HAVE_CHOLMOD}|g" \
-    -e "s|@CHOLMOD_CPPFLAGS@|${CHOLMOD_CPPFLAGS}|g" \
-    -e "s|@CHOLMOD_LIBS@|${CHOLMOD_LIBS}|g" \
+    -e "s|@CHOLMOD_CPPFLAGS@|${PGS_CHOLMOD_CPPFLAGS}|g" \
+    -e "s|@CHOLMOD_LIBS@|${PGS_CHOLMOD_LIBS}|g" \
     -e "s|@HAVE_GSL@|${HAVE_GSL}|g" \
     -e "s|@GSL_LIBS@|${GSL_LIBS}|g" \
     -e "s|@USE_GPL@|${USE_GPL}|g" \
