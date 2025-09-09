@@ -6,7 +6,7 @@ THISDir=`dirname $0`
 THISDir=`realpath ${THISDir}`
 bcftoolsVersion="1.22"
 # Download BCFToolsScore source as a tar.gz at the specified commit and unpack into plugins
-commit=db4da22b6254636fe5e6865ea8ffe28133ca33eb
+commit=a9ffa435913101439974fce7c4812235b61e6df5
 cd $(dirname $0)/src || exit 1
 echo "$PWD"
 ls -d ${PWD}/bcftools* | xargs -I {} -t rm -rf {} || true 
