@@ -956,6 +956,7 @@ VariantSnpEff <- function(vc) {
 #' c(TRUE, FALSE, TRUE)
 #' ```
 #' @param vc the variant
+#' @param att the attribute name to retrieve
 #'
 #' @return vector of logicals containing attribute values for all genotypes
 #'
@@ -987,6 +988,7 @@ VariantGenotypesFlagAttribute <- function(vc, att) {
 #' ```
 #'
 #' @param vc the variant
+#' @param att the attribute name to retrieve
 #'
 #' @return vector of numerics containing attribute values for all genotypes
 #'
@@ -1013,6 +1015,7 @@ VariantGenotypesIntAttribute <- function(vc, att) {
 #' ```
 #'
 #' @param vc the variant
+#' @param att the attribute name to retrieve
 #'
 #' @return vector of numerics containing attribute values for all genotypes
 #'

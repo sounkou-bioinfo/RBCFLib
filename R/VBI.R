@@ -268,6 +268,8 @@ VCFLoad <- function(vcf_path, vbi_path = NULL) {
 #' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
 #' @param region Region string (e.g., "chr1:1000-2000")
 #' @param include_info Logical, whether to include INFO fields (default: FALSE)
+#' @param include_format Logical, whether to include FORMAT fields (default: FALSE)
+#' @param include_genotypes Logical, whether to include genotype data (default: FALSE)
 #' @return data.frame with comprehensive variant information including all INFO fields when requested
 #' @export
 #' @examples

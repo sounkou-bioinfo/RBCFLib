@@ -8,6 +8,8 @@ VariantGenotypesIntAttribute(vc, att)
 }
 \arguments{
 \item{vc}{the variant}
+
+\item{att}{the attribute name to retrieve}
 }
 \value{
 vector of numerics containing attribute values for all genotypes

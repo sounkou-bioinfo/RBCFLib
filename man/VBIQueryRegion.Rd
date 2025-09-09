@@ -18,6 +18,10 @@ VBIQueryRegion(
 \item{region}{Region string (e.g., "chr1:1000-2000")}
 
 \item{include_info}{Logical, whether to include INFO fields (default: FALSE)}
+
+\item{include_format}{Logical, whether to include FORMAT fields (default: FALSE)}
+
+\item{include_genotypes}{Logical, whether to include genotype data (default: FALSE)}
 }
 \value{
 data.frame with comprehensive variant information including all INFO fields when requested
