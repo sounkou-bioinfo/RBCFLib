@@ -4,7 +4,7 @@ THISDir=`dirname $0`
 THISDir=`realpath ${THISDir}`
 bcftoolsVersion="1.22"
 # Download BCFToolsScore source as a tar.gz at the specified commit and unpack into src/BCFToolsScore
-commit=db4da22b6254636fe5e6865ea8ffe28133ca33eb
+commit=a9ffa435913101439974fce7c4812235b61e6df5
 
 destDir="$(dirname "$0")/src/BCFToolsScore"
 echo "Preparing to download BCFToolsScore at commit ${commit}"
