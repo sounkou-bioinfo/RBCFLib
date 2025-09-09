@@ -178,6 +178,8 @@ variants in VCF/BCF files:
 - `VBIPrintIndex()`: Print lines from a VBI index for debugging
 - `VBIQueryRange()`: Query VBI index by genomic region (linear scan)
 - `VBIQueryByIndices()`: Query VBI index by variant index range
+- `VBIQueryRegion()`: Query VBI index by region with
+  INFO/FORMAT/genotype options
 - `VBIQueryRegionCGRanges()`: Query VBI index by region using CGRanges
   (fast interval tree)
 - `VBIIndexMemoryUsage()`: Get memory usage statistics
@@ -190,7 +192,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpnxvhW3/file4272441f931f4.vbi
+#> Wrote 15 index records into /tmp/RtmpZ5VttA/file55da56a9ebfc5.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
@@ -226,6 +228,24 @@ print(hits_region)
 #> 7 chr21 5030319 chr21:5030319:C:G,T   C G,T   NA   PASS        3     7
 #> 8 chr21 5030347   chr21:5030347:G:A   G   A   NA   PASS        2     8
 #> 9 chr21 5030356   chr21:5030356:G:C   G   C   NA   PASS        2     9
+
+# Query by genomic region using CGRanges (fast interval tree)
+hits_cgranges <- VBIQueryRegionCGRanges(vcf_ctx, "chr21:5030082-5030356")
+print("CGRanges query results (should be identical to region query):")
+#> [1] "CGRanges query results (should be identical to region query):"
+print(hits_cgranges)
+#>   chrom     pos                  id ref alt qual filter n_allele index
+#> 1 chr21 5030088   chr21:5030088:C:T   C   T   NA   PASS        2     2
+#> 2 chr21 5030105   chr21:5030105:C:A   C   A   NA   PASS        2     3
+#> 3 chr21 5030240  chr21:5030240:AC:A  AC   A   NA   PASS        2     4
+#> 4 chr21 5030253   chr21:5030253:G:T   G   T   NA   PASS        2     5
+#> 5 chr21 5030278   chr21:5030278:C:G   C   G   NA   PASS        2     6
+#> 6 chr21 5030319 chr21:5030319:C:G,T   C G,T   NA   PASS        3     7
+#> 7 chr21 5030347   chr21:5030347:G:A   G   A   NA   PASS        2     8
+
+# Verify equality between regular and CGRanges queries
+print(paste("Results are identical:", identical(hits_region, hits_cgranges)))
+#> [1] "Results are identical: FALSE"
 
 # Query by genomic region with INFO fields
 hits_with_info <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_info = TRUE)
