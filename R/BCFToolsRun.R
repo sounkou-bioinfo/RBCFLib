@@ -109,6 +109,7 @@ BCFToolsRun <- function(
     "+missing2ref",
     "+munge",
     "+parental-origin",
+    "+pgs",
     "+prune",
     "+remove-overlaps",
     "+scatter",
