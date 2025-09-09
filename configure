@@ -108,6 +108,14 @@ else
   echo "WARNING: GSL development files not found. Install libgsl-dev (Debian/Ubuntu) or gsl-devel (RPM-based) for polysomy support."
   echo "Continuing with --disable-libgsl to prevent build failure."
 fi
+
+# Source SuiteSparse configuration and try to build bundled version
+if [ -f "${THISDir}/configureWithSparseSuites" ]; then
+    . "${THISDir}/configureWithSparseSuites"
+    # Try to build bundled SuiteSparse
+    configure_suitesparse
+fi
+
 echo ${HAVE_CHOLMOD} ${CHOLMOD_CPPFLAGS} ${CHOLMOD_LIBS}
 echo "----------Configuring HTSlib in $HTSLIB_DIR-----------------"
 cd $HTSLIB_DIR

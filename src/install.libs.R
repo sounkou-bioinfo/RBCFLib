@@ -102,3 +102,45 @@ libexec_dir <- file.path(R_PACKAGE_DIR, "libexec")
 if (dir.exists(libexec_dir)) {
   unlink(libexec_dir, recursive = TRUE, force = TRUE)
 }
+
+## Copy SuiteSparse libraries and headers if they exist
+suitesparse_src <- "SuiteSparse/install"
+if (dir.exists(suitesparse_src)) {
+  # Copy SuiteSparse static libraries
+  suitesparse_libs <- list.files(
+    file.path(suitesparse_src, "lib"),
+    pattern = "\\.a$",
+    full.names = TRUE
+  )
+  if (length(suitesparse_libs) > 0) {
+    file.copy(suitesparse_libs, dest, overwrite = TRUE)
+  }
+
+  # Copy SuiteSparse headers
+  suitesparse_headers_src <- file.path(suitesparse_src, "include")
+  if (dir.exists(suitesparse_headers_src)) {
+    suitesparse_headers_dest <- file.path(
+      R_PACKAGE_DIR,
+      "include",
+      "suitesparse"
+    )
+    dir.create(suitesparse_headers_dest, recursive = TRUE, showWarnings = FALSE)
+
+    # Copy all header files
+    suitesparse_headers <- list.files(
+      suitesparse_headers_src,
+      pattern = "\\.h$",
+      full.names = TRUE,
+      recursive = TRUE
+    )
+
+    # Maintain directory structure
+    for (header in suitesparse_headers) {
+      rel_path <- sub(paste0(suitesparse_headers_src, "/"), "", header)
+      dest_file <- file.path(suitesparse_headers_dest, rel_path)
+      dest_dir <- dirname(dest_file)
+      dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
+      file.copy(header, dest_file, overwrite = TRUE)
+    }
+  }
+}
