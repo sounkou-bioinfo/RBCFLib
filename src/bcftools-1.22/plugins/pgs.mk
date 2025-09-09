@@ -1,8 +1,8 @@
 # The pgs plugin requires CHOLMOD library for sparse matrix operations
 # Only build if CHOLMOD is available
-HAVE_CHOLMOD=no
-CHOLMOD_LIBS=
-CHOLMOD_CPPFLAGS=
+HAVE_CHOLMOD=yes
+CHOLMOD_LIBS=-L/home/sounkoutoure/Projects/RBCFLib/src/SuiteSparse/install/lib -lcholmod -lccolamd -lcolamd -lcamd -lamd -lsuitesparseconfig
+CHOLMOD_CPPFLAGS=-I/home/sounkoutoure/Projects/RBCFLib/src/SuiteSparse/install/include
 ifeq ($(HAVE_CHOLMOD),yes)
     plugins/pgs.so: plugins/pgs.c
 	    $(CC) $(PLUGIN_FLAGS) $(CFLAGS) $(ALL_CPPFLAGS) $(CHOLMOD_CPPFLAGS) $(EXTRA_CPPFLAGS) $(LDFLAGS) -o $@ version.c $< $(PLUGIN_LIBS) $(LIBS) $(CHOLMOD_LIBS)

@@ -119,12 +119,17 @@ if (dir.exists(suitesparse_src)) {
   # Copy SuiteSparse headers
   suitesparse_headers_src <- file.path(suitesparse_src, "include")
   if (dir.exists(suitesparse_headers_src)) {
+    # Copy to suitesparse subdirectory (maintain existing structure)
     suitesparse_headers_dest <- file.path(
       R_PACKAGE_DIR,
       "include",
       "suitesparse"
     )
     dir.create(suitesparse_headers_dest, recursive = TRUE, showWarnings = FALSE)
+
+    # Also copy main headers directly to include/ for plugin compatibility
+    main_include_dest <- file.path(R_PACKAGE_DIR, "include")
+    dir.create(main_include_dest, recursive = TRUE, showWarnings = FALSE)
 
     # Copy all header files
     suitesparse_headers <- list.files(
@@ -134,13 +139,21 @@ if (dir.exists(suitesparse_src)) {
       recursive = TRUE
     )
 
-    # Maintain directory structure
+    # Maintain directory structure in suitesparse subdirectory
     for (header in suitesparse_headers) {
       rel_path <- sub(paste0(suitesparse_headers_src, "/"), "", header)
+
+      # Copy to suitesparse subdirectory
       dest_file <- file.path(suitesparse_headers_dest, rel_path)
       dest_dir <- dirname(dest_file)
       dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
       file.copy(header, dest_file, overwrite = TRUE)
+
+      # Also copy main headers directly to include/ (for plugin compatibility)
+      if (dirname(rel_path) == "suitesparse") {
+        main_dest_file <- file.path(main_include_dest, basename(header))
+        file.copy(header, main_dest_file, overwrite = TRUE)
+      }
     }
   }
 }
