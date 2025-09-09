@@ -2,24 +2,20 @@
 % Please edit documentation in R/VBI.R
 \name{VBIQueryByIndices}
 \alias{VBIQueryByIndices}
-\title{Query VBI index by marker index range}
+\title{Query VBI index by contiguous variant index range}
 \usage{
-VBIQueryByIndices(VcfPath, VbiPath, StartingIndice, EndingIndice, Threads = 1)
+VBIQueryByIndices(vbi_vcf_ctx, start_index, end_index)
 }
 \arguments{
-\item{VcfPath}{Path to the VCF/BCF file}
+\item{vbi_vcf_ctx}{VBI VCF context object from VCFLoad()}
 
-\item{VbiPath}{Path to the VBI index file}
+\item{start_index}{Start index for index-based query (1-based)}
 
-\item{EndingIndice}{End index for index-based query}
-
-\item{Threads}{Number of threads to use (default: 1)}
-
-\item{StartIdx}{Start index for index-based query}
+\item{end_index}{End index for index-based query (1-based)}
 }
 \value{
-List of results
+data.frame with variant information
 }
 \description{
-Query VBI index by marker index range
+Query VBI index by contiguous variant index range
 }

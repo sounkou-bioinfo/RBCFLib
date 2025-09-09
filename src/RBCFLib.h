@@ -53,11 +53,22 @@ extern SEXP RC_bcftools_pipeline(SEXP commands, SEXP args, SEXP n_commands,
 
 */
 extern SEXP RC_VBI_index(SEXP vcf_path, SEXP vbi_path, SEXP threads);
-extern SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads);
-extern SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads);
-extern SEXP RC_VBI_print_index(SEXP vbi_path, SEXP n);
+extern SEXP RC_VBI_query_range(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes);
+extern SEXP RC_VBI_query_by_indices(SEXP vbi_vcf_ctx, SEXP start_idx, SEXP end_idx, SEXP include_info, SEXP include_format, SEXP include_genotypes);
+extern SEXP RC_VBI_query_by_indices_ctx(SEXP vbi_vcf_ctx, SEXP start_idx, SEXP end_idx, SEXP include_info, SEXP include_format, SEXP include_genotypes);
+extern SEXP RC_VBI_print_index(SEXP vbi_ptr, SEXP n);
 extern SEXP RC_VBI_load_index(SEXP vbi_path);
-extern SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str);
+extern SEXP RC_VBI_vcf_load(SEXP vcf_path, SEXP vbi_path);
+extern SEXP RC_VBI_query_region(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes);
+extern SEXP RC_VBI_query_region_cgranges_ctx(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes);
+extern SEXP RC_VBI_samples(SEXP vbi_vcf_ctx);
+extern SEXP RC_VBI_nsamples(SEXP vbi_vcf_ctx);
+extern SEXP RC_VBI_sample_at(SEXP vbi_vcf_ctx, SEXP index);
+extern SEXP RC_VBI_sample2index(SEXP vbi_vcf_ctx, SEXP sample_name);
+extern SEXP RC_VBI_infos(SEXP vbi_vcf_ctx);
+extern SEXP RC_VBI_formats(SEXP vbi_vcf_ctx);
+extern SEXP RC_VBI_filters(SEXP vbi_vcf_ctx);
+extern SEXP RC_VBI_query_region_cgranges(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes);
 // VBI extract ranges
 extern SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n);
 // cleanup

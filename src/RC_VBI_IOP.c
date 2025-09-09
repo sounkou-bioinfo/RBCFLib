@@ -11,76 +11,308 @@
 #include "htslib/hfile.h"
 #include "vbi_index_capi.h"
 #include "cgranges.h"
-// Forward declaration for finalizer (after SEXP is defined)
+
+// VBI VCF Context structure definition (must be defined before use)
+typedef struct vbi_vcf_context_t {
+    htsFile *fp;
+    bcf_hdr_t *hdr;
+    vbi_index_t *vbi_idx;
+    bcf1_t *tmp_ctx;  // temp variant context for reading
+    kstring_t tmp_line;
+    int query_failed;
+} VBIVcfContext, *VBIVcfContextPtr;
+
+// Forward declarations
 SEXP RC_cgranges_destroy(SEXP cr_ptr);
+// Replace old forward declaration with new helper signature
+static SEXP vbi_query_variants_basic(VBIVcfContextPtr ctx, int *hits, int nfound,
+                                    int inc_info, int inc_format, int inc_genotypes);
 // Forward declarations from vbi_index.c and vbi_index_capi.h
 int do_index(const char *infile, const char *outfile, int n_threads);
 SEXP RC_VBI_index_memory_usage(SEXP extPtr);
-// Minimal cr_chrom implementation for cgranges_t (do not modify cgranges library files)
-// Reconstruct contig index for interval i by searching ctg ranges
-static inline const char *cr_chrom(const cgranges_t *cr, int64_t i) {
-    if (!cr || i < 0 || i >= cr->n_r) return NULL;
-    for (int32_t j = 0; j < cr->n_ctg; ++j) {
-        int64_t off = cr->ctg[j].off;
-        int64_t n = cr->ctg[j].n;
-        if (i >= off && i < off + n) {
-            return cr->ctg[j].name;
-        }
-    }
-    return NULL;
-}
+void RC_VBI_vcf_context_finalizer(SEXP extPtr);
 
-// Helper: check file existence
-static int file_exists(const char *path) {
-    FILE *f = fopen(path, "rb");
-    if (f) { fclose(f); return 1; }
-    return 0;
-}
-
-//' Create a VBI index for a VCF/BCF file
-//' @param vcf_path Path to VCF/BCF file
-//' @param vbi_path Path to output VBI index file
-//' @param threads Number of threads
-//' @return Path to the created VBI index file
+// VBI indexing wrapper function
 SEXP RC_VBI_index(SEXP vcf_path, SEXP vbi_path, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
-    int n_threads = asInteger(threads);
-    int ret = do_index(vcf, vbi, n_threads);
-    if (ret != 0) {
-        Rf_error("Failed to create VBI index for %s", vcf);
+    int nthreads = asInteger(threads);
+    
+    int result = do_index(vcf, vbi, nthreads);
+    if (result != 0) {
+        Rf_error("[VBI] Indexing failed for %s", vcf);
     }
-    if (!file_exists(vbi)) {
-        Rf_error("VBI index file not found after creation: %s", vbi);
-    }
-    Rprintf("VBI index created: %s\n", vbi);
-    return vbi_path;
+    
+    return R_NilValue;
 }
 
-// Helper: download remote file to local path (R's download.file)
-// we will get back to this
-// avoiding the R C API is advised 
-static int download_file(const char *url, const char *dest) {
-    SEXP call = PROTECT(lang4(install("download.file"), mkString(url), mkString(dest), mkString("auto")));
-    SEXP res = PROTECT(R_tryEval(call, R_GlobalEnv, NULL));
-    int status = asInteger(res);
-    UNPROTECT(2);
-    return status == 0;
+// Load VBI index from file
+SEXP RC_VBI_load_index(SEXP vbi_path) {
+    const char *path = CHAR(STRING_ELT(vbi_path, 0));
+    vbi_index_t *idx = vbi_index_load(path);
+    if (!idx) {
+        Rf_error("[VBI] Failed to load index from %s", path);
+    }
+    
+    SEXP extPtr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(extPtr, (R_CFinalizer_t)vbi_index_finalizer, 1);
+    UNPROTECT(1);
+    return extPtr;
 }
 
-//' Query VCF/BCF by region using VBI index (returns only records, no header)
-// the threads are decompression threads only
-SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) {
+// Print VBI index contents
+SEXP RC_VBI_print_index(SEXP vbi_ptr, SEXP n) {
+    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(vbi_ptr);
+    if (!idx) {
+        Rf_error("[VBI] Index pointer is NULL");
+    }
+    
+    int num_lines = asInteger(n);
+    vbi_index_print(idx, num_lines);
+    
+    return R_NilValue;
+}
+
+// Create VBI VCF context combining VCF file and VBI index
+SEXP RC_VBI_vcf_load(SEXP vcf_path, SEXP vbi_path) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
+    const char *vbi = CHAR(STRING_ELT(vbi_path, 0));
+    
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_Calloc(1, VBIVcfContext);
+    ctx->query_failed = 0;
+    memset(&ctx->tmp_line, 0, sizeof(kstring_t));
+    
+    // Load VBI index
+    ctx->vbi_idx = vbi_index_load(vbi);
+    if (!ctx->vbi_idx) {
+        R_Free(ctx);
+        Rf_error("[VBI] Failed to load index from %s", vbi);
+    }
+    
+    // Open VCF file
+    ctx->fp = hts_open(vcf, "r");
+    if (!ctx->fp) {
+        vbi_index_free(ctx->vbi_idx);
+        R_Free(ctx);
+        Rf_error("[VBI] Failed to open VCF file %s", vcf);
+    }
+    
+    // Read header
+    ctx->hdr = bcf_hdr_read(ctx->fp);
+    if (!ctx->hdr) {
+        hts_close(ctx->fp);
+        vbi_index_free(ctx->vbi_idx);
+        R_Free(ctx);
+        Rf_error("[VBI] Failed to read VCF header from %s", vcf);
+    }
+    
+    // Initialize temp variant context
+    ctx->tmp_ctx = bcf_init();
+    if (!ctx->tmp_ctx) {
+        bcf_hdr_destroy(ctx->hdr);
+        hts_close(ctx->fp);
+        vbi_index_free(ctx->vbi_idx);
+        R_Free(ctx);
+        Rf_error("[VBI] Failed to initialize variant context");
+    }
+    
+    SEXP extPtr = PROTECT(R_MakeExternalPtr(ctx, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(extPtr, (R_CFinalizer_t)RC_VBI_vcf_context_finalizer, 1);
+    UNPROTECT(1);
+    return extPtr;
+}
+
+// Finalizer for VBI VCF context
+void RC_VBI_vcf_context_finalizer(SEXP extPtr) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(extPtr);
+    if (ctx) {
+        if (ctx->tmp_ctx) bcf_destroy(ctx->tmp_ctx);
+        if (ctx->hdr) bcf_hdr_destroy(ctx->hdr);
+        if (ctx->fp) hts_close(ctx->fp);
+        if (ctx->vbi_idx) vbi_index_free(ctx->vbi_idx);
+        if (ctx->tmp_line.s) free(ctx->tmp_line.s);
+        R_Free(ctx);
+        R_SetExternalPtrAddr(extPtr, NULL);
+    }
+}
+
+// Get samples from VBI VCF context
+SEXP RC_VBI_samples(SEXP vbi_vcf_ctx) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    int nsamples = bcf_hdr_nsamples(ctx->hdr);
+    SEXP samples = PROTECT(allocVector(STRSXP, nsamples));
+    
+    for (int i = 0; i < nsamples; i++) {
+        SET_STRING_ELT(samples, i, mkChar(bcf_hdr_int2id(ctx->hdr, BCF_DT_SAMPLE, i)));
+    }
+    
+    UNPROTECT(1);
+    return samples;
+}
+
+// Get number of samples from VBI VCF context
+SEXP RC_VBI_nsamples(SEXP vbi_vcf_ctx) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    return ScalarInteger(bcf_hdr_nsamples(ctx->hdr));
+}
+
+// Get sample at specific index
+SEXP RC_VBI_sample_at(SEXP vbi_vcf_ctx, SEXP index) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    int idx = asInteger(index) - 1; // Convert from 1-based to 0-based
+    int nsamples = bcf_hdr_nsamples(ctx->hdr);
+    
+    if (idx < 0 || idx >= nsamples) {
+        Rf_error("[VBI] Sample index %d out of range [1, %d]", idx + 1, nsamples);
+    }
+    
+    const char *sample = bcf_hdr_int2id(ctx->hdr, BCF_DT_SAMPLE, idx);
+    return ScalarString(mkChar(sample ? sample : ""));
+}
+
+// Convert sample name to index
+SEXP RC_VBI_sample2index(SEXP vbi_vcf_ctx, SEXP sample_name) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    const char *name = CHAR(STRING_ELT(sample_name, 0));
+    int idx = bcf_hdr_id2int(ctx->hdr, BCF_DT_SAMPLE, name);
+    
+    if (idx < 0) {
+        return ScalarInteger(NA_INTEGER);
+    }
+    
+    return ScalarInteger(idx + 1); // Convert from 0-based to 1-based
+}
+
+// Get INFO fields from VBI VCF context
+SEXP RC_VBI_infos(SEXP vbi_vcf_ctx) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    // Count INFO entries
+    int n_info = 0;
+    for (int i = 0; i < ctx->hdr->n[BCF_DT_ID]; i++) {
+        if (bcf_hdr_idinfo_exists(ctx->hdr, BCF_HL_INFO, i)) n_info++;
+    }
+    
+    SEXP infos = PROTECT(allocVector(STRSXP, n_info));
+    int idx = 0;
+    
+    for (int i = 0; i < ctx->hdr->n[BCF_DT_ID]; i++) {
+        if (bcf_hdr_idinfo_exists(ctx->hdr, BCF_HL_INFO, i)) {
+            const char *key = bcf_hdr_int2id(ctx->hdr, BCF_DT_ID, i);
+            SET_STRING_ELT(infos, idx++, mkChar(key ? key : ""));
+        }
+    }
+    
+    UNPROTECT(1);
+    return infos;
+}
+
+// Get FORMAT fields from VBI VCF context
+SEXP RC_VBI_formats(SEXP vbi_vcf_ctx) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    // Count FORMAT entries
+    int n_format = 0;
+    for (int i = 0; i < ctx->hdr->n[BCF_DT_ID]; i++) {
+        if (bcf_hdr_idinfo_exists(ctx->hdr, BCF_HL_FMT, i)) n_format++;
+    }
+    
+    SEXP formats = PROTECT(allocVector(STRSXP, n_format));
+    int idx = 0;
+    
+    for (int i = 0; i < ctx->hdr->n[BCF_DT_ID]; i++) {
+        if (bcf_hdr_idinfo_exists(ctx->hdr, BCF_HL_FMT, i)) {
+            const char *key = bcf_hdr_int2id(ctx->hdr, BCF_DT_ID, i);
+            SET_STRING_ELT(formats, idx++, mkChar(key ? key : ""));
+        }
+    }
+    
+    UNPROTECT(1);
+    return formats;
+}
+
+// Get FILTER fields from VBI VCF context
+SEXP RC_VBI_filters(SEXP vbi_vcf_ctx) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx || !ctx->hdr) Rf_error("[VBI] Invalid VCF context");
+    
+    // Count FILTER entries
+    int n_filter = 0;
+    for (int i = 0; i < ctx->hdr->n[BCF_DT_ID]; i++) {
+        if (bcf_hdr_idinfo_exists(ctx->hdr, BCF_HL_FLT, i)) n_filter++;
+    }
+    
+    SEXP filters = PROTECT(allocVector(STRSXP, n_filter));
+    int idx = 0;
+    
+    for (int i = 0; i < ctx->hdr->n[BCF_DT_ID]; i++) {
+        if (bcf_hdr_idinfo_exists(ctx->hdr, BCF_HL_FLT, i)) {
+            const char *key = bcf_hdr_int2id(ctx->hdr, BCF_DT_ID, i);
+            SET_STRING_ELT(filters, idx++, mkChar(key ? key : ""));
+        }
+    }
+    
+    UNPROTECT(1);
+    return filters;
+}
+
+// Extract ranges from VBI index
+SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n) {
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    const char *reg = CHAR(STRING_ELT(region, 0));
-    int n_threads = asInteger(threads); (void)n_threads; // reserved, not yet used
+    
+    int num_ranges = asInteger(n);
+    if (num_ranges <= 0 || num_ranges > idx->num_marker) {
+        num_ranges = idx->num_marker;
+    }
+    
+    SEXP chrom_col = PROTECT(allocVector(STRSXP, num_ranges));
+    SEXP pos_col = PROTECT(allocVector(INTSXP, num_ranges));
+    SEXP idx_col = PROTECT(allocVector(INTSXP, num_ranges));
+    
+    for (int i = 0; i < num_ranges; i++) {
+        const char *chrom = idx->chrom_names[idx->chrom_ids[i]];
+        SET_STRING_ELT(chrom_col, i, mkChar(chrom ? chrom : ""));
+        INTEGER(pos_col)[i] = (int)idx->positions[i];
+        INTEGER(idx_col)[i] = i + 1; // 1-based index for R
+    }
+    
+    SEXP df = PROTECT(allocVector(VECSXP, 3));
+    SET_VECTOR_ELT(df, 0, chrom_col);
+    SET_VECTOR_ELT(df, 1, pos_col);
+    SET_VECTOR_ELT(df, 2, idx_col);
+    
+    SEXP names = PROTECT(allocVector(STRSXP, 3));
+    SET_STRING_ELT(names, 0, mkChar("chrom"));
+    SET_STRING_ELT(names, 1, mkChar("pos"));
+    SET_STRING_ELT(names, 2, mkChar("index"));
+    
+    setAttrib(df, R_NamesSymbol, names);
+    setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+    
+    SEXP rn = PROTECT(allocVector(INTSXP, num_ranges));
+    for (int i = 0; i < num_ranges; i++) INTEGER(rn)[i] = i + 1;
+    setAttrib(df, R_RowNamesSymbol, rn);
+    
+    UNPROTECT(6);
+    return df;
+}
 
-    int nfound = 0;
-    int *indices = vbi_index_query_region(idx, reg, &nfound);
-    if (!indices || nfound == 0) {
-        // return 0-row data.frame
+// Shared helper to build a data.frame for a set of variant indices (hits)
+// Columns: chrom,pos,id,ref,alt,qual,filter,n_allele,index,[CSQ],[ANN]
+static SEXP vbi_query_variants_basic(VBIVcfContextPtr ctx, int *hits, int nfound,
+                                    int inc_info, int inc_format, int inc_genotypes) {
+    if (nfound <= 0) {
         SEXP df = PROTECT(allocVector(VECSXP, 0));
         SEXP names = PROTECT(allocVector(STRSXP, 0));
         SEXP rn = PROTECT(allocVector(INTSXP, 0));
@@ -88,84 +320,26 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
         setAttrib(df, R_RowNamesSymbol, rn);
         setAttrib(df, R_ClassSymbol, mkString("data.frame"));
         UNPROTECT(3);
-        if (indices) free(indices);
         return df;
     }
+    // Detect CSQ / ANN only if info requested
+    bcf_hrec_t *csq_hrec = inc_info ? bcf_hdr_get_hrec(ctx->hdr, BCF_HL_INFO, "ID", "CSQ", NULL) : NULL;
+    bcf_hrec_t *ann_hrec = inc_info ? bcf_hdr_get_hrec(ctx->hdr, BCF_HL_INFO, "ID", "ANN", NULL) : NULL;
+    int with_csq = csq_hrec != NULL;
+    int with_ann = ann_hrec != NULL;
 
-    htsFile *fp = hts_open(vcf, "r");
-    if (!fp) {
-        free(indices);
-        Rf_error("Failed to open VCF/BCF: %s", vcf);
-    }
-    bcf_hdr_t *hdr = bcf_hdr_read(fp);
-    if (!hdr) {
-        hts_close(fp);
-        free(indices);
-        Rf_error("Failed to read VCF/BCF header: %s", vcf);
-    }
+    // Base columns always
+    int base_cols = 9; // chrom,pos,id,ref,alt,qual,filter,n_allele,index
+    int extra_cols = (with_csq?1:0) + (with_ann?1:0);
+    // Simple INFO/FORMAT/GT strategy: we expose aggregated INFO as a single JSON-ish string column when requested (placeholder)
+    int info_cols = inc_info ? 1 : 0; // INFO
+    int format_cols = inc_format ? 1 : 0; // FORMAT ids present (per record)
+    int gt_cols = inc_genotypes ? 1 : 0; // GT (concatenated per sample)
+    int ncols = base_cols + extra_cols + info_cols + format_cols + gt_cols;
 
-    // Detect presence of CSQ / ANN INFO annotations (VEP/SnpEff)
-    bcf_hrec_t *csq_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "CSQ", NULL);
-    bcf_hrec_t *ann_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "ANN", NULL);
-
-    // Pre-parse CSQ/ANN subfield names if available
-    char **csq_fields = NULL; int n_csq_fields = 0;
-    char **ann_fields = NULL; int n_ann_fields = 0;
-
-    // helper lambda-like static functions not available; implement inline parsing
-    if (csq_hrec) {
-        const char *desc = NULL;
-        for (int i=0;i<csq_hrec->nkeys;i++) if (strcmp(csq_hrec->keys[i],"Description")==0) { desc = csq_hrec->vals[i]; break; }
-        if (desc) {
-            const char *fmt = strstr(desc, "Format:");
-            if (fmt) {
-                fmt += 7; // skip 'Format:'
-                while (*fmt==' ' || *fmt=='\t') fmt++;
-                // copy until end
-                char *tmp = strdup(fmt);
-                // trim trailing quote / parenthesis if any
-                size_t L = strlen(tmp);
-                while (L>0 && (tmp[L-1]=='"' || tmp[L-1]==')' || tmp[L-1]==' ')) { tmp[--L]='\0'; }
-                // split by '|'
-                // first count
-                for (size_t i=0;i<L;i++) if (tmp[i]=='|') n_csq_fields++;
-                n_csq_fields++; // items = pipes + 1
-                csq_fields = (char**)calloc(n_csq_fields, sizeof(char*));
-                int fld=0; char *p=tmp; char *start=p;
-                for (; *p; ++p) {
-                    if (*p=='|') { *p='\0'; csq_fields[fld++] = strdup(start); start = p+1; }
-                }
-                if (fld < n_csq_fields) csq_fields[fld++] = strdup(start);
-                free(tmp);
-            }
-        }
-    }
-    if (ann_hrec) {
-        const char *desc = NULL;
-        for (int i=0;i<ann_hrec->nkeys;i++) if (strcmp(ann_hrec->keys[i],"Description")==0) { desc = ann_hrec->vals[i]; break; }
-        if (desc) {
-            const char *fmt = strstr(desc, "'|"); // heuristics to find ANN format after first "'"
-            const char *fmt2 = strstr(desc, "Format:");
-            const char *use = fmt2?fmt2:fmt; // try Format: first
-            if (use) {
-                if (fmt2) { use += 7; while (*use==' '||*use=='\t') use++; }
-                char *tmp = strdup(use);
-                size_t L = strlen(tmp);
-                while (L>0 && (tmp[L-1]=='"' || tmp[L-1]==')' || tmp[L-1]==' ')) { tmp[--L]='\0'; }
-                for (size_t i=0;i<L;i++) if (tmp[i]=='|') n_ann_fields++;
-                n_ann_fields++;
-                ann_fields = (char**)calloc(n_ann_fields, sizeof(char*));
-                int fld=0; char *p=tmp; char *start=p;
-                for (; *p; ++p) {
-                    if (*p=='|') { *p='\0'; ann_fields[fld++] = strdup(start); start = p+1; }
-                }
-                if (fld < n_ann_fields) ann_fields[fld++] = strdup(start);
-                free(tmp);
-            }
-        }
-    }
-
-    // Allocate core columns
+    SEXP df = PROTECT(allocVector(VECSXP, ncols));
+    SEXP names = PROTECT(allocVector(STRSXP, ncols));
+    int col = 0;
     SEXP chrom_col = PROTECT(allocVector(STRSXP, nfound));
     SEXP pos_col   = PROTECT(allocVector(INTSXP, nfound));
     SEXP id_col    = PROTECT(allocVector(STRSXP, nfound));
@@ -175,220 +349,150 @@ SEXP RC_VBI_query_range(SEXP vcf_path, SEXP idx_ptr, SEXP region, SEXP threads) 
     SEXP filter_col= PROTECT(allocVector(STRSXP, nfound));
     SEXP nallele_col=PROTECT(allocVector(INTSXP, nfound));
     SEXP index_col = PROTECT(allocVector(INTSXP, nfound));
-    SEXP csq_col   = csq_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_csx = csq_hrec?1:0;
-    SEXP ann_col   = ann_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_ann = ann_hrec?1:0;
+    int protect_count = 2 + 9; // df,names + 9 columns
 
-    int nprotect = 9 + prot_csx + prot_ann;
+    SEXP csq_col = R_NilValue, ann_col = R_NilValue, info_col = R_NilValue, fmt_col = R_NilValue, gt_col = R_NilValue;
+    if (with_csq) { csq_col = PROTECT(allocVector(VECSXP, nfound)); protect_count++; }
+    if (with_ann) { ann_col = PROTECT(allocVector(VECSXP, nfound)); protect_count++; }
+    if (info_cols) { info_col = PROTECT(allocVector(STRSXP, nfound)); protect_count++; }
+    if (format_cols){ fmt_col = PROTECT(allocVector(STRSXP, nfound)); protect_count++; }
+    if (gt_cols) { gt_col = PROTECT(allocVector(STRSXP, nfound)); protect_count++; }
 
     bcf1_t *rec = bcf_init();
     kstring_t kalt = {0,0,0};
     kstring_t kflt = {0,0,0};
-
-    for (int i = 0; i < nfound; ++i) {
-        int idx_var = indices[i];
+    kstring_t ktmp = {0,0,0};
+    for (int i=0;i<nfound;i++) {
+        int idx_var = hits[i];
         int seek_ok = 0;
-        if (fp->format.compression == bgzf) {
-            BGZF *bg = (BGZF *)fp->fp.bgzf;
-            seek_ok = (bgzf_seek(bg, idx->offsets[idx_var], SEEK_SET) == 0);
+        if (ctx->fp->format.compression == bgzf) {
+            BGZF *bg = (BGZF *)ctx->fp->fp.bgzf;
+            seek_ok = (bgzf_seek(bg, ctx->vbi_idx->offsets[idx_var], SEEK_SET) == 0);
         } else {
-            hFILE *hf = (hFILE *)fp->fp.hfile;
-            seek_ok = (hseek(hf, (off_t)idx->offsets[idx_var], SEEK_SET) == 0);
+            hFILE *hf = (hFILE *)ctx->fp->fp.hfile;
+            seek_ok = (hseek(hf, (off_t)ctx->vbi_idx->offsets[idx_var], SEEK_SET) == 0);
         }
-        if (!seek_ok || bcf_read(fp, hdr, rec) < 0) {
-            SET_STRING_ELT(chrom_col, i, NA_STRING);
-            INTEGER(pos_col)[i] = NA_INTEGER;
-            SET_STRING_ELT(id_col, i, NA_STRING);
-            SET_STRING_ELT(ref_col, i, NA_STRING);
-            SET_STRING_ELT(alt_col, i, NA_STRING);
-            REAL(qual_col)[i] = NA_REAL;
-            SET_STRING_ELT(filter_col, i, NA_STRING);
-            INTEGER(nallele_col)[i] = NA_INTEGER;
-            if (csq_hrec) SET_VECTOR_ELT(csq_col, i, R_NilValue);
-            if (ann_hrec) SET_VECTOR_ELT(ann_col, i, R_NilValue);
-            INTEGER(index_col)[i] = NA_INTEGER;
+        if (!seek_ok || bcf_read(ctx->fp, ctx->hdr, rec) < 0) {
+            SET_STRING_ELT(chrom_col,i,NA_STRING); INTEGER(pos_col)[i]=NA_INTEGER; SET_STRING_ELT(id_col,i,NA_STRING);
+            SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); REAL(qual_col)[i]=NA_REAL;
+            SET_STRING_ELT(filter_col,i,NA_STRING); INTEGER(nallele_col)[i]=NA_INTEGER; INTEGER(index_col)[i]=NA_INTEGER;
+            if (with_csq) SET_VECTOR_ELT(csq_col,i,R_NilValue);
+            if (with_ann) SET_VECTOR_ELT(ann_col,i,R_NilValue);
+            if (info_cols) SET_STRING_ELT(info_col,i,NA_STRING);
+            if (format_cols) SET_STRING_ELT(fmt_col,i,NA_STRING);
+            if (gt_cols) SET_STRING_ELT(gt_col,i,NA_STRING);
             continue;
         }
-        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO|BCF_UN_FLT);
-        // chrom
-        const char *chrom = bcf_hdr_id2name(hdr, rec->rid);
-        SET_STRING_ELT(chrom_col, i, chrom?mkChar(chrom):NA_STRING);
-        // pos (1-based)
+        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO| (inc_format||inc_genotypes?BCF_UN_FMT:0) | BCF_UN_FLT);
+        const char *chrom = bcf_hdr_id2name(ctx->hdr, rec->rid);
+        SET_STRING_ELT(chrom_col,i, chrom?mkChar(chrom):NA_STRING);
         INTEGER(pos_col)[i] = rec->pos + 1;
-        // id
-        if (rec->d.id && strcmp(rec->d.id, ".")!=0) SET_STRING_ELT(id_col, i, mkChar(rec->d.id)); else SET_STRING_ELT(id_col, i, NA_STRING);
-        // ref & alt
-        if (rec->d.allele && rec->n_allele>0) {
-            SET_STRING_ELT(ref_col, i, mkChar(rec->d.allele[0]));
-            // build alt string
-            kalt.l = 0; if (rec->n_allele>1) {
-                for (int a=1;a<rec->n_allele;a++) {
-                    if (a>1) kputc(',', &kalt);
-                    kputs(rec->d.allele[a], &kalt);
-                }
-                SET_STRING_ELT(alt_col, i, mkChar(kalt.s));
-            } else {
-                SET_STRING_ELT(alt_col, i, mkChar("."));
+        SET_STRING_ELT(id_col,i, (rec->d.id && strcmp(rec->d.id, ".")!=0)? mkChar(rec->d.id): NA_STRING);
+        if (rec->d.allele && rec->n_allele>0){
+            SET_STRING_ELT(ref_col,i, mkChar(rec->d.allele[0]));
+            kalt.l=0; if (rec->n_allele>1){ for(int a=1;a<rec->n_allele;a++){ if(a>1) kputc(',',&kalt); kputs(rec->d.allele[a],&kalt);} SET_STRING_ELT(alt_col,i,mkChar(kalt.s)); } else SET_STRING_ELT(alt_col,i,mkChar("."));
+        } else { SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING);}        
+        INTEGER(nallele_col)[i]=rec->n_allele; INTEGER(index_col)[i]=idx_var+1; REAL(qual_col)[i]= bcf_float_is_missing(rec->qual)? NA_REAL: rec->qual;
+        kflt.l=0; if(rec->d.n_flt==0){ kputs("PASS",&kflt);} else { for(int f=0;f<rec->d.n_flt;f++){ if(f) kputc(';',&kflt); const char *flt=bcf_hdr_int2id(ctx->hdr, BCF_DT_ID, rec->d.flt[f]); if(flt) kputs(flt,&kflt);} }
+        SET_STRING_ELT(filter_col,i, kflt.s?mkChar(kflt.s):mkChar(""));
+        if (with_csq) SET_VECTOR_ELT(csq_col,i,R_NilValue); // placeholder
+        if (with_ann) SET_VECTOR_ELT(ann_col,i,R_NilValue); // placeholder
+        if (info_cols){
+            // concatenate key=value for all INFO present (simple, may be large)
+            ktmp.l=0; bcf_info_t *inf=NULL; for(int j=0;j<rec->n_info;j++){ inf=&rec->d.info[j]; const char *key = bcf_hdr_int2id(ctx->hdr,BCF_DT_ID,inf->key); if(!key) continue; if(j) kputc(';',&ktmp); kputs(key,&ktmp); if(inf->len>0 && inf->type!=BCF_BT_NULL){ kputc('=',&ktmp); if(inf->type==BCF_BT_INT32){ for(int k=0;k<inf->len;k++){ if(k) kputc(',',&ktmp); kputw(((int32_t*)inf->vptr)[k],&ktmp);} } else if(inf->type==BCF_BT_FLOAT){ for(int k=0;k<inf->len;k++){ if(k) kputc(',',&ktmp); ksprintf(&ktmp,"%g",((float*)inf->vptr)[k]); } } else if(inf->type==BCF_BT_CHAR){ kputsn(inf->vptr,inf->len,&ktmp);} }
             }
-        } else {
-            SET_STRING_ELT(ref_col, i, NA_STRING);
-            SET_STRING_ELT(alt_col, i, NA_STRING);
+            SET_STRING_ELT(info_col,i, ktmp.s?mkChar(ktmp.s):NA_STRING);
         }
-        INTEGER(nallele_col)[i] = rec->n_allele;
-        INTEGER(index_col)[i] = idx_var + 1; // 1-based index of variant in VBI
-        // qual
-        REAL(qual_col)[i] = bcf_float_is_missing(rec->qual) ? NA_REAL : rec->qual;
-        // filters
-        kflt.l = 0;
-        if (rec->d.n_flt == 0) {
-            kputs("PASS", &kflt);
-        } else {
-            for (int f=0; f<rec->d.n_flt; ++f) {
-                if (f) kputc(';', &kflt);
-                const char *flt = bcf_hdr_int2id(hdr, BCF_DT_ID, rec->d.flt[f]);
-                if (flt) kputs(flt, &kflt);
-            }
+        if (format_cols){
+            ktmp.l=0; for(int j=0;j<rec->n_fmt;j++){ if(j) kputc(';',&ktmp); const char *fid=bcf_hdr_int2id(ctx->hdr,BCF_DT_ID,rec->d.fmt[j].id); if(fid) kputs(fid,&ktmp);} SET_STRING_ELT(fmt_col,i, ktmp.s?mkChar(ktmp.s):NA_STRING);
         }
-        SET_STRING_ELT(filter_col, i, kflt.s?mkChar(kflt.s):mkChar(""));
-
-        // CSQ parsing
-        if (csq_hrec) {
-            bcf_info_t *info = bcf_get_info(hdr, rec, "CSQ");
-            if (!info) {
-                SET_VECTOR_ELT(csq_col, i, R_NilValue);
-            } else {
-                // get string value
-                char *csq_str = NULL; int ns = 0;
-                if (bcf_get_info_string(hdr, rec, "CSQ", &csq_str, &ns) > 0) {
-                    // split by ',' entries
-                    int ntrans=1; for (char *p=csq_str; *p; ++p) if (*p==',') ntrans++;
-                    // allocate data.frame columns per field
-                    SEXP cols = PROTECT(allocVector(VECSXP, n_csq_fields));
-                    for (int c=0;c<n_csq_fields;c++) SET_VECTOR_ELT(cols, c, allocVector(STRSXP, ntrans));
-                    // parse
-                    int t=0; char *entry = csq_str; char *p=csq_str;
-                    while (1) {
-                        if (*p==',' || *p=='\0') {
-                            char save = *p; *p='\0';
-                            // parse one transcript entry by '|'
-                            int fld=0; char *seg=entry; char *q=entry;
-                            while (1) {
-                                if (*q=='|' || *q=='\0') {
-                                    char save2=*q; *q='\0';
-                                    if (fld<n_csq_fields) {
-                                        SEXP col = VECTOR_ELT(cols,fld);
-                                        SET_STRING_ELT(col, t, seg && *seg? mkChar(seg): NA_STRING);
-                                    }
-                                    *q = save2;
-                                    fld++; seg = q+1;
-                                }
-                                if (*q=='\0') break; q++;
-                            }
-                            *p = save;
-                            t++;
-                            if (save=='\0') break; // done
-                            entry = p+1;
-                        }
-                        if (*p=='\0') break; else p++;
+        if (gt_cols){
+            ktmp.l=0; int ngt_arr=0; int32_t *gt=NULL; int ngt=bcf_get_genotypes(ctx->hdr, rec, &gt, &ngt_arr);
+            int ns= bcf_hdr_nsamples(ctx->hdr);
+            if(ngt>0 && ns>0){
+                int ploidy = ngt / ns;
+                for(int s=0;s<ns;s++){
+                    if(s) kputc(';',&ktmp);
+                    for(int p=0;p<ploidy;p++){
+                        if(p) kputc('/',&ktmp);
+                        int32_t g = gt[s*ploidy + p];
+                        if (g==bcf_int32_vector_end) break;
+                        if (g==bcf_gt_missing) { kputc('.',&ktmp); continue; }
+                        ksprintf(&ktmp, "%d", bcf_gt_allele(g));
                     }
-                    // set names
-                    SEXP fn = PROTECT(allocVector(STRSXP, n_csq_fields));
-                    for (int c=0;c<n_csq_fields;c++) SET_STRING_ELT(fn,c,mkChar(csq_fields[c]));
-                    setAttrib(cols, R_NamesSymbol, fn);
-                    // row.names
-                    SEXP rn = PROTECT(allocVector(INTSXP, ntrans)); for (int r=0;r<ntrans;r++) INTEGER(rn)[r]=r+1; setAttrib(cols, R_RowNamesSymbol, rn);
-                    setAttrib(cols, R_ClassSymbol, mkString("data.frame"));
-                    SET_VECTOR_ELT(csq_col, i, cols);
-                    UNPROTECT(3); // cols names rn
-                    free(csq_str);
-                } else {
-                    if (csq_str) free(csq_str);
-                    SET_VECTOR_ELT(csq_col, i, R_NilValue);
                 }
             }
-        }
-        // ANN parsing (similar but simpler: store raw entries list)
-        if (ann_hrec) {
-            bcf_info_t *info = bcf_get_info(hdr, rec, "ANN");
-            if (!info) {
-                SET_VECTOR_ELT(ann_col, i, R_NilValue);
-            } else {
-                char *ann_str=NULL; int ns=0;
-                if (bcf_get_info_string(hdr, rec, "ANN", &ann_str, &ns) > 0) {
-                    int ntrans=1; for (char *p=ann_str; *p; ++p) if (*p==',') ntrans++;
-                    SEXP entries = PROTECT(allocVector(STRSXP, ntrans));
-                    int t=0; char *entry=ann_str; char *p=ann_str;
-                    while (1) {
-                        if (*p==',' || *p=='\0') {
-                            char save=*p; *p='\0';
-                            SET_STRING_ELT(entries, t, entry && *entry?mkChar(entry):NA_STRING);
-                            *p=save; t++; if (save=='\0') break; entry=p+1;
-                        }
-                        if (*p=='\0') break; else p++;
-                    }
-                    SET_VECTOR_ELT(ann_col, i, entries);
-                    UNPROTECT(1);
-                    free(ann_str);
-                } else {
-                    if (ann_str) free(ann_str);
-                    SET_VECTOR_ELT(ann_col, i, R_NilValue);
-                }
-            }
+            if(gt) free(gt);
+            SET_STRING_ELT(gt_col,i, ktmp.s?mkChar(ktmp.s):NA_STRING);
         }
     }
-
     bcf_destroy(rec);
-    if (kalt.s) free(kalt.s);
-    if (kflt.s) free(kflt.s);
-    bcf_hdr_destroy(hdr);
-    hts_close(fp);
-
-    // Build final data.frame
-    int ncols = 9 + (csq_hrec?1:0) + (ann_hrec?1:0);
-    SEXP df = PROTECT(allocVector(VECSXP, ncols)); nprotect++;
-    SEXP names = PROTECT(allocVector(STRSXP, ncols)); nprotect++;
-    int col=0;
-    SET_VECTOR_ELT(df, col, chrom_col); SET_STRING_ELT(names, col++, mkChar("chrom"));
-    SET_VECTOR_ELT(df, col, pos_col);   SET_STRING_ELT(names, col++, mkChar("pos"));
-    SET_VECTOR_ELT(df, col, id_col);    SET_STRING_ELT(names, col++, mkChar("id"));
-    SET_VECTOR_ELT(df, col, ref_col);   SET_STRING_ELT(names, col++, mkChar("ref"));
-    SET_VECTOR_ELT(df, col, alt_col);   SET_STRING_ELT(names, col++, mkChar("alt"));
-    SET_VECTOR_ELT(df, col, qual_col);  SET_STRING_ELT(names, col++, mkChar("qual"));
-    SET_VECTOR_ELT(df, col, filter_col);SET_STRING_ELT(names, col++, mkChar("filter"));
-    SET_VECTOR_ELT(df, col, nallele_col);SET_STRING_ELT(names, col++, mkChar("n_allele"));
-    SET_VECTOR_ELT(df, col, index_col); SET_STRING_ELT(names, col++, mkChar("index"));
-    if (csq_hrec) { SET_VECTOR_ELT(df, col, csq_col); SET_STRING_ELT(names, col++, mkChar("CSQ")); }
-    if (ann_hrec) { SET_VECTOR_ELT(df, col, ann_col); SET_STRING_ELT(names, col++, mkChar("ANN")); }
+    if(kalt.s) free(kalt.s); if(kflt.s) free(kflt.s); if(ktmp.s) free(ktmp.s);
+    // assemble df columns
+    col=0; // reset column counter (fix redefinition)
+    SET_VECTOR_ELT(df,col,chrom_col); SET_STRING_ELT(names,col++,mkChar("chrom"));
+    SET_VECTOR_ELT(df,col,pos_col); SET_STRING_ELT(names,col++,mkChar("pos"));
+    SET_VECTOR_ELT(df,col,id_col); SET_STRING_ELT(names,col++,mkChar("id"));
+    SET_VECTOR_ELT(df,col,ref_col); SET_STRING_ELT(names,col++,mkChar("ref"));
+    SET_VECTOR_ELT(df,col,alt_col); SET_STRING_ELT(names,col++,mkChar("alt"));
+    SET_VECTOR_ELT(df,col,qual_col); SET_STRING_ELT(names,col++,mkChar("qual"));
+    SET_VECTOR_ELT(df,col,filter_col); SET_STRING_ELT(names,col++,mkChar("filter"));
+    SET_VECTOR_ELT(df,col,nallele_col); SET_STRING_ELT(names,col++,mkChar("n_allele"));
+    SET_VECTOR_ELT(df,col,index_col); SET_STRING_ELT(names,col++,mkChar("index"));
+    if (with_csq){ SET_VECTOR_ELT(df,col,csq_col); SET_STRING_ELT(names,col++,mkChar("CSQ")); }
+    if (with_ann){ SET_VECTOR_ELT(df,col,ann_col); SET_STRING_ELT(names,col++,mkChar("ANN")); }
+    if (info_cols){ SET_VECTOR_ELT(df,col,info_col); SET_STRING_ELT(names,col++,mkChar("INFO")); }
+    if (format_cols){ SET_VECTOR_ELT(df,col,fmt_col); SET_STRING_ELT(names,col++,mkChar("FORMAT_IDS")); }
+    if (gt_cols){ SET_VECTOR_ELT(df,col,gt_col); SET_STRING_ELT(names,col++,mkChar("GT")); }
     setAttrib(df, R_NamesSymbol, names);
-    SEXP rn = PROTECT(allocVector(INTSXP, nfound)); nprotect++;
-    for (int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1;
-    setAttrib(df, R_RowNamesSymbol, rn);
-    setAttrib(df, R_ClassSymbol, mkString("data.frame"));
-
-    // free temps
-    if (indices) free(indices);
-    if (csq_fields) { for (int i=0;i<n_csq_fields;i++) free(csq_fields[i]); free(csq_fields);}    
-    if (ann_fields) { for (int i=0;i<n_ann_fields;i++) free(ann_fields[i]); free(ann_fields);}    
-
-    UNPROTECT(nprotect); // all protected objects
+    SEXP rn = PROTECT(allocVector(INTSXP, nfound)); protect_count++;
+    for(int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1;
+    setAttrib(df,R_RowNamesSymbol,rn);
+    setAttrib(df,R_ClassSymbol,mkString("data.frame"));
+    UNPROTECT(protect_count);
     return df;
 }
 
-//' Query VCF/BCF by contiguous variant index range (nth to kth, 1-based, inclusive, no header)
-// we are reopening the vcf everytime
-// this might be slow for many small queries
-// an alternative would be to memory mapped the vcf
-// issue with ths is that we file may be  remote
-SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
-    const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
-    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
-    if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    int n_threads = asInteger(threads); (void)n_threads;
+// LEGACY range query wrapper using context & flags (migrated from previous patch)
+SEXP RC_VBI_query_range(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_genotypes = asLogical(include_genotypes);
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    int nfound = 0;
+    int *indices = vbi_index_query_region(ctx->vbi_idx, reg, &nfound);
+    if (!indices || nfound == 0) {
+        if (indices) free(indices);
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
+    }
+    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
+    free(indices);
+    return out;
+}
+
+// Query by contiguous indices using existing context
+SEXP RC_VBI_query_by_indices_ctx(SEXP vbi_vcf_ctx, SEXP start_idx, SEXP end_idx, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_geno = asLogical(include_genotypes);
     int start = asInteger(start_idx) - 1;
     int end = asInteger(end_idx) - 1;
     if (start < 0) start = 0;
-    if (end >= idx->num_marker) end = idx->num_marker - 1;
-    if (end < start || start >= idx->num_marker) {
-        // return empty data.frame
+    if (end >= ctx->vbi_idx->num_marker) end = ctx->vbi_idx->num_marker - 1;
+    if (end < start) {
         SEXP df = PROTECT(allocVector(VECSXP, 0));
         SEXP names = PROTECT(allocVector(STRSXP, 0));
         SEXP rn = PROTECT(allocVector(INTSXP, 0));
@@ -399,165 +503,23 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
         return df;
     }
     int nfound = end - start + 1;
-
-    htsFile *fp = hts_open(vcf, "r");
-    if (!fp) Rf_error("Failed to open VCF/BCF: %s", vcf);
-    bcf_hdr_t *hdr = bcf_hdr_read(fp);
-    if (!hdr) { hts_close(fp); Rf_error("Failed to read VCF/BCF header: %s", vcf);}    
-
-    bcf_hrec_t *csq_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "CSQ", NULL);
-    bcf_hrec_t *ann_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "ANN", NULL);
-
-    char **csq_fields = NULL; int n_csq_fields = 0;
-    char **ann_fields = NULL; int n_ann_fields = 0;
-    if (csq_hrec) {
-        const char *desc = NULL; for (int i=0;i<csq_hrec->nkeys;i++) if (strcmp(csq_hrec->keys[i],"Description")==0) { desc = csq_hrec->vals[i]; break; }
-        if (desc) {
-            const char *fmt = strstr(desc, "Format:");
-            if (fmt) { fmt += 7; while (*fmt==' '||*fmt=='\t') fmt++; char *tmp=strdup(fmt); size_t L=strlen(tmp); while (L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for (size_t i=0;i<L;i++) if (tmp[i]=='|') n_csq_fields++; n_csq_fields++; csq_fields=(char**)calloc(n_csq_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; csq_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_csq_fields) csq_fields[fld++]=strdup(startp); free(tmp);} }
-    }
-    if (ann_hrec) {
-        const char *desc = NULL; for (int i=0;i<ann_hrec->nkeys;i++) if (strcmp(ann_hrec->keys[i],"Description")==0) { desc = ann_hrec->vals[i]; break; }
-        if (desc) {
-            const char *fmt2 = strstr(desc, "Format:");
-            const char *use = fmt2?fmt2:NULL; if (use){ use +=7; while(*use==' '||*use=='\t') use++; char *tmp=strdup(use); size_t L=strlen(tmp); while (L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for (size_t i=0;i<L;i++) if(tmp[i]=='|') n_ann_fields++; n_ann_fields++; ann_fields=(char**)calloc(n_ann_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; ann_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_ann_fields) ann_fields[fld++]=strdup(startp); free(tmp);} }
-    }
-
-    SEXP chrom_col = PROTECT(allocVector(STRSXP, nfound));
-    SEXP pos_col   = PROTECT(allocVector(INTSXP, nfound));
-    SEXP id_col    = PROTECT(allocVector(STRSXP, nfound));
-    SEXP ref_col   = PROTECT(allocVector(STRSXP, nfound));
-    SEXP alt_col   = PROTECT(allocVector(STRSXP, nfound));
-    SEXP qual_col  = PROTECT(allocVector(REALSXP, nfound));
-    SEXP filter_col= PROTECT(allocVector(STRSXP, nfound));
-    SEXP nallele_col=PROTECT(allocVector(INTSXP, nfound));
-    SEXP index_col = PROTECT(allocVector(INTSXP, nfound));
-    SEXP csq_col   = csq_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_csx = csq_hrec?1:0;
-    SEXP ann_col   = ann_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_ann = ann_hrec?1:0;
-    int nprotect = 9 + prot_csx + prot_ann;
-
-    bcf1_t *rec = bcf_init();
-    // seek to first
-    int seek_ok = 0;
-    if (fp->format.compression == bgzf) {
-        BGZF *bg = (BGZF *)fp->fp.bgzf;
-        seek_ok = (bgzf_seek(bg, idx->offsets[start], SEEK_SET) == 0);
-    } else {
-        hFILE *hf = (hFILE *)fp->fp.hfile;
-        seek_ok = (hseek(hf, (off_t)idx->offsets[start], SEEK_SET) == 0);
-    }
-    if (!seek_ok) {
-        bcf_destroy(rec); bcf_hdr_destroy(hdr); hts_close(fp);
-        Rf_error("Failed to seek to first record");
-    }
-    kstring_t kalt = {0,0,0};
-    kstring_t kflt = {0,0,0};
-    for (int i=0;i<nfound;i++) {
-        if (bcf_read(fp, hdr, rec) < 0) {
-            SET_STRING_ELT(chrom_col, i, NA_STRING);
-            INTEGER(pos_col)[i] = NA_INTEGER;
-            SET_STRING_ELT(id_col, i, NA_STRING);
-            SET_STRING_ELT(ref_col, i, NA_STRING);
-            SET_STRING_ELT(alt_col, i, NA_STRING);
-            REAL(qual_col)[i] = NA_REAL; SET_STRING_ELT(filter_col, i, NA_STRING); INTEGER(nallele_col)[i]=NA_INTEGER;
-            if (csq_hrec) SET_VECTOR_ELT(csq_col,i,R_NilValue);
-            if (ann_hrec) SET_VECTOR_ELT(ann_col,i,R_NilValue);
-            INTEGER(index_col)[i] = NA_INTEGER;
-            continue;
-        }
-        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO|BCF_UN_FLT);
-        const char *chrom = bcf_hdr_id2name(hdr, rec->rid);
-        SET_STRING_ELT(chrom_col, i, chrom?mkChar(chrom):NA_STRING);
-        INTEGER(pos_col)[i] = rec->pos + 1;
-        if (rec->d.id && strcmp(rec->d.id, ".")!=0) SET_STRING_ELT(id_col,i,mkChar(rec->d.id)); else SET_STRING_ELT(id_col,i,NA_STRING);
-        if (rec->d.allele && rec->n_allele>0) {
-            SET_STRING_ELT(ref_col,i,mkChar(rec->d.allele[0]));
-            kalt.l=0; if(rec->n_allele>1){ for(int a=1;a<rec->n_allele;a++){ if(a>1) kputc(',',&kalt); kputs(rec->d.allele[a],&kalt);} SET_STRING_ELT(alt_col,i,mkChar(kalt.s)); } else SET_STRING_ELT(alt_col,i,mkChar("."));
-        } else { SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); }
-        INTEGER(nallele_col)[i] = rec->n_allele;
-        INTEGER(index_col)[i] = (start + i) + 1; // 1-based global index
-        REAL(qual_col)[i] = bcf_float_is_missing(rec->qual) ? NA_REAL : rec->qual;
-        kflt.l=0; if(rec->d.n_flt==0){ kputs("PASS",&kflt);} else { for(int f=0;f<rec->d.n_flt;f++){ if(f) kputc(';',&kflt); const char *flt=bcf_hdr_int2id(hdr, BCF_DT_ID, rec->d.flt[f]); if(flt) kputs(flt,&kflt);} }
-        SET_STRING_ELT(filter_col,i, kflt.s?mkChar(kflt.s):mkChar(""));
-        if (csq_hrec) { bcf_info_t *info = bcf_get_info(hdr, rec, "CSQ"); if(!info){ SET_VECTOR_ELT(csq_col,i,R_NilValue);} else { char *csq_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"CSQ",&csq_str,&ns)>0){ int ntrans=1; for(char *p=csq_str;*p;++p) if(*p==',') ntrans++; SEXP cols=PROTECT(allocVector(VECSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_VECTOR_ELT(cols,c,allocVector(STRSXP,ntrans)); int t=0; char *entry=csq_str; char *p=csq_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; int fld=0; char *seg=entry; char *q=entry; while(1){ if(*q=='|' || *q=='\0'){ char save2=*q; *q='\0'; if(fld<n_csq_fields){ SEXP colv=VECTOR_ELT(cols,fld); SET_STRING_ELT(colv,t, seg && *seg?mkChar(seg):NA_STRING);} *q=save2; fld++; seg=q+1;} if(*q=='\0') break; q++; } *p=save; t++; if(save=='\0') break; entry=p+1; } if(*p=='\0') break; else p++; } SEXP fn=PROTECT(allocVector(STRSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_STRING_ELT(fn,c,mkChar(csq_fields[c])); setAttrib(cols,R_NamesSymbol,fn); SEXP rn=PROTECT(allocVector(INTSXP,ntrans)); for(int r=0;r<ntrans;r++) INTEGER(rn)[r]=r+1; setAttrib(cols,R_RowNamesSymbol,rn); setAttrib(cols,R_ClassSymbol,mkString("data.frame")); SET_VECTOR_ELT(csq_col,i,cols); UNPROTECT(3); free(csq_str);} else { if(csq_str) free(csq_str); SET_VECTOR_ELT(csq_col,i,R_NilValue);} }}
-        if (ann_hrec) { bcf_info_t *info = bcf_get_info(hdr, rec, "ANN"); if(!info){ SET_VECTOR_ELT(ann_col,i,R_NilValue);} else { char *ann_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"ANN",&ann_str,&ns)>0){ int ntrans=1; for(char *p=ann_str;*p;++p) if(*p==',') ntrans++; SEXP entries=PROTECT(allocVector(STRSXP,ntrans)); int t=0; char *entry=ann_str; char *p=ann_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; SET_STRING_ELT(entries,t, entry && *entry?mkChar(entry):NA_STRING); *p=save; t++; if(save=='\0') break; entry=p+1;} if(*p=='\0') break; else p++; } SET_VECTOR_ELT(ann_col,i,entries); UNPROTECT(1); free(ann_str);} else { if(ann_str) free(ann_str); SET_VECTOR_ELT(ann_col,i,R_NilValue);} }}
-    }
-    bcf_destroy(rec);
-    if (kalt.s) free(kalt.s); if (kflt.s) free(kflt.s);
-    bcf_hdr_destroy(hdr); hts_close(fp);
-
-    int ncols = 9 + (csq_hrec?1:0) + (ann_hrec?1:0);
-    SEXP df = PROTECT(allocVector(VECSXP, ncols)); nprotect++;
-    SEXP names = PROTECT(allocVector(STRSXP, ncols)); nprotect++;
-    int col=0; SET_VECTOR_ELT(df,col,chrom_col); SET_STRING_ELT(names,col++,mkChar("chrom"));
-    SET_VECTOR_ELT(df,col,pos_col); SET_STRING_ELT(names,col++,mkChar("pos"));
-    SET_VECTOR_ELT(df,col,id_col); SET_STRING_ELT(names,col++,mkChar("id"));
-    SET_VECTOR_ELT(df,col,ref_col); SET_STRING_ELT(names,col++,mkChar("ref"));
-    SET_VECTOR_ELT(df,col,alt_col); SET_STRING_ELT(names,col++,mkChar("alt"));
-    SET_VECTOR_ELT(df,col,qual_col); SET_STRING_ELT(names,col++,mkChar("qual"));
-    SET_VECTOR_ELT(df,col,filter_col); SET_STRING_ELT(names,col++,mkChar("filter"));
-    SET_VECTOR_ELT(df,col,nallele_col); SET_STRING_ELT(names,col++,mkChar("n_allele"));
-    SET_VECTOR_ELT(df,col,index_col); SET_STRING_ELT(names,col++,mkChar("index"));
-    if (csq_hrec) { SET_VECTOR_ELT(df,col,csq_col); SET_STRING_ELT(names,col++,mkChar("CSQ")); }
-    if (ann_hrec) { SET_VECTOR_ELT(df,col,ann_col); SET_STRING_ELT(names,col++,mkChar("ANN")); }
-    setAttrib(df, R_NamesSymbol, names);
-    SEXP rn = PROTECT(allocVector(INTSXP, nfound)); nprotect++;
-    for (int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1;
-    setAttrib(df, R_RowNamesSymbol, rn);
-    setAttrib(df, R_ClassSymbol, mkString("data.frame"));
-
-    if (csq_fields) { for (int i=0;i<n_csq_fields;i++) free(csq_fields[i]); free(csq_fields);}    
-    if (ann_fields) { for (int i=0;i<n_ann_fields;i++) free(ann_fields[i]); free(ann_fields);}    
-
-    UNPROTECT(nprotect);
-    return df;
+    int *hits = (int*) malloc(sizeof(int)*nfound); if(!hits) Rf_error("[VBI] OOM");
+    for(int i=0;i<nfound;i++) hits[i]= start + i;
+    SEXP out = vbi_query_variants_basic(ctx, hits, nfound, inc_info, inc_format, inc_geno);
+    free(hits);
+    return out;
 }
 
-
-SEXP RC_VBI_print_index(SEXP idx_ptr, SEXP n) {
-    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
-    if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    int nlines = asInteger(n);
-    if (nlines > idx->num_marker) nlines = idx->num_marker;
-    Rprintf("[VBI] num_marker: %ld\n", (long)idx->num_marker);
-    for (int i = 0; i < nlines; ++i) {
-        int chrom_id = idx->chrom_ids[i];
-        const char *chrom_name = idx->chrom_names ? idx->chrom_names[chrom_id] : "?";
-        Rprintf("[VBI] %d: %s\t%ld offset=%ld\n", i+1, chrom_name, (long)idx->positions[i], (long)idx->offsets[i]);
-    }
-    return R_NilValue;
-}
-
-
-// R-callable: load VBI index and return external pointer
-SEXP RC_VBI_load_index(SEXP vbi_path) {
-    const char *path = CHAR(STRING_ELT(vbi_path, 0));
-    char local_path[4096];
-    if (strstr(path, "://")) {
-        snprintf(local_path, sizeof(local_path), "/tmp/vbi_%u.vbi", (unsigned)rand());
-        if (!download_file(path, local_path)) {
-            Rf_error("Failed to download VBI index: %s", path);
-        }
-        path = local_path;
-        }
-    vbi_index_t *idx = vbi_index_load(path);
-    if (!idx) Rf_error("[VBI] Failed to load index: %s", path);
-    SEXP ptr = PROTECT(R_MakeExternalPtr(idx, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, vbi_index_finalizer, 1);
-    UNPROTECT(1);
-    return ptr;
-}
-
-
-// R-callable wrapper for cgranges region query
-SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) {
+// Backwards-compatible by-indices query reopening VCF each time (no info/format/genotypes)
+SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP end_idx, SEXP threads) {
     const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    const char *reg = CHAR(STRING_ELT(region_str, 0));
-    int nfound = 0;
-    int *hits = vbi_index_query_region_cgranges(idx, reg, &nfound);
-    if (!hits || nfound == 0) {
+    int start = asInteger(start_idx) - 1;
+    int end = asInteger(end_idx) - 1;
+    if (start < 0) start = 0;
+    if (end >= idx->num_marker) end = idx->num_marker - 1;
+    if (end < start) {
         SEXP df = PROTECT(allocVector(VECSXP, 0));
         SEXP names = PROTECT(allocVector(STRSXP, 0));
         SEXP rn = PROTECT(allocVector(INTSXP, 0));
@@ -565,110 +527,37 @@ SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) 
         setAttrib(df, R_RowNamesSymbol, rn);
         setAttrib(df, R_ClassSymbol, mkString("data.frame"));
         UNPROTECT(3);
-        if (hits) free(hits);
         return df;
     }
-    htsFile *fp = hts_open(vcf, "r");
-    if (!fp) { free(hits); Rf_error("Failed to open VCF/BCF: %s", vcf);}    
-    bcf_hdr_t *hdr = bcf_hdr_read(fp);
-    if (!hdr) { hts_close(fp); free(hits); Rf_error("Failed to read VCF/BCF header: %s", vcf);}    
-    bcf_hrec_t *csq_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "CSQ", NULL);
-    bcf_hrec_t *ann_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_INFO, "ID", "ANN", NULL);
-    char **csq_fields=NULL; int n_csq_fields=0; char **ann_fields=NULL; int n_ann_fields=0; // consistent parsing (reuse code if needed later)
-    if (csq_hrec) {
-        const char *desc=NULL; for(int i=0;i<csq_hrec->nkeys;i++) if(strcmp(csq_hrec->keys[i],"Description")==0){ desc=csq_hrec->vals[i]; break; }
-        if(desc){ const char *fmt=strstr(desc,"Format:"); if(fmt){ fmt+=7; while(*fmt==' '||*fmt=='\t') fmt++; char *tmp=strdup(fmt); size_t L=strlen(tmp); while(L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for(size_t i=0;i<L;i++) if(tmp[i]=='|') n_csq_fields++; n_csq_fields++; csq_fields=(char**)calloc(n_csq_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; csq_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_csq_fields) csq_fields[fld++]=strdup(startp); free(tmp);} }
-    }
-    if (ann_hrec) {
-        const char *desc=NULL; for(int i=0;i<ann_hrec->nkeys;i++) if(strcmp(ann_hrec->keys[i],"Description")==0){ desc=ann_hrec->vals[i]; break; }
-        if(desc){ const char *fmt2=strstr(desc,"Format:"); const char *use=fmt2?fmt2:NULL; if(use){ use+=7; while(*use==' '||*use=='\t') use++; char *tmp=strdup(use); size_t L=strlen(tmp); while (L>0 && (tmp[L-1]=='"'||tmp[L-1]==')'||tmp[L-1]==' ')) tmp[--L]='\0'; for(size_t i=0;i<L;i++) if(tmp[i]=='|') n_ann_fields++; n_ann_fields++; ann_fields=(char**)calloc(n_ann_fields,sizeof(char*)); int fld=0; char *p=tmp; char *startp=p; for(;*p;++p){ if(*p=='|'){ *p='\0'; ann_fields[fld++]=strdup(startp); startp=p+1; }} if(fld<n_ann_fields) ann_fields[fld++]=strdup(startp); free(tmp);} }
-    }
-    SEXP chrom_col = PROTECT(allocVector(STRSXP, nfound));
-    SEXP pos_col   = PROTECT(allocVector(INTSXP, nfound));
-    SEXP id_col    = PROTECT(allocVector(STRSXP, nfound));
-    SEXP ref_col   = PROTECT(allocVector(STRSXP, nfound));
-    SEXP alt_col   = PROTECT(allocVector(STRSXP, nfound));
-    SEXP qual_col  = PROTECT(allocVector(REALSXP, nfound));
-    SEXP filter_col= PROTECT(allocVector(STRSXP, nfound));
-    SEXP nallele_col=PROTECT(allocVector(INTSXP, nfound));
-    SEXP index_col = PROTECT(allocVector(INTSXP, nfound));
-    SEXP csq_col   = csq_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_csx=csq_hrec?1:0;
-    SEXP ann_col   = ann_hrec ? PROTECT(allocVector(VECSXP, nfound)) : R_NilValue; int prot_ann=ann_hrec?1:0;
-    int nprotect = 9 + prot_csx + prot_ann;
-    bcf1_t *rec = bcf_init();
-    kstring_t kalt={0,0,0}; kstring_t kflt={0,0,0};
-    for(int i=0;i<nfound;i++) {
-        int idx_var = hits[i];
-        int seek_ok=0; if (fp->format.compression==bgzf){ BGZF *bg=(BGZF*)fp->fp.bgzf; seek_ok=(bgzf_seek(bg, idx->offsets[idx_var], SEEK_SET)==0);} else { hFILE *hf=(hFILE*)fp->fp.hfile; seek_ok=(hseek(hf,(off_t)idx->offsets[idx_var],SEEK_SET)==0);} 
-        if(!seek_ok || bcf_read(fp,hdr,rec)<0){ SET_STRING_ELT(chrom_col,i,NA_STRING); INTEGER(pos_col)[i]=NA_INTEGER; SET_STRING_ELT(id_col,i,NA_STRING); SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); REAL(qual_col)[i]=NA_REAL; SET_STRING_ELT(filter_col,i,NA_STRING); INTEGER(nallele_col)[i]=NA_INTEGER; INTEGER(index_col)[i]=NA_INTEGER; if(csq_hrec) SET_VECTOR_ELT(csq_col,i,R_NilValue); if(ann_hrec) SET_VECTOR_ELT(ann_col,i,R_NilValue); continue; }
-        bcf_unpack(rec, BCF_UN_STR|BCF_UN_INFO|BCF_UN_FLT);
-        const char *chrom = bcf_hdr_id2name(hdr, rec->rid);
-        SET_STRING_ELT(chrom_col, i, chrom?mkChar(chrom):NA_STRING);
-        INTEGER(pos_col)[i] = rec->pos + 1;
-        if (rec->d.id && strcmp(rec->d.id, ".")!=0) SET_STRING_ELT(id_col,i,mkChar(rec->d.id)); else SET_STRING_ELT(id_col,i,NA_STRING);
-        if (rec->d.allele && rec->n_allele>0) {
-            SET_STRING_ELT(ref_col,i,mkChar(rec->d.allele[0]));
-            kalt.l=0; if(rec->n_allele>1){ for(int a=1;a<rec->n_allele;a++){ if(a>1) kputc(',',&kalt); kputs(rec->d.allele[a],&kalt);} SET_STRING_ELT(alt_col,i,mkChar(kalt.s)); } else SET_STRING_ELT(alt_col,i,mkChar("."));
-        } else { SET_STRING_ELT(ref_col,i,NA_STRING); SET_STRING_ELT(alt_col,i,NA_STRING); }
-        INTEGER(nallele_col)[i] = rec->n_allele; INTEGER(index_col)[i] = idx_var + 1;
-        REAL(qual_col)[i] = bcf_float_is_missing(rec->qual) ? NA_REAL : rec->qual;
-        kflt.l=0; if(rec->d.n_flt==0){ kputs("PASS",&kflt);} else { for(int f=0;f<rec->d.n_flt;f++){ if(f) kputc(';',&kflt); const char *flt=bcf_hdr_int2id(hdr, BCF_DT_ID, rec->d.flt[f]); if(flt) kputs(flt,&kflt);} }
-        SET_STRING_ELT(filter_col,i, kflt.s?mkChar(kflt.s):mkChar(""));
-        if (csq_hrec) { bcf_info_t *info=bcf_get_info(hdr, rec, "CSQ"); if(!info){ SET_VECTOR_ELT(csq_col,i,R_NilValue);} else { char *csq_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"CSQ",&csq_str,&ns)>0){ int ntrans=1; for(char *p=csq_str;*p;++p) if(*p==',') ntrans++; SEXP cols=PROTECT(allocVector(VECSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_VECTOR_ELT(cols,c,allocVector(STRSXP,ntrans)); int t=0; char *entry=csq_str; char *p=csq_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; int fld=0; char *seg=entry; char *q=entry; while(1){ if(*q=='|' || *q=='\0'){ char save2=*q; *q='\0'; if(fld<n_csq_fields){ SEXP colv=VECTOR_ELT(cols,fld); SET_STRING_ELT(colv,t, seg && *seg?mkChar(seg):NA_STRING);} *q=save2; fld++; seg=q+1;} if(*q=='\0') break; q++; } *p=save; t++; if(save=='\0') break; entry=p+1; } if(*p=='\0') break; else p++; } SEXP fn=PROTECT(allocVector(STRSXP,n_csq_fields)); for(int c=0;c<n_csq_fields;c++) SET_STRING_ELT(fn,c,mkChar(csq_fields[c])); setAttrib(cols,R_NamesSymbol,fn); SEXP rn=PROTECT(allocVector(INTSXP,ntrans)); for(int r=0;r<ntrans;r++) INTEGER(rn)[r]=r+1; setAttrib(cols,R_RowNamesSymbol,rn); setAttrib(cols,R_ClassSymbol,mkString("data.frame")); SET_VECTOR_ELT(csq_col,i,cols); UNPROTECT(3); free(csq_str);} else { if(csq_str) free(csq_str); SET_VECTOR_ELT(csq_col,i,R_NilValue);} }}
-        if (ann_hrec) { bcf_info_t *info = bcf_get_info(hdr, rec, "ANN"); if(!info){ SET_VECTOR_ELT(ann_col,i,R_NilValue);} else { char *ann_str=NULL; int ns=0; if(bcf_get_info_string(hdr,rec,"ANN",&ann_str,&ns)>0){ int ntrans=1; for(char *p=ann_str;*p;++p) if(*p==',') ntrans++; SEXP entries=PROTECT(allocVector(STRSXP,ntrans)); int t=0; char *entry=ann_str; char *p=ann_str; while(1){ if(*p==',' || *p=='\0'){ char save=*p; *p='\0'; SET_STRING_ELT(entries,t, entry && *entry?mkChar(entry):NA_STRING); *p=save; t++; if(save=='\0') break; entry=p+1;} if(*p=='\0') break; else p++; } SET_VECTOR_ELT(ann_col,i,entries); UNPROTECT(1); free(ann_str);} else { if(ann_str) free(ann_str); SET_VECTOR_ELT(ann_col,i,R_NilValue);} }}
-    }
-    bcf_destroy(rec); if(kalt.s) free(kalt.s); if(kflt.s) free(kflt.s); bcf_hdr_destroy(hdr); hts_close(fp); free(hits);
-    int ncols = 9 + (csq_hrec?1:0) + (ann_hrec?1:0);
-    SEXP df = PROTECT(allocVector(VECSXP, ncols)); nprotect++;
-    SEXP names = PROTECT(allocVector(STRSXP, ncols)); nprotect++;
-    int col=0; SET_VECTOR_ELT(df,col,chrom_col); SET_STRING_ELT(names,col++,mkChar("chrom"));
-    SET_VECTOR_ELT(df,col,pos_col); SET_STRING_ELT(names,col++,mkChar("pos"));
-    SET_VECTOR_ELT(df,col,id_col); SET_STRING_ELT(names,col++,mkChar("id"));
-    SET_VECTOR_ELT(df,col,ref_col); SET_STRING_ELT(names,col++,mkChar("ref"));
-    SET_VECTOR_ELT(df,col,alt_col); SET_STRING_ELT(names,col++,mkChar("alt"));
-    SET_VECTOR_ELT(df,col,qual_col); SET_STRING_ELT(names,col++,mkChar("qual"));
-    SET_VECTOR_ELT(df,col,filter_col); SET_STRING_ELT(names,col++,mkChar("filter"));
-    SET_VECTOR_ELT(df,col,nallele_col); SET_STRING_ELT(names,col++,mkChar("n_allele"));
-    SET_VECTOR_ELT(df,col,index_col); SET_STRING_ELT(names,col++,mkChar("index"));
-    if(csq_hrec){ SET_VECTOR_ELT(df,col,csq_col); SET_STRING_ELT(names,col++,mkChar("CSQ")); }
-    if(ann_hrec){ SET_VECTOR_ELT(df,col,ann_col); SET_STRING_ELT(names,col++,mkChar("ANN")); }
-    setAttrib(df,R_NamesSymbol,names); SEXP rn = PROTECT(allocVector(INTSXP,nfound)); nprotect++; for(int i=0;i<nfound;i++) INTEGER(rn)[i]=i+1; setAttrib(df,R_RowNamesSymbol,rn); setAttrib(df,R_ClassSymbol,mkString("data.frame"));
-    if(csq_fields){ for(int i=0;i<n_csq_fields;i++) free(csq_fields[i]); free(csq_fields);} if(ann_fields){ for(int i=0;i<n_ann_fields;i++) free(ann_fields[i]); free(ann_fields);} 
-    UNPROTECT(nprotect);
-    return df;
+    int nfound = end - start + 1;
+    int *hits = (int*) malloc(sizeof(int)*nfound); if(!hits) Rf_error("[VBI] OOM");
+    for(int i=0;i<nfound;i++) hits[i]= start + i;
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_Calloc(1, VBIVcfContext);
+    ctx->query_failed=0; memset(&ctx->tmp_line,0,sizeof(kstring_t));
+    ctx->fp = hts_open(vcf, "r"); if(!ctx->fp){ R_Free(ctx); free(hits); Rf_error("Failed to open %s", vcf);}    
+    ctx->hdr = bcf_hdr_read(ctx->fp); if(!ctx->hdr){ hts_close(ctx->fp); R_Free(ctx); free(hits); Rf_error("Failed header %s", vcf);}    
+    ctx->vbi_idx = idx; ctx->tmp_ctx = bcf_init(); if(!ctx->tmp_ctx){ bcf_hdr_destroy(ctx->hdr); hts_close(ctx->fp); R_Free(ctx); free(hits); Rf_error("[VBI] OOM variant ctx"); }
+    SEXP out = vbi_query_variants_basic(ctx, hits, nfound, 0,0,0);
+    if(ctx->tmp_ctx) bcf_destroy(ctx->tmp_ctx); if(ctx->hdr) bcf_hdr_destroy(ctx->hdr); if(ctx->fp) hts_close(ctx->fp); if(ctx->tmp_line.s) free(ctx->tmp_line.s); R_Free(ctx); free(hits);
+    return out;
 }
 
-
-// VBIExtractRanges: extract chrom/start/end/label from VBI index
-SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n) {
+// Region query via region_cgranges wrapper reopening VCF (legacy)
+SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) {
+    const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
     if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    int nvar = idx->num_marker;
-    int nout = n == R_NilValue || INTEGER(n)[0] == NA_INTEGER ? nvar : INTEGER(n)[0];
-    if (nout > nvar) nout = nvar;
-    SEXP chroms = PROTECT(allocVector(STRSXP, nout));
-    SEXP starts = PROTECT(allocVector(INTSXP, nout));
-    SEXP ends   = PROTECT(allocVector(INTSXP, nout));
-    SEXP labels = PROTECT(allocVector(INTSXP, nout));
-    for (int i = 0; i < nout; ++i) {
-        SET_STRING_ELT(chroms, i, mkChar(idx->chrom_names[idx->chrom_ids[i]]));
-        INTEGER(starts)[i] = idx->positions[i];
-        INTEGER(ends)[i]   = idx->positions[i];
-        INTEGER(labels)[i] = i;
-    }
-    SEXP df = PROTECT(allocVector(VECSXP, 4));
-    SET_VECTOR_ELT(df, 0, chroms);
-    SET_VECTOR_ELT(df, 1, starts);
-    SET_VECTOR_ELT(df, 2, ends);
-    SET_VECTOR_ELT(df, 3, labels);
-    SEXP names = PROTECT(allocVector(STRSXP, 4));
-    SET_STRING_ELT(names, 0, mkChar("chrom"));
-    SET_STRING_ELT(names, 1, mkChar("start"));
-    SET_STRING_ELT(names, 2, mkChar("end"));
-    SET_STRING_ELT(names, 3, mkChar("label"));
-    setAttrib(df, R_NamesSymbol, names);
-    UNPROTECT(6);
-    return df;
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    int nfound=0; int *hits = vbi_index_query_region_cgranges(idx, reg, &nfound);
+    if(!hits || nfound==0){ if(hits) free(hits); SEXP df=PROTECT(allocVector(VECSXP,0)); SEXP n=PROTECT(allocVector(STRSXP,0)); SEXP rn=PROTECT(allocVector(INTSXP,0)); setAttrib(df,R_NamesSymbol,n); setAttrib(df,R_RowNamesSymbol,rn); setAttrib(df,R_ClassSymbol,mkString("data.frame")); UNPROTECT(3); return df; }
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_Calloc(1, VBIVcfContext);
+    ctx->query_failed=0; memset(&ctx->tmp_line,0,sizeof(kstring_t));
+    ctx->fp = hts_open(vcf, "r"); if(!ctx->fp){ R_Free(ctx); free(hits); Rf_error("Failed to open %s", vcf);}    
+    ctx->hdr = bcf_hdr_read(ctx->fp); if(!ctx->hdr){ hts_close(ctx->fp); R_Free(ctx); free(hits); Rf_error("Failed header %s", vcf);}    
+    ctx->vbi_idx = idx; ctx->tmp_ctx = bcf_init(); if(!ctx->tmp_ctx){ bcf_hdr_destroy(ctx->hdr); hts_close(ctx->fp); R_Free(ctx); free(hits); Rf_error("[VBI] OOM variant ctx"); }
+    SEXP out = vbi_query_variants_basic(ctx, hits, nfound, 0,0,0);
+    if(ctx->tmp_ctx) bcf_destroy(ctx->tmp_ctx); if(ctx->hdr) bcf_hdr_destroy(ctx->hdr); if(ctx->fp) hts_close(ctx->fp); if(ctx->tmp_line.s) free(ctx->tmp_line.s); R_Free(ctx); free(hits);
+    return out;
 }
 
 // Minimal cgranges R binding
@@ -737,8 +626,23 @@ static void cr_extract_one(cgranges_t *cr, int idx, char **chrom, int *start, in
         *start = *end = *label = NA_INTEGER;
         return;
     }
-    const char *cname = cr_chrom(cr, idx);
-    *chrom = (char*)cname;
+    
+    // Find which contig this interval belongs to by checking the offset ranges
+    int32_t ctg_id = -1;
+    for (int i = 0; i < cr->n_ctg; i++) {
+        if (idx >= cr->ctg[i].off && idx < cr->ctg[i].off + cr->ctg[i].n) {
+            ctg_id = i;
+            break;
+        }
+    }
+    
+    // Extract contig name
+    if (ctg_id >= 0 && ctg_id < cr->n_ctg && cr->ctg[ctg_id].name) {
+        *chrom = cr->ctg[ctg_id].name;
+    } else {
+        *chrom = NULL;
+    }
+    
     *start = cr_start(cr, idx);
     *end = cr_end(cr, idx);
     *label = cr_label(cr, idx);
@@ -817,5 +721,64 @@ SEXP RC_VBI_index_memory_usage(SEXP extPtr) {
     SET_VECTOR_ELT(out, 1, ScalarReal((double)cr_bytes));
     setAttrib(out, R_NamesSymbol, nms);
     UNPROTECT(2);
+    return out;
+}
+
+// Query region using VBI VCF context (wrapper around RC_VBI_query_range)
+SEXP RC_VBI_query_region(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_genotypes = asLogical(include_genotypes);
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    int nfound = 0;
+    int *indices = vbi_index_query_region(ctx->vbi_idx, reg, &nfound);
+    if (!indices || nfound == 0) {
+        if (indices) free(indices);
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
+    }
+    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
+    free(indices);
+    return out;
+}
+
+// CGRanges-optimized region query using existing VBI VCF context
+SEXP RC_VBI_query_region_cgranges_ctx(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_genotypes = asLogical(include_genotypes);
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    
+    // Use cgranges for fast interval tree query
+    int nfound = 0;
+    int *indices = vbi_index_query_region_cgranges(ctx->vbi_idx, reg, &nfound);
+    if (!indices || nfound == 0) {
+        if (indices) free(indices);
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
+    }
+    
+    // Use existing VCF context - no need to reopen files!
+    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
+    free(indices);
     return out;
 }

@@ -4,17 +4,15 @@
 \alias{VBIQueryRegionCGRanges}
 \title{Query VBI index by region using cgranges (fast interval tree)}
 \usage{
-VBIQueryRegionCGRanges(VcfPath, vbi_ptr, region)
+VBIQueryRegionCGRanges(vbi_vcf_ctx, region)
 }
 \arguments{
-\item{VcfPath}{Path to the VCF/BCF file}
-
-\item{vbi_ptr}{External pointer to loaded VBI index}
+\item{vbi_vcf_ctx}{VBI VCF context object from VCFLoad()}
 
 \item{region}{Region string (e.g., "chr1:1000-2000")}
 }
 \value{
-Character vector of VCF records for the region
+data.frame with variant information
 }
 \description{
 Query VBI index by region using cgranges (fast interval tree)

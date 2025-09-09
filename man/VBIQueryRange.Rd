@@ -2,22 +2,18 @@
 % Please edit documentation in R/VBI.R
 \name{VBIQueryRange}
 \alias{VBIQueryRange}
-\title{Query VBI index by region}
+\title{Query VBI index by region (legacy function)}
 \usage{
-VBIQueryRange(VcfPath, VbiPath, Region, Threads = 1)
+VBIQueryRange(vbi_vcf_ctx, region)
 }
 \arguments{
-\item{VcfPath}{Path to the VCF/BCF file}
+\item{vbi_vcf_ctx}{VBI VCF context object from VCFLoad()}
 
-\item{VbiPath}{Path to the VBI index file}
-
-\item{Region}{Region string (e.g., "chr1:1000-2000") for query}
-
-\item{Threads}{Number of threads to use (default: 1)}
+\item{region}{Region string (e.g., "chr1:1000-2000") for query}
 }
 \value{
-List of results
+data.frame with variant information
 }
 \description{
-Query VBI index by region
+Query VBI index by region (legacy function)
 }

@@ -3,7 +3,7 @@
 #' @return Numeric, memory usage in bytes
 #' @export
 VBIIndexMemoryUsage <- function(vbi_ptr) {
-  .Call(RC_VBI_index_memory_usage, vbi_ptr, PACKAGE = "RBCFLib")
+    .Call(RC_VBI_index_memory_usage, vbi_ptr, PACKAGE = "RBCFLib")
 }
 #' Vectorized overlap query for CGRanges
 #'
@@ -17,14 +17,14 @@ VBIIndexMemoryUsage <- function(vbi_ptr) {
 #' @return List of integer vectors, each containing the indices of overlapping intervals
 #' @export
 CGRangesOverlapVec <- function(cr, chrom, start, end) {
-  .Call(
-    RC_cgranges_overlap,
-    cr,
-    as.character(chrom),
-    as.integer(start),
-    as.integer(end),
-    PACKAGE = "RBCFLib"
-  )
+    .Call(
+        RC_cgranges_overlap,
+        cr,
+        as.character(chrom),
+        as.integer(start),
+        as.integer(end),
+        PACKAGE = "RBCFLib"
+    )
 }
 
 #' Extract intervals by index from CGRanges
@@ -37,7 +37,7 @@ CGRangesOverlapVec <- function(cr, chrom, start, end) {
 #' @return Data frame with columns: chrom, start, end, label
 #' @export
 CGRangesExtractByIndex <- function(cr, indices) {
-  .Call(RC_cgranges_extract_by_index, cr, as.integer(indices))
+    .Call(RC_cgranges_extract_by_index, cr, as.integer(indices))
 }
 #' Extract variant ranges from a VBI index pointer
 #' @param VbiPtr External pointer to VBI index
@@ -45,8 +45,8 @@ CGRangesExtractByIndex <- function(cr, indices) {
 #' @return data.frame with chrom, start, end, label
 #' @export
 VBIExtractRanges <- function(VbiPtr, n = NA) {
-  storage.mode(n) <- "integer"
-  .Call(RC_VBI_extract_ranges, VbiPtr, n, PACKAGE = "RBCFLib")
+    storage.mode(n) <- "integer"
+    .Call(RC_VBI_extract_ranges, VbiPtr, n, PACKAGE = "RBCFLib")
 }
 
 #' Create a new CGRanges object
@@ -87,15 +87,15 @@ CGRangesCreate <- function() .Call(RC_cgranges_create)
 #' @seealso \code{\link{CGRangesCreate}}, \code{\link{CGRangesIndex}}
 #' @export
 CGRangesAdd <- function(cr, chrom, start, end, label) {
-  .Call(
-    RC_cgranges_add,
-    cr,
-    as.character(chrom),
-    as.integer(start),
-    as.integer(end),
-    as.integer(label),
-    PACKAGE = "RBCFLib"
-  )
+    .Call(
+        RC_cgranges_add,
+        cr,
+        as.character(chrom),
+        as.integer(start),
+        as.integer(end),
+        as.integer(label),
+        PACKAGE = "RBCFLib"
+    )
 }
 #' Index CGRanges for fast queries
 #'
@@ -120,14 +120,14 @@ CGRangesIndex <- function(cr) .Call(RC_cgranges_index, cr)
 #' @seealso \code{\link{CGRangesIndex}}, \code{\link{CGRangesOverlapVec}}
 #' @export
 CGRangesOverlap <- function(cr, chrom, start, end) {
-  .Call(
-    RC_cgranges_overlap,
-    cr,
-    as.character(chrom),
-    as.integer(start),
-    as.integer(end),
-    PACKAGE = "RBCFLib"
-  )
+    .Call(
+        RC_cgranges_overlap,
+        cr,
+        as.character(chrom),
+        as.integer(start),
+        as.integer(end),
+        PACKAGE = "RBCFLib"
+    )
 }
 #' Destroy a CGRanges object
 #'
@@ -140,7 +140,7 @@ CGRangesOverlap <- function(cr, chrom, start, end) {
 #'   but can be called explicitly to free memory immediately.
 #' @export
 CGRangesDestroy <- function(cr) {
-  .Call(RC_cgranges_destroy, cr, PACKAGE = "RBCFLib")
+    .Call(RC_cgranges_destroy, cr, PACKAGE = "RBCFLib")
 }
 #' Load a VBI index file and return an external pointer
 #'
@@ -148,23 +148,24 @@ CGRangesDestroy <- function(cr) {
 #' @return External pointer to the loaded VBI index
 #' @export
 VBIIndexLoad <- function(vbi_path) {
-  .Call(RC_VBI_load_index, as.character(vbi_path), PACKAGE = "RBCFLib")
+    .Call(RC_VBI_load_index, as.character(vbi_path), PACKAGE = "RBCFLib")
 }
 #' Query VBI index by region using cgranges (fast interval tree)
 #'
-#' @param VcfPath Path to the VCF/BCF file
-#' @param vbi_ptr External pointer to loaded VBI index
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
 #' @param region Region string (e.g., "chr1:1000-2000")
-#' @return Character vector of VCF records for the region
+#' @return data.frame with variant information
 #' @export
-VBIQueryRegionCGRanges <- function(VcfPath, vbi_ptr, region) {
-  .Call(
-    RC_VBI_query_region_cgranges,
-    as.character(VcfPath),
-    vbi_ptr,
-    as.character(region),
-    PACKAGE = "RBCFLib"
-  )
+VBIQueryRegionCGRanges <- function(vbi_vcf_ctx, region) {
+    .Call(
+        RC_VBI_query_region_cgranges,
+        vbi_vcf_ctx,
+        as.character(region),
+        as.logical(FALSE), # include_info
+        as.logical(FALSE), # include_format
+        as.logical(FALSE), # include_genotypes
+        PACKAGE = "RBCFLib"
+    )
 }
 #' Print the first n lines of a VBI index (from an external pointer)
 #'
@@ -172,12 +173,12 @@ VBIQueryRegionCGRanges <- function(VcfPath, vbi_ptr, region) {
 #' @param n Number of lines to print (default: 10)
 #' @export
 VBIPrintIndex <- function(vbi_ptr, n = 10) {
-  invisible(.Call(
-    RC_VBI_print_index,
-    vbi_ptr,
-    as.integer(n),
-    PACKAGE = "RBCFLib"
-  ))
+    invisible(.Call(
+        RC_VBI_print_index,
+        vbi_ptr,
+        as.integer(n),
+        PACKAGE = "RBCFLib"
+    ))
 }
 #' VBI Index
 #'
@@ -189,57 +190,209 @@ VBIPrintIndex <- function(vbi_ptr, n = 10) {
 #' @return Path to index file
 #' @export
 VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
-  .Call(
-    RC_VBI_index,
-    as.character(VcfPath),
-    as.character(VbiPath),
-    as.integer(Threads),
-    PACKAGE = "RBCFLib"
-  )
+    .Call(
+        RC_VBI_index,
+        as.character(VcfPath),
+        as.character(VbiPath),
+        as.integer(Threads),
+        PACKAGE = "RBCFLib"
+    )
 }
 
-#' Query VBI index by region
-
-#' @param VcfPath Path to the VCF/BCF file
-#' @param VbiPath Path to the VBI index file
-#' @param Region Region string (e.g., "chr1:1000-2000") for query
-#' @param Threads Number of threads to use (default: 1)
-#' @return List of results
+#' Query VBI index by region (legacy function)
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @param region Region string (e.g., "chr1:1000-2000") for query
+#' @return data.frame with variant information
 #' @export
-VBIQueryRange <- function(VcfPath, VbiPath, Region, Threads = 1) {
-  .Call(
-    RC_VBI_query_range,
-    as.character(VcfPath),
-    VbiPath,
-    as.character(Region),
-    as.integer(Threads),
-    PACKAGE = "RBCFLib"
-  )
+VBIQueryRange <- function(vbi_vcf_ctx, region) {
+    # Use the standardized query function instead of the legacy one
+    VBIQueryRegion(vbi_vcf_ctx, region, include_info = FALSE)
 }
 
-#' Query VBI index by marker index range
-
-#' @param VcfPath Path to the VCF/BCF file
-#' @param VbiPath Path to the VBI index file
-#' @param StartIdx Start index for index-based query
-#' @param EndingIndice End index for index-based query
-#' @param Threads Number of threads to use (default: 1)
-#' @return List of results
+#' Query VBI index by contiguous variant index range
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @param start_index Start index for index-based query (1-based)
+#' @param end_index End index for index-based query (1-based)
+#' @return data.frame with variant information
 #' @export
-VBIQueryByIndices <- function(
-  VcfPath,
-  VbiPath,
-  StartingIndice,
-  EndingIndice,
-  Threads = 1
+VBIQueryByIndices <- function(vbi_vcf_ctx, start_index, end_index) {
+    .Call(
+        RC_VBI_query_by_indices,
+        vbi_vcf_ctx,
+        as.integer(start_index),
+        as.integer(end_index),
+        as.logical(FALSE), # include_info
+        as.logical(FALSE), # include_format
+        as.logical(FALSE), # include_genotypes
+        PACKAGE = "RBCFLib"
+    )
+}
+#' Load a VCF file with VBI index integration
+#'
+#' Creates a unified VCF object that includes the VCF file, header information,
+#' and VBI index for fast queries. This follows the RBCF pattern but with VBI integration.
+#'
+#' @param vcf_path Path to the VCF/BCF file
+#' @param vbi_path Path to the VBI index file (optional, will auto-detect if NULL)
+#' @return External pointer to VBI VCF context object
+#' @export
+#' @examples
+#' \dontrun{
+#' vcf_file <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
+#' vcf_obj <- VCFLoad(vcf_file)
+#'
+#' # Query with basic fields
+#' hits <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356")
+#'
+#' # Query with INFO fields
+#' hits_with_info <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356",
+#'                                  include_info = TRUE)
+#' }
+VCFLoad <- function(vcf_path, vbi_path = NULL) {
+    .Call(
+        RC_VBI_vcf_load,
+        as.character(vcf_path),
+        if (is.null(vbi_path)) R_NilValue else as.character(vbi_path),
+        PACKAGE = "RBCFLib"
+    )
+}
+
+#' VBI query by region with full INFO parsing
+#'
+#' Query VCF variants by genomic region with comprehensive field extraction.
+#' This function provides access to all VCF fields including INFO data,
+#' unlike the basic VBI query functions.
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @param region Region string (e.g., "chr1:1000-2000")
+#' @param include_info Logical, whether to include INFO fields (default: FALSE)
+#' @return data.frame with comprehensive variant information including all INFO fields when requested
+#' @export
+#' @examples
+#' \dontrun{
+#' vcf_file <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
+#' vcf_obj <- VCFLoad(vcf_file)
+#'
+#' # Basic query
+#' hits <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356")
+#'
+#' # Query with INFO fields
+#' hits_info <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356",
+#'                            include_info = TRUE)
+#' }
+
+#' VBI query with genotype data access
+#'
+#' Query VCF variants by genomic region with genotype data access.
+#' Returns variant context that can be used with genotype accessor functions.
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @param region Region string (e.g., "chr1:1000-2000")
+#' @param include_info Logical, whether to include INFO fields (default: FALSE)
+#' @param include_format Logical, whether to include FORMAT fields (default: FALSE)
+#' @param include_genotypes Logical, whether to include genotype data (default: FALSE)
+#' @return data.frame with comprehensive variant information
+#' @export
+#' @examples
+#' \dontrun{
+#' vcf_file <- system.file("exdata", "imputed.gt.vcf.gz", package = "RBCFLib")
+#' vcf_obj <- VCFLoad(vcf_file)
+#'
+#' # Basic query
+#' hits <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356")
+#'
+#' # Query with INFO and genotype data
+#' hits_full <- VBIQueryRegion(vcf_obj, "chr21:5030082-5030356",
+#'                            include_info = TRUE, include_genotypes = TRUE)
+#' }
+VBIQueryRegion <- function(
+    vbi_vcf_ctx,
+    region,
+    include_info = FALSE,
+    include_format = FALSE,
+    include_genotypes = FALSE
 ) {
-  .Call(
-    RC_VBI_query_by_indices,
-    as.character(VcfPath),
-    VbiPath,
-    as.integer(StartingIndice),
-    as.integer(EndingIndice),
-    as.integer(Threads),
-    PACKAGE = "RBCFLib"
-  )
+    .Call(
+        RC_VBI_query_region,
+        vbi_vcf_ctx,
+        as.character(region),
+        as.logical(include_info),
+        as.logical(include_format),
+        as.logical(include_genotypes),
+        PACKAGE = "RBCFLib"
+    )
+}
+
+#' Get VBI VCF context samples
+#'
+#' Retrieve sample names from a VBI VCF context object.
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @return Character vector of sample names
+#' @export
+VBISamples <- function(vbi_vcf_ctx) {
+    .Call(RC_VBI_samples, vbi_vcf_ctx, PACKAGE = "RBCFLib")
+}
+
+#' Get number of samples in VBI VCF context
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @return Integer, number of samples
+#' @export
+VBINSamples <- function(vbi_vcf_ctx) {
+    .Call(RC_VBI_nsamples, vbi_vcf_ctx, PACKAGE = "RBCFLib")
+}
+
+#' Get sample at specific index from VBI VCF context
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @param index 1-based sample index
+#' @return Character, sample name
+#' @export
+VBISampleAt <- function(vbi_vcf_ctx, index) {
+    .Call(RC_VBI_sample_at, vbi_vcf_ctx, as.integer(index), PACKAGE = "RBCFLib")
+}
+
+#' Convert sample name to index in VBI VCF context
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @param sample_name Character, sample name
+#' @return Integer, 1-based sample index (0 if not found)
+#' @export
+VBISample2Index <- function(vbi_vcf_ctx, sample_name) {
+    .Call(
+        RC_VBI_sample2index,
+        vbi_vcf_ctx,
+        as.character(sample_name),
+        PACKAGE = "RBCFLib"
+    )
+}
+
+#' Get INFO fields table from VBI VCF context
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @return data.frame with INFO field definitions
+#' @export
+VBIInfos <- function(vbi_vcf_ctx) {
+    .Call(RC_VBI_infos, vbi_vcf_ctx, PACKAGE = "RBCFLib")
+}
+
+#' Get FORMAT fields table from VBI VCF context
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @return data.frame with FORMAT field definitions
+#' @export
+VBIFormats <- function(vbi_vcf_ctx) {
+    .Call(RC_VBI_formats, vbi_vcf_ctx, PACKAGE = "RBCFLib")
+}
+
+#' Get FILTER fields table from VBI VCF context
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @return data.frame with FILTER field definitions
+#' @export
+VBIFilters <- function(vbi_vcf_ctx) {
+    .Call(RC_VBI_filters, vbi_vcf_ctx, PACKAGE = "RBCFLib")
 }
