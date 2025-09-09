@@ -190,7 +190,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpihlMFI/file4233836b61a17.vbi
+#> Wrote 15 index records into /tmp/RtmpnxvhW3/file4272441f931f4.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
@@ -664,8 +664,5 @@ BCFClose(fp_in); BCFClose(out)
   in-memory data representation.
 
 ## TODO
-
-- [ ] autoconvert the range request outputs to be lists or data.frames
-  and not strings
 
 - [ ] Use the bundled hmmap plugin ?

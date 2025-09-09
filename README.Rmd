@@ -374,7 +374,7 @@ BCFClose(fp_in); BCFClose(out)
 
 ## TODO
 
-- [ ] autoconvert the range request outputs to be lists or data.frames and not strings
+
 
 
 
