@@ -24,7 +24,7 @@ archived low-level `rbcf` bindings.
 - R
 - Unix-like OS (Linux, macOS) or Windows WSL2
 - htslib/bcftools system dependencies
-- optional: CHOLMOD for BCFToolsPGS
+- optional: cmake (for bundled SuiteSparse/CHOLMOD used by BCFToolsPGS)
 
 ``` r
 
@@ -95,8 +95,8 @@ enabling GWAS-VCF conversion and polygenic score analysis:
   weights
 - **`BCFToolsLiftover`**: Convert variants between genome assemblies
 - **`BCFToolsMetal`**: Perform meta-analysis on GWAS-VCF files
-- **`BCFToolsPGS`**: Compute polygenic score loadings (requires CHOLMOD,
-  checked at install time)
+- **`BCFToolsPGS`**: Compute polygenic score loadings (bundled
+  SuiteSparse/CHOLMOD included)
 - **`BCFToolsBLUP`**: Compute BLUP
 
 For more details, see the [BCFTools Score
@@ -192,7 +192,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpZ5VttA/file55da56a9ebfc5.vbi
+#> Wrote 15 index records into /tmp/RtmpKcMqWV/file729cf379b088c.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
