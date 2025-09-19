@@ -131,7 +131,7 @@ if [ "${HAVE_CHOLMOD}" = "no" ]; then
 fi
 
 # Configure CHOLMOD for PGS plugin - prefer bundled over system
-if [ -f "${THISDir}/src/SuiteSparse/install" ]; then
+if [ -d "${THISDir}/src/SuiteSparse/install" ]; then
     echo "Using bundled SuiteSparse CHOLMOD..."
     PGS_CHOLMOD_LIBS="-L${THISDir}/src/SuiteSparse/install/lib -lcholmod -lccolamd -lcolamd -lcamd -lamd -lsuitesparseconfig"
     PGS_CHOLMOD_CPPFLAGS="-I${THISDir}/src/SuiteSparse/install/include -I${THISDir}/src/SuiteSparse/install/include/suitesparse"
