@@ -16,6 +16,7 @@ tar -xzf ${sstgz} || exit 1
 rm -rf ${sstgz}
 mv SuiteSparse-${ssver}/* . || exit 1
 rm -rf SuiteSparse-${ssver} || exit 1
+find SparseSuite -iname "*pdf" | xargs -I {} rm -f {}
 echo "Done"
 cd - || exit 1
 exit 0
