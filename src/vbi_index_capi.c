@@ -355,6 +355,10 @@ void vbi_index_finalizer(SEXP extPtr) {
 
 
 // Query by region string using cgranges (returns malloc'd array of indices)
+// NOTE: To ensure consistent results with linear scan, convert region coordinates
+// from 1-based, closed intervals (VCF/R convention) to 0-based, half-open intervals
+// (cgranges convention) before calling cr_overlap.
+// For region "chr1:1000-2000" (1-based, closed), use [999, 2000) for cgranges.
 int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, int *nfound) {
     if (!idx || !idx->cr) { *nfound = 0; return NULL; }
     region_t *regions = NULL;
@@ -368,13 +372,18 @@ int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, i
     int total = 0;
     // First, count total overlaps
     for (int r = 0; r < nregions; ++r) {
-        int n = cr_overlap(idx->cr, regions[r].chrom, (int32_t)regions[r].start, (int32_t)regions[r].end, &buf, &max_buf);
+        // Convert to 0-based, half-open for cgranges
+        int32_t cg_start = (int32_t)regions[r].start - 1;
+        int32_t cg_end = (int32_t)regions[r].end;
+        int n = cr_overlap(idx->cr, regions[r].chrom, cg_start, cg_end, &buf, &max_buf);
         total += n;
     }
     int *hits = malloc(total * sizeof(int));
     int k = 0;
     for (int r = 0; r < nregions; ++r) {
-        int n = cr_overlap(idx->cr, regions[r].chrom, (int32_t)regions[r].start, (int32_t)regions[r].end, &buf, &max_buf);
+        int32_t cg_start = (int32_t)regions[r].start - 1;
+        int32_t cg_end = (int32_t)regions[r].end;
+        int n = cr_overlap(idx->cr, regions[r].chrom, cg_start, cg_end, &buf, &max_buf);
         for (int i = 0; i < n; ++i) {
             hits[k++] = cr_label(idx->cr, buf[i]);
         }
