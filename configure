@@ -86,7 +86,7 @@ int main (void) {
   fi
 else
   echo "gsl-config not found, polysomy functionality will be disabled"
-  echo "WARNING: GSL development files not found. Install libgsl-dev (Debian/Ubuntu) or gsl-devel (RPM-based) for polysomy support."
+  echo "NOTE: GSL development files not found. Install libgsl-dev (Debian/Ubuntu) or gsl-devel (RPM-based) for polysomy support."
   echo "Continuing with --disable-libgsl to prevent build failure."
 fi
 
