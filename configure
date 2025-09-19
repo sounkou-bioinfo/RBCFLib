@@ -91,14 +91,47 @@ else
 fi
 
 # Source SuiteSparse configuration and build bundled version
-if [ -f "${THISDir}/configureWithSparseSuites" ]; then
-    . "${THISDir}/configureWithSparseSuites"
-    # Always try to build bundled SuiteSparse as backup or primary
+configure_suitesparse() {
+    echo "Building SuiteSparse (CHOLMOD and dependencies) with CMake..."
+    SS_SRC="${THISDir}/src/SuiteSparse"
+    SS_INSTALL="${SS_SRC}/install"
+    mkdir -p "${SS_INSTALL}"
+    mkdir -p "${SS_SRC}/build"
+    cd "${SS_SRC}/build" || exit 1
+
+    # Extract compiler binary and flags
+    R_CC_BIN=$(echo "${CC}" | awk '{print $1}')
+    R_CC_FLAGS=$(echo "${CC}" | cut -s -d' ' -f2-)
+    R_CXX_BIN=$(echo "${CXX:-g++}" | awk '{print $1}')
+    R_CXX_FLAGS=$(echo "${CXX:-}" | cut -s -d' ' -f2-)
+
+    # Portable parallel build (default to 2, can override with SUITESPARSE_NJOBS)
+    N_JOBS="${SUITESPARSE_NJOBS:-2}"
+
+    cmake .. \
+        -DCMAKE_C_COMPILER="${R_CC_BIN}" \
+        -DCMAKE_C_FLAGS="${R_CC_FLAGS} ${CFLAGS}" \
+        -DCMAKE_CXX_COMPILER="${R_CXX_BIN}" \
+        -DCMAKE_CXX_FLAGS="${R_CXX_FLAGS} ${CXXFLAGS:-}" \
+        -DCMAKE_AR="${AR}" \
+        -DCMAKE_RANLIB="${RANLIB}" \
+        -DCMAKE_INSTALL_PREFIX="${SS_INSTALL}" \
+        -DSUITESPARSE_ENABLE_PROJECTS="cholmod;cxsparse;amd;camd;ccolamd;colamd;suitesparse_config" \
+        -DCMAKE_BUILD_TYPE=Release
+
+    cmake --build . --config Release -j${N_JOBS}
+    cmake --install .
+
+    cd "${THISDir}" || exit 1
+    echo "SuiteSparse CMake build and install complete."
+}
+# configure_suitesparse if no system CHOLMOD
+if [ "${HAVE_CHOLMOD}" = "no" ]; then
     configure_suitesparse
 fi
 
 # Configure CHOLMOD for PGS plugin - prefer bundled over system
-if [ -d "${THISDir}/src/SuiteSparse/install" ]; then
+if [ -f "${THISDir}/src/SuiteSparse/install" ]; then
     echo "Using bundled SuiteSparse CHOLMOD..."
     PGS_CHOLMOD_LIBS="-L${THISDir}/src/SuiteSparse/install/lib -lcholmod -lccolamd -lcolamd -lcamd -lamd -lsuitesparseconfig"
     PGS_CHOLMOD_CPPFLAGS="-I${THISDir}/src/SuiteSparse/install/include -I${THISDir}/src/SuiteSparse/install/include/suitesparse"

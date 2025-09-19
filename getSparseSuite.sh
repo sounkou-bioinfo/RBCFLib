@@ -21,7 +21,8 @@ tar -xzf ${sstgz} --strip-components=1 -C ${ssdir} \
     ${sspfx}/SuiteSparse_config \
     ${sspfx}/LICENSE.txt \
     ${sspfx}/README.md \
-    ${sspfx}/Makefile
+    ${sspfx}/Makefile \
+    ${sspfx}/CMakeLists.txt
 rm -rf ${sstgz}
 # Remove unwanted files (images, pdfs, etc.)
 find ${ssdir} -iname "*.pdf" -exec rm -f {} +
