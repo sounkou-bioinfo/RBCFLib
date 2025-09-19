@@ -92,6 +92,10 @@ fi
 
 # Source SuiteSparse configuration and build bundled version
 configure_suitesparse() {
+    if ! command -v cmake >/dev/null 2>&1; then
+        echo "ERROR: cmake is required to build SuiteSparse but was not found in PATH."
+        exit 1
+    fi
     echo "Building SuiteSparse (CHOLMOD and dependencies) with CMake..."
     SS_SRC="${THISDir}/src/SuiteSparse"
     SS_INSTALL="${SS_SRC}/install"
