@@ -374,7 +374,7 @@ int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, i
     for (int r = 0; r < nregions; ++r) {
         // Convert to 0-based, half-open for cgranges
         int32_t cg_start = (int32_t)regions[r].start - 1;
-        int32_t cg_end = (int32_t)regions[r].end;
+        int32_t cg_end = (int32_t)regions[r].end + 1;
         int n = cr_overlap(idx->cr, regions[r].chrom, cg_start, cg_end, &buf, &max_buf);
         total += n;
     }
@@ -382,7 +382,7 @@ int *vbi_index_query_region_cgranges(vbi_index_t *idx, const char *region_str, i
     int k = 0;
     for (int r = 0; r < nregions; ++r) {
         int32_t cg_start = (int32_t)regions[r].start - 1;
-        int32_t cg_end = (int32_t)regions[r].end;
+        int32_t cg_end = (int32_t)regions[r].end + 1;
         int n = cr_overlap(idx->cr, regions[r].chrom, cg_start, cg_end, &buf, &max_buf);
         for (int i = 0; i < n; ++i) {
             hits[k++] = cr_label(idx->cr, buf[i]);

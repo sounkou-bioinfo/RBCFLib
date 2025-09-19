@@ -193,7 +193,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpLpMS7X/filec51578ea399e.vbi
+#> Wrote 15 index records into /tmp/Rtmpq8Qp56/filec7ffd145e662d.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
@@ -244,10 +244,11 @@ print(hits_cgranges)
 #> 6 chr21 5030278   chr21:5030278:C:G   C   G   NA   PASS        2     6
 #> 7 chr21 5030319 chr21:5030319:C:G,T   C G,T   NA   PASS        3     7
 #> 8 chr21 5030347   chr21:5030347:G:A   G   A   NA   PASS        2     8
+#> 9 chr21 5030356   chr21:5030356:G:C   G   C   NA   PASS        2     9
 
 # Verify equality between regular and CGRanges queries
 print(paste("Results are identical:", identical(hits_region, hits_cgranges)))
-#> [1] "Results are identical: FALSE"
+#> [1] "Results are identical: TRUE"
 
 # Query by genomic region with INFO fields
 hits_with_info <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_info = TRUE)
