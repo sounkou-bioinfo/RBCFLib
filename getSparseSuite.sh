@@ -17,6 +17,13 @@ rm -rf ${sstgz}
 mv SuiteSparse-${ssver}/* . || exit 1
 rm -rf SuiteSparse-${ssver} || exit 1
 find SparseSuite -iname "*pdf" | xargs -I {} rm -f {}
+find SparseSuite -iname "*ps" | xargs -I {} rm -f {}
+find SparseSuite -iname "*png" | xargs -I {} rm -f {}
+find SparseSuite -iname "*jpg" | xargs -I {} rm -f {}
+find SparseSuite -iname "*jpeg" | xargs -I {} rm -f {}
+find SparseSuite -iname "*tif" | xargs -I {} rm -f {}
+find SparseSuite -iname "*tiff" | xargs -I {} rm -f {}
+find SparseSuite -iname "*eps" | xargs -I {} rm -f {}
 echo "Done"
 cd - || exit 1
 exit 0
