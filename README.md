@@ -29,7 +29,8 @@ archived low-level `rbcf` bindings.
 ``` r
 
 # to install from r-universe
-
+# we vendor SparseSuite, which is a huge source repository, we will trim this later
+options(timeout = 10000) 
 install.packages('RBCFLib', repos = c('https://sounkou-bioinfo.r-universe.dev'))
 
 # install the developement version from github
