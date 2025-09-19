@@ -29,8 +29,7 @@ archived low-level `rbcf` bindings.
 ``` r
 
 # to install from r-universe
-# we vendor SparseSuite, which is a huge source repository, we will trim this later
-options(timeout = 10000) 
+
 install.packages('RBCFLib', repos = c('https://sounkou-bioinfo.r-universe.dev'))
 
 # install the developement version from github
@@ -193,7 +192,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpKcMqWV/file729cf379b088c.vbi
+#> Wrote 15 index records into /tmp/RtmpwG1zv1/filebace419ca414c.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
