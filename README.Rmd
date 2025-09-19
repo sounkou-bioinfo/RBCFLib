@@ -23,7 +23,7 @@ Originally this project focused solely on lightweight bcftools wrapping for GWAS
 -   R
 -   Unix-like OS (Linux, macOS) or Windows WSL2
 -   htslib/bcftools system dependencies
--   optional: cmake (for bundled SuiteSparse/CHOLMOD used by BCFToolsPGS)
+-   cmake (for building bundled SuiteSparse/CHOLMOD used by BCFToolsPGS if no system cholmod can be found)
 ``` r
 
 # to install from r-universe

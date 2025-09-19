@@ -1,20 +1,3 @@
-#' CGRanges: Standalone Genomic Interval Tree (1-based, closed intervals)
-#'
-#' All CGRanges functions in RBCFLib use 1-based, closed intervals for start and end positions,
-#' matching Bioconductor conventions. The CGRanges API is standalone and does not depend on VBI index logic.
-#' All interval queries, additions, and extractions are guaranteed to be 1-based and closed.
-#'
-#' Example usage:
-#'   cr <- CGRangesCreate()
-#'   CGRangesAdd(cr, "chr1", 100, 200, 1) # interval [100, 200], 1-based, closed
-#'   CGRangesIndex(cr)
-#'   hits <- CGRangesOverlap(cr, "chr1", 150, 250) # query [150, 250], 1-based, closed
-#'   extracted <- CGRangesExtractByIndex(cr, c(1,2,3)) # extract intervals by 1-based index
-#'
-#' @importFrom Rcpp evalCpp
-#' @useDynLib RBCFLib
-NULL
-
 #' Get C-level memory usage of a VBI index pointer (in bytes)
 #' @param vbi_ptr External pointer to VBI index
 #' @return Numeric, memory usage in bytes

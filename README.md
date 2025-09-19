@@ -24,7 +24,8 @@ archived low-level `rbcf` bindings.
 - R
 - Unix-like OS (Linux, macOS) or Windows WSL2
 - htslib/bcftools system dependencies
-- optional: cmake (for bundled SuiteSparse/CHOLMOD used by BCFToolsPGS)
+- cmake (for building bundled SuiteSparse/CHOLMOD used by BCFToolsPGS if
+  no system cholmod can be found)
 
 ``` r
 
@@ -192,7 +193,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpwG1zv1/filebace419ca414c.vbi
+#> Wrote 15 index records into /tmp/RtmpXxH0VX/filec30e537da9829.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
@@ -235,13 +236,14 @@ print("CGRanges query results (should be identical to region query):")
 #> [1] "CGRanges query results (should be identical to region query):"
 print(hits_cgranges)
 #>   chrom     pos                  id ref alt qual filter n_allele index
-#> 1 chr21 5030088   chr21:5030088:C:T   C   T   NA   PASS        2     2
-#> 2 chr21 5030105   chr21:5030105:C:A   C   A   NA   PASS        2     3
-#> 3 chr21 5030240  chr21:5030240:AC:A  AC   A   NA   PASS        2     4
-#> 4 chr21 5030253   chr21:5030253:G:T   G   T   NA   PASS        2     5
-#> 5 chr21 5030278   chr21:5030278:C:G   C   G   NA   PASS        2     6
-#> 6 chr21 5030319 chr21:5030319:C:G,T   C G,T   NA   PASS        3     7
-#> 7 chr21 5030347   chr21:5030347:G:A   G   A   NA   PASS        2     8
+#> 1 chr21 5030082   chr21:5030082:G:A   G   A   NA   PASS        2     1
+#> 2 chr21 5030088   chr21:5030088:C:T   C   T   NA   PASS        2     2
+#> 3 chr21 5030105   chr21:5030105:C:A   C   A   NA   PASS        2     3
+#> 4 chr21 5030240  chr21:5030240:AC:A  AC   A   NA   PASS        2     4
+#> 5 chr21 5030253   chr21:5030253:G:T   G   T   NA   PASS        2     5
+#> 6 chr21 5030278   chr21:5030278:C:G   C   G   NA   PASS        2     6
+#> 7 chr21 5030319 chr21:5030319:C:G,T   C G,T   NA   PASS        3     7
+#> 8 chr21 5030347   chr21:5030347:G:A   G   A   NA   PASS        2     8
 
 # Verify equality between regular and CGRanges queries
 print(paste("Results are identical:", identical(hits_region, hits_cgranges)))
