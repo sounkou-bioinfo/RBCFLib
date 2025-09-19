@@ -1,3 +1,0 @@
-11397	ACTGCAAGGTGAGCT	A	stop_lost&inframe_deletion|ZNF596|ENST00000518414|protein_coding|+
-11397	ACTGCAAGGTGAGCT	A	stop_lost&inframe_deletion|ZNF596|ENST00000518414|protein_coding|+
-

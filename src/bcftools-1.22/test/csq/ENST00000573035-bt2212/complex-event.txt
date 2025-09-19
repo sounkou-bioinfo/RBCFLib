@@ -1,3 +1,0 @@
-374	CAAG	CT	frameshift&splice_region|GTF2I|ENST00000573035|protein_coding
-374	CAAG	CT	frameshift&splice_region|GTF2I|ENST00000573035|protein_coding
-

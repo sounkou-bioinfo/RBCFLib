@@ -7,23 +7,30 @@ sspfx=SuiteSparse-${ssver}
 sstgz=${sspfx}.tar.gz
 ssurl=https://github.com/DrTimothyAldenDavis/SuiteSparse/archive/refs/tags/v${ssver}.tar.gz
 [[ -d ${ssdir} ]] || mkdir -p ${ssdir}
-cd ${ssdir} || exit 1
-rm -rf $PWD/*
+rm -rf ${ssdir}/*
 echo "Downloading ${ssurl}"
 wget -O ${sstgz} ${ssurl} || exit 1
-echo "Unpacking ${sstgz}"
-tar -xzf ${sstgz} || exit 1
+echo "Extracting only required SuiteSparse components into src/SuiteSparse"
+tar -xzf ${sstgz} --strip-components=1 -C ${ssdir} \
+    ${sspfx}/CHOLMOD \
+    ${sspfx}/AMD \
+    ${sspfx}/CAMD \
+    ${sspfx}/CCOLAMD \
+    ${sspfx}/COLAMD \
+    ${sspfx}/CXSparse \
+    ${sspfx}/SuiteSparse_config \
+    ${sspfx}/LICENSE.txt \
+    ${sspfx}/README.md \
+    ${sspfx}/Makefile
 rm -rf ${sstgz}
-mv SuiteSparse-${ssver}/* . || exit 1
-rm -rf SuiteSparse-${ssver} || exit 1
-find SparseSuite -iname "*pdf" | xargs -I {} rm -f {}
-find SparseSuite -iname "*ps" | xargs -I {} rm -f {}
-find SparseSuite -iname "*png" | xargs -I {} rm -f {}
-find SparseSuite -iname "*jpg" | xargs -I {} rm -f {}
-find SparseSuite -iname "*jpeg" | xargs -I {} rm -f {}
-find SparseSuite -iname "*tif" | xargs -I {} rm -f {}
-find SparseSuite -iname "*tiff" | xargs -I {} rm -f {}
-find SparseSuite -iname "*eps" | xargs -I {} rm -f {}
+# Remove unwanted files (images, pdfs, etc.)
+find ${ssdir} -iname "*.pdf" -exec rm -f {} +
+find ${ssdir} -iname "*.ps" -exec rm -f {} +
+find ${ssdir} -iname "*.png" -exec rm -f {} +
+find ${ssdir} -iname "*.jpg" -exec rm -f {} +
+find ${ssdir} -iname "*.jpeg" -exec rm -f {} +
+find ${ssdir} -iname "*.tif" -exec rm -f {} +
+find ${ssdir} -iname "*.tiff" -exec rm -f {} +
+find ${ssdir} -iname "*.eps" -exec rm -f {} +
 echo "Done"
-cd - || exit 1
 exit 0
