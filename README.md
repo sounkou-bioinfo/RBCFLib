@@ -191,7 +191,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/Rtmp1Vk1lo/file8b9e11b094d61.vbi
+#> Wrote 15 index records into /tmp/RtmpnQxDgw/file8c1801cc91778.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
@@ -270,8 +270,6 @@ str(VBIPrintHeaderMetadata(vcf_ctx))
 #>  $ sample_names : chr [1:3202] "HG00096" "HG00097" "HG00099" "HG00100" ...
 # Query by genomic region with basic fields
 hits_region <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356")
-print("Region query results (basic fields):")
-#> [1] "Region query results (basic fields):"
 print(hits_region)
 #>   chrom     pos                  id ref alt qual filter n_allele index
 #> 1 chr21 5030082   chr21:5030082:G:A   G   A   NA   PASS        2     1
@@ -286,8 +284,6 @@ print(hits_region)
 
 # Query by genomic region using CGRanges (fast interval tree)
 hits_cgranges <- VBIQueryRegionCGRanges(vcf_ctx, "chr21:5030082-5030356")
-print("CGRanges query results (should be identical to region query):")
-#> [1] "CGRanges query results (should be identical to region query):"
 print(hits_cgranges)
 #>   chrom     pos                  id ref alt qual filter n_allele index
 #> 1 chr21 5030082   chr21:5030082:G:A   G   A   NA   PASS        2     1
@@ -306,8 +302,6 @@ print(paste("Results are identical:", identical(hits_region, hits_cgranges)))
 
 # Query by genomic region with INFO fields
 hits_with_info <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_info = TRUE)
-print("Region query results (with INFO):")
-#> [1] "Region query results (with INFO):"
 print(hits_with_info[1:3, ])  # Show first 3 rows only
 #>   chrom     pos                id ref alt qual filter n_allele index INFO
 #> 1 chr21 5030082 chr21:5030082:G:A   G   A   NA   PASS        2     1 <NA>
@@ -316,8 +310,6 @@ print(hits_with_info[1:3, ])  # Show first 3 rows only
 
 # Query with genotype data
 hits_with_gt <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_genotypes = TRUE)
-print("Region query with genotypes:")
-#> [1] "Region query with genotypes:"
 print(hits_with_gt[1:2, c("chrom", "pos", "ref", "alt", "GT")])
 #>   chrom     pos ref alt
 #> 1 chr21 5030082   G   A
@@ -331,8 +323,6 @@ hits_all <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356",
                           include_info = TRUE, 
                           include_format = TRUE, 
                           include_genotypes = TRUE)
-print("All available columns:")
-#> [1] "All available columns:"
 print(colnames(hits_all))
 #>  [1] "chrom"      "pos"        "id"         "ref"        "alt"       
 #>  [6] "qual"       "filter"     "n_allele"   "index"      "INFO"      
@@ -343,8 +333,6 @@ vbi_ptr <- VBIIndexLoad(vbiFile)
 
 # Extract variant ranges
 ranges <- VBIExtractRanges(vbi_ptr, 5)
-print("First 5 variant ranges:")
-#> [1] "First 5 variant ranges:"
 print(ranges)
 #>   chrom     pos index
 #> 1 chr21 5030082     1

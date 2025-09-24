@@ -154,12 +154,10 @@ str(header)
 str(VBIPrintHeaderMetadata(vcf_ctx))
 # Query by genomic region with basic fields
 hits_region <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356")
-print("Region query results (basic fields):")
 print(hits_region)
 
 # Query by genomic region using CGRanges (fast interval tree)
 hits_cgranges <- VBIQueryRegionCGRanges(vcf_ctx, "chr21:5030082-5030356")
-print("CGRanges query results (should be identical to region query):")
 print(hits_cgranges)
 
 # Verify equality between regular and CGRanges queries
@@ -167,12 +165,10 @@ print(paste("Results are identical:", identical(hits_region, hits_cgranges)))
 
 # Query by genomic region with INFO fields
 hits_with_info <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_info = TRUE)
-print("Region query results (with INFO):")
 print(hits_with_info[1:3, ])  # Show first 3 rows only
 
 # Query with genotype data
 hits_with_gt <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356", include_genotypes = TRUE)
-print("Region query with genotypes:")
 print(hits_with_gt[1:2, c("chrom", "pos", "ref", "alt", "GT")])
 
 # Query with all fields (INFO, FORMAT, and genotypes)
@@ -180,7 +176,6 @@ hits_all <- VBIQueryRegion(vcf_ctx, "chr21:5030082-5030356",
                           include_info = TRUE, 
                           include_format = TRUE, 
                           include_genotypes = TRUE)
-print("All available columns:")
 print(colnames(hits_all))
 
 # Load index as external pointer for direct access
@@ -188,7 +183,6 @@ vbi_ptr <- VBIIndexLoad(vbiFile)
 
 # Extract variant ranges
 ranges <- VBIExtractRanges(vbi_ptr, 5)
-print("First 5 variant ranges:")
 print(ranges)
 
 # Check memory usage
