@@ -191,7 +191,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpnQxDgw/file8c1801cc91778.vbi
+#> Wrote 15 index records into /tmp/RtmpK2jKvA/file8c777fba9a72.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
