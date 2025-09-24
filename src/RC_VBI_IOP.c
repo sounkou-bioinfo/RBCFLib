@@ -12,7 +12,69 @@
 #include "vbi_index_capi.h"
 #include "cgranges.h"
 
-// VBI VCF Context structure definition (must be defined before use)
+// VCF/BCF header metadata structures
+// Move these above VBIVcfContext
+
+typedef enum {
+    VCF_TYPE_INTEGER,
+    VCF_TYPE_FLOAT,
+    VCF_TYPE_FLAG,
+    VCF_TYPE_CHARACTER,
+    VCF_TYPE_STRING
+} VcfFieldType;
+
+typedef struct {
+    char *id;
+    char *number;
+    VcfFieldType type;
+    char *description;
+    char *source;
+    char *version;
+} VcfInfoField;
+
+typedef struct {
+    char *id;
+    char *number;
+    VcfFieldType type;
+    char *description;
+} VcfFormatField;
+
+typedef struct {
+    char *id;
+    char *description;
+} VcfFilterField;
+
+typedef struct {
+    char *id;
+    char *description;
+} VcfAltField;
+
+typedef struct {
+    char *id;
+    char *length;
+    char *md5;
+    char *url;
+} VcfContigField;
+
+typedef struct {
+    VcfInfoField *info_fields;
+    int n_info;
+    VcfFormatField *format_fields;
+    int n_format;
+    VcfFilterField *filter_fields;
+    int n_filter;
+    VcfAltField *alt_fields;
+    int n_alt;
+    VcfContigField *contig_fields;
+    int n_contig;
+    char **sample_names;
+    int n_samples;
+    char *fileformat;
+    char *header_line;
+} VcfHeaderMetadata;
+
+// VBI VCF Context structure definition
+// Only define once
 typedef struct vbi_vcf_context_t {
     htsFile *fp;
     bcf_hdr_t *hdr;
@@ -20,7 +82,17 @@ typedef struct vbi_vcf_context_t {
     bcf1_t *tmp_ctx;  // temp variant context for reading
     kstring_t tmp_line;
     int query_failed;
+    VcfHeaderMetadata *header_meta;
 } VBIVcfContext, *VBIVcfContextPtr;
+
+// CGRanges pointer type definition
+// Move this above its first usage
+typedef struct {
+    cgranges_t *cr;
+} cgranges_ptr_t;
+
+// Forward declaration for cr_extract_one
+static void cr_extract_one(cgranges_t *cr, int idx, char **chrom, int *start, int *end, int *label);
 
 // Forward declarations
 SEXP RC_cgranges_destroy(SEXP cr_ptr);
@@ -59,6 +131,186 @@ SEXP RC_VBI_load_index(SEXP vbi_path) {
     UNPROTECT(1);
     return extPtr;
 }
+
+
+// Helper: Map VCF type string to enum
+static VcfFieldType vcf_type_from_str(const char *type) {
+    if (!type) return VCF_TYPE_STRING;
+    if (strcmp(type, "Integer") == 0) return VCF_TYPE_INTEGER;
+    if (strcmp(type, "Float") == 0) return VCF_TYPE_FLOAT;
+    if (strcmp(type, "Flag") == 0) return VCF_TYPE_FLAG;
+    if (strcmp(type, "Character") == 0) return VCF_TYPE_CHARACTER;
+    if (strcmp(type, "String") == 0) return VCF_TYPE_STRING;
+    return VCF_TYPE_STRING;
+}
+
+// Helper: Parse meta-information lines from bcf_hdr_t
+static VcfHeaderMetadata *parse_vcf_header_metadata(bcf_hdr_t *hdr) {
+    VcfHeaderMetadata *meta = calloc(1, sizeof(VcfHeaderMetadata));
+    bcf_hrec_t *fileformat_hrec = bcf_hdr_get_hrec(hdr, BCF_HL_GEN, "fileformat", NULL, NULL);
+    if (fileformat_hrec && fileformat_hrec->value)
+        meta->fileformat = strdup(fileformat_hrec->value);
+    meta->n_info = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "INFO") == 0) meta->n_info++;
+    }
+    meta->info_fields = calloc(meta->n_info, sizeof(VcfInfoField));
+    int info_idx = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "INFO") == 0) {
+            VcfInfoField *f = &meta->info_fields[info_idx++];
+            int idx_id = bcf_hrec_find_key(hrec, "ID");
+            int idx_num = bcf_hrec_find_key(hrec, "Number");
+            int idx_type = bcf_hrec_find_key(hrec, "Type");
+            int idx_desc = bcf_hrec_find_key(hrec, "Description");
+            int idx_src = bcf_hrec_find_key(hrec, "Source");
+            int idx_ver = bcf_hrec_find_key(hrec, "Version");
+            f->id = (idx_id >= 0 && hrec->vals[idx_id]) ? strdup(hrec->vals[idx_id]) : NULL;
+            f->number = (idx_num >= 0 && hrec->vals[idx_num]) ? strdup(hrec->vals[idx_num]) : NULL;
+            f->type = (idx_type >= 0 && hrec->vals[idx_type]) ? vcf_type_from_str(hrec->vals[idx_type]) : VCF_TYPE_STRING;
+            f->description = (idx_desc >= 0 && hrec->vals[idx_desc]) ? strdup(hrec->vals[idx_desc]) : NULL;
+            f->source = (idx_src >= 0 && hrec->vals[idx_src]) ? strdup(hrec->vals[idx_src]) : NULL;
+            f->version = (idx_ver >= 0 && hrec->vals[idx_ver]) ? strdup(hrec->vals[idx_ver]) : NULL;
+        }
+    }
+    meta->n_format = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "FORMAT") == 0) meta->n_format++;
+    }
+    meta->format_fields = calloc(meta->n_format, sizeof(VcfFormatField));
+    int fmt_idx = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "FORMAT") == 0) {
+            VcfFormatField *f = &meta->format_fields[fmt_idx++];
+            int idx_id = bcf_hrec_find_key(hrec, "ID");
+            int idx_num = bcf_hrec_find_key(hrec, "Number");
+            int idx_type = bcf_hrec_find_key(hrec, "Type");
+            int idx_desc = bcf_hrec_find_key(hrec, "Description");
+            f->id = (idx_id >= 0 && hrec->vals[idx_id]) ? strdup(hrec->vals[idx_id]) : NULL;
+            f->number = (idx_num >= 0 && hrec->vals[idx_num]) ? strdup(hrec->vals[idx_num]) : NULL;
+            f->type = (idx_type >= 0 && hrec->vals[idx_type]) ? vcf_type_from_str(hrec->vals[idx_type]) : VCF_TYPE_STRING;
+            f->description = (idx_desc >= 0 && hrec->vals[idx_desc]) ? strdup(hrec->vals[idx_desc]) : NULL;
+        }
+    }
+    meta->n_filter = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "FILTER") == 0) meta->n_filter++;
+    }
+    meta->filter_fields = calloc(meta->n_filter, sizeof(VcfFilterField));
+    int filter_idx = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "FILTER") == 0) {
+            VcfFilterField *f = &meta->filter_fields[filter_idx++];
+            int idx_id = bcf_hrec_find_key(hrec, "ID");
+            int idx_desc = bcf_hrec_find_key(hrec, "Description");
+            f->id = (idx_id >= 0 && hrec->vals[idx_id]) ? strdup(hrec->vals[idx_id]) : NULL;
+            f->description = (idx_desc >= 0 && hrec->vals[idx_desc]) ? strdup(hrec->vals[idx_desc]) : NULL;
+        }
+    }
+    meta->n_alt = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "ALT") == 0) meta->n_alt++;
+    }
+    meta->alt_fields = calloc(meta->n_alt, sizeof(VcfAltField));
+    int alt_idx = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "ALT") == 0) {
+            VcfAltField *f = &meta->alt_fields[alt_idx++];
+            int idx_id = bcf_hrec_find_key(hrec, "ID");
+            int idx_desc = bcf_hrec_find_key(hrec, "Description");
+            f->id = (idx_id >= 0 && hrec->vals[idx_id]) ? strdup(hrec->vals[idx_id]) : NULL;
+            f->description = (idx_desc >= 0 && hrec->vals[idx_desc]) ? strdup(hrec->vals[idx_desc]) : NULL;
+        }
+    }
+    meta->n_contig = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "contig") == 0) meta->n_contig++;
+    }
+    meta->contig_fields = calloc(meta->n_contig, sizeof(VcfContigField));
+    int contig_idx = 0;
+    for (int i = 0; i < hdr->nhrec; i++) {
+        bcf_hrec_t *hrec = hdr->hrec[i];
+        if (strcmp(hrec->key, "contig") == 0) {
+            VcfContigField *f = &meta->contig_fields[contig_idx++];
+            int idx_id = bcf_hrec_find_key(hrec, "ID");
+            int idx_length = bcf_hrec_find_key(hrec, "length");
+            int idx_md5 = bcf_hrec_find_key(hrec, "md5");
+            int idx_url = bcf_hrec_find_key(hrec, "URL");
+            f->id = (idx_id >= 0 && hrec->vals[idx_id]) ? strdup(hrec->vals[idx_id]) : NULL;
+            f->length = (idx_length >= 0 && hrec->vals[idx_length]) ? strdup(hrec->vals[idx_length]) : NULL;
+            f->md5 = (idx_md5 >= 0 && hrec->vals[idx_md5]) ? strdup(hrec->vals[idx_md5]) : NULL;
+            f->url = (idx_url >= 0 && hrec->vals[idx_url]) ? strdup(hrec->vals[idx_url]) : NULL;
+        }
+    }
+    meta->n_samples = bcf_hdr_nsamples(hdr);
+    meta->sample_names = calloc(meta->n_samples, sizeof(char*));
+    for (int i = 0; i < meta->n_samples; i++) {
+        meta->sample_names[i] = strdup(bcf_hdr_int2id(hdr, BCF_DT_SAMPLE, i));
+    }
+    meta->header_line = strdup(""); // hdr->samples is not a string, so just set to empty string or remove if not needed
+    return meta;
+}
+
+static void free_vcf_header_metadata(VcfHeaderMetadata *meta) {
+    if (!meta) return;
+    for (int i = 0; i < meta->n_info; i++) {
+        free(meta->info_fields[i].id);
+        free(meta->info_fields[i].number);
+        free(meta->info_fields[i].description);
+        free(meta->info_fields[i].source);
+        free(meta->info_fields[i].version);
+    }
+    free(meta->info_fields);
+    for (int i = 0; i < meta->n_format; i++) {
+        free(meta->format_fields[i].id);
+        free(meta->format_fields[i].number);
+        free(meta->format_fields[i].description);
+    }
+    free(meta->format_fields);
+    for (int i = 0; i < meta->n_filter; i++) {
+        free(meta->filter_fields[i].id);
+        free(meta->filter_fields[i].description);
+    }
+    free(meta->filter_fields);
+    for (int i = 0; i < meta->n_alt; i++) {
+        free(meta->alt_fields[i].id);
+        free(meta->alt_fields[i].description);
+    }
+    free(meta->alt_fields);
+    for (int i = 0; i < meta->n_contig; i++) {
+        free(meta->contig_fields[i].id);
+        free(meta->contig_fields[i].length);
+        free(meta->contig_fields[i].md5);
+        free(meta->contig_fields[i].url);
+    }
+    free(meta->contig_fields);
+    for (int i = 0; i < meta->n_samples; i++) {
+        free(meta->sample_names[i]);
+    }
+    free(meta->sample_names);
+    free(meta->fileformat);
+    free(meta->header_line);
+    free(meta);
+}
+
+// Forward declarations
+SEXP RC_cgranges_destroy(SEXP cr_ptr);
+// Replace old forward declaration with new helper signature
+static SEXP vbi_query_variants_basic(VBIVcfContextPtr ctx, int *hits, int nfound,
+                                    int inc_info, int inc_format, int inc_genotypes);
+// Forward declarations from vbi_index.c and vbi_index_capi.h
+int do_index(const char *infile, const char *outfile, int n_threads);
+void RC_VBI_vcf_context_finalizer(SEXP extPtr);
+
 
 // Print VBI index contents
 SEXP RC_VBI_print_index(SEXP vbi_ptr, SEXP n) {
@@ -145,6 +397,9 @@ SEXP RC_VBI_vcf_load(SEXP vcf_path, SEXP vbi_path) {
         Rf_error("[VBI] Failed to initialize variant context");
     }
     
+    // Parse header metadata
+    ctx->header_meta = parse_vcf_header_metadata(ctx->hdr);
+    
     // Clean up auto-allocated memory
     if (auto_vbi) free(auto_vbi);
     
@@ -163,6 +418,7 @@ void RC_VBI_vcf_context_finalizer(SEXP extPtr) {
         if (ctx->fp) hts_close(ctx->fp);
         if (ctx->vbi_idx) vbi_index_free(ctx->vbi_idx);
         if (ctx->tmp_line.s) free(ctx->tmp_line.s);
+        if (ctx->header_meta) free_vcf_header_metadata(ctx->header_meta);
         R_Free(ctx);
         R_SetExternalPtrAddr(extPtr, NULL);
     }
@@ -446,7 +702,7 @@ static SEXP vbi_query_variants_basic(VBIVcfContextPtr ctx, int *hits, int nfound
                 for(int s=0;s<ns;s++){
                     if(s) kputc(';',&ktmp);
                     for(int p=0;p<ploidy;p++){
-                        if(p) kputc('/',&ktmp);
+                        if(p) kputc('/', &ktmp);
                         int32_t g = gt[s*ploidy + p];
                         if (g==bcf_int32_vector_end) break;
                         if (g==bcf_gt_missing) { kputc('.',&ktmp); continue; }
@@ -485,60 +741,145 @@ static SEXP vbi_query_variants_basic(VBIVcfContextPtr ctx, int *hits, int nfound
     return df;
 }
 
-// LEGACY range query wrapper using context & flags (migrated from previous patch)
-SEXP RC_VBI_query_range(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
-    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
-    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
-    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
-    int inc_info = asLogical(include_info);
-    int inc_format = asLogical(include_format);
-    int inc_genotypes = asLogical(include_genotypes);
-    const char *reg = CHAR(STRING_ELT(region_str, 0));
-    int nfound = 0;
-    int *indices = vbi_index_query_region(ctx->vbi_idx, reg, &nfound);
-    if (!indices || nfound == 0) {
-        if (indices) free(indices);
-        SEXP df = PROTECT(allocVector(VECSXP, 0));
-        SEXP names = PROTECT(allocVector(STRSXP, 0));
-        SEXP rn = PROTECT(allocVector(INTSXP, 0));
-        setAttrib(df, R_NamesSymbol, names);
-        setAttrib(df, R_RowNamesSymbol, rn);
-        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
-        UNPROTECT(3);
-        return df;
+// Print header metadata from VBI VCF context
+SEXP RC_VBI_print_header_metadata(SEXP vbi_vcf_ctx_ext) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx_ext);
+    if (!ctx || !ctx->header_meta) Rf_error("[VBI] Invalid VCF context or missing header metadata");
+    VcfHeaderMetadata *meta = ctx->header_meta;
+    SEXP out = PROTECT(allocVector(VECSXP, 7));
+    SEXP names = PROTECT(allocVector(STRSXP, 7));
+    SET_STRING_ELT(names, 0, mkChar("fileformat"));
+    SET_STRING_ELT(names, 1, mkChar("info_fields"));
+    SET_STRING_ELT(names, 2, mkChar("format_fields"));
+    SET_STRING_ELT(names, 3, mkChar("filter_fields"));
+    SET_STRING_ELT(names, 4, mkChar("alt_fields"));
+    SET_STRING_ELT(names, 5, mkChar("contig_fields"));
+    SET_STRING_ELT(names, 6, mkChar("sample_names"));
+    SET_VECTOR_ELT(out, 0, ScalarString(mkChar(meta->fileformat ? meta->fileformat : "")));
+    // info_fields
+    SEXP info_df = PROTECT(allocVector(VECSXP, 6));
+    SEXP info_names = PROTECT(allocVector(STRSXP, 6));
+    SET_STRING_ELT(info_names, 0, mkChar("id"));
+    SET_STRING_ELT(info_names, 1, mkChar("number"));
+    SET_STRING_ELT(info_names, 2, mkChar("type"));
+    SET_STRING_ELT(info_names, 3, mkChar("description"));
+    SET_STRING_ELT(info_names, 4, mkChar("source"));
+    SET_STRING_ELT(info_names, 5, mkChar("version"));
+    SEXP id_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP num_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP type_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP desc_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP src_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP ver_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    for (int i = 0; i < meta->n_info; i++) {
+        SET_STRING_ELT(id_col, i, mkChar(meta->info_fields[i].id ? meta->info_fields[i].id : ""));
+        SET_STRING_ELT(num_col, i, mkChar(meta->info_fields[i].number ? meta->info_fields[i].number : ""));
+        SET_STRING_ELT(type_col, i, mkChar(
+            meta->info_fields[i].type == VCF_TYPE_INTEGER ? "Integer" :
+            meta->info_fields[i].type == VCF_TYPE_FLOAT ? "Float" :
+            meta->info_fields[i].type == VCF_TYPE_FLAG ? "Flag" :
+            meta->info_fields[i].type == VCF_TYPE_CHARACTER ? "Character" : "String"
+        ));
+        SET_STRING_ELT(desc_col, i, mkChar(meta->info_fields[i].description ? meta->info_fields[i].description : ""));
+        SET_STRING_ELT(src_col, i, mkChar(meta->info_fields[i].source ? meta->info_fields[i].source : ""));
+        SET_STRING_ELT(ver_col, i, mkChar(meta->info_fields[i].version ? meta->info_fields[i].version : ""));
     }
-    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
-    free(indices);
-    return out;
-}
-
-// Query by contiguous indices using existing context
-SEXP RC_VBI_query_by_indices_ctx(SEXP vbi_vcf_ctx, SEXP start_idx, SEXP end_idx, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
-    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
-    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
-    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
-    int inc_info = asLogical(include_info);
-    int inc_format = asLogical(include_format);
-    int inc_geno = asLogical(include_genotypes);
-    int start = asInteger(start_idx) - 1;
-    int end = asInteger(end_idx) - 1;
-    if (start < 0) start = 0;
-    if (end >= ctx->vbi_idx->num_marker) end = ctx->vbi_idx->num_marker - 1;
-    if (end < start) {
-        SEXP df = PROTECT(allocVector(VECSXP, 0));
-        SEXP names = PROTECT(allocVector(STRSXP, 0));
-        SEXP rn = PROTECT(allocVector(INTSXP, 0));
-        setAttrib(df, R_NamesSymbol, names);
-        setAttrib(df, R_RowNamesSymbol, rn);
-        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
-        UNPROTECT(3);
-        return df;
+    SET_VECTOR_ELT(info_df, 0, id_col);
+    SET_VECTOR_ELT(info_df, 1, num_col);
+    SET_VECTOR_ELT(info_df, 2, type_col);
+    SET_VECTOR_ELT(info_df, 3, desc_col);
+    SET_VECTOR_ELT(info_df, 4, src_col);
+    SET_VECTOR_ELT(info_df, 5, ver_col);
+    setAttrib(info_df, R_NamesSymbol, info_names);
+    SET_VECTOR_ELT(out, 1, info_df);
+    // format_fields
+    SEXP fmt_df = PROTECT(allocVector(VECSXP, 4));
+    SEXP fmt_names = PROTECT(allocVector(STRSXP, 4));
+    SET_STRING_ELT(fmt_names, 0, mkChar("id"));
+    SET_STRING_ELT(fmt_names, 1, mkChar("number"));
+    SET_STRING_ELT(fmt_names, 2, mkChar("type"));
+    SET_STRING_ELT(fmt_names, 3, mkChar("description"));
+    SEXP fid_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP fnum_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP ftype_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP fdesc_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    for (int i = 0; i < meta->n_format; i++) {
+        SET_STRING_ELT(fid_col, i, mkChar(meta->format_fields[i].id ? meta->format_fields[i].id : ""));
+        SET_STRING_ELT(fnum_col, i, mkChar(meta->format_fields[i].number ? meta->format_fields[i].number : ""));
+        SET_STRING_ELT(ftype_col, i, mkChar(
+            meta->format_fields[i].type == VCF_TYPE_INTEGER ? "Integer" :
+            meta->format_fields[i].type == VCF_TYPE_FLOAT ? "Float" :
+            meta->format_fields[i].type == VCF_TYPE_FLAG ? "Flag" :
+            meta->format_fields[i].type == VCF_TYPE_CHARACTER ? "Character" : "String"
+        ));
+        SET_STRING_ELT(fdesc_col, i, mkChar(meta->format_fields[i].description ? meta->format_fields[i].description : ""));
     }
-    int nfound = end - start + 1;
-    int *hits = (int*) malloc(sizeof(int)*nfound); if(!hits) Rf_error("[VBI] OOM");
-    for(int i=0;i<nfound;i++) hits[i]= start + i;
-    SEXP out = vbi_query_variants_basic(ctx, hits, nfound, inc_info, inc_format, inc_geno);
-    free(hits);
+    SET_VECTOR_ELT(fmt_df, 0, fid_col);
+    SET_VECTOR_ELT(fmt_df, 1, fnum_col);
+    SET_VECTOR_ELT(fmt_df, 2, ftype_col);
+    SET_VECTOR_ELT(fmt_df, 3, fdesc_col);
+    setAttrib(fmt_df, R_NamesSymbol, fmt_names);
+    SET_VECTOR_ELT(out, 2, fmt_df);
+    // filter_fields
+    SEXP filter_df = PROTECT(allocVector(VECSXP, 2));
+    SEXP filter_names = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(filter_names, 0, mkChar("id"));
+    SET_STRING_ELT(filter_names, 1, mkChar("description"));
+    SEXP fid_col2 = PROTECT(allocVector(STRSXP, meta->n_filter));
+    SEXP fdesc_col2 = PROTECT(allocVector(STRSXP, meta->n_filter));
+    for (int i = 0; i < meta->n_filter; i++) {
+        SET_STRING_ELT(fid_col2, i, mkChar(meta->filter_fields[i].id ? meta->filter_fields[i].id : ""));
+        SET_STRING_ELT(fdesc_col2, i, mkChar(meta->filter_fields[i].description ? meta->filter_fields[i].description : ""));
+    }
+    SET_VECTOR_ELT(filter_df, 0, fid_col2);
+    SET_VECTOR_ELT(filter_df, 1, fdesc_col2);
+    setAttrib(filter_df, R_NamesSymbol, filter_names);
+    SET_VECTOR_ELT(out, 3, filter_df);
+    // alt_fields
+    SEXP alt_df = PROTECT(allocVector(VECSXP, 2));
+    SEXP alt_names = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(alt_names, 0, mkChar("id"));
+    SET_STRING_ELT(alt_names, 1, mkChar("description"));
+    SEXP aid_col = PROTECT(allocVector(STRSXP, meta->n_alt));
+    SEXP adesc_col = PROTECT(allocVector(STRSXP, meta->n_alt));
+    for (int i = 0; i < meta->n_alt; i++) {
+        SET_STRING_ELT(aid_col, i, mkChar(meta->alt_fields[i].id ? meta->alt_fields[i].id : ""));
+        SET_STRING_ELT(adesc_col, i, mkChar(meta->alt_fields[i].description ? meta->alt_fields[i].description : ""));
+    }
+    SET_VECTOR_ELT(alt_df, 0, aid_col);
+    SET_VECTOR_ELT(alt_df, 1, adesc_col);
+    setAttrib(alt_df, R_NamesSymbol, alt_names);
+    SET_VECTOR_ELT(out, 4, alt_df);
+    // contig_fields
+    SEXP contig_df = PROTECT(allocVector(VECSXP, 4));
+    SEXP contig_names = PROTECT(allocVector(STRSXP, 4));
+    SET_STRING_ELT(contig_names, 0, mkChar("id"));
+    SET_STRING_ELT(contig_names, 1, mkChar("length"));
+    SET_STRING_ELT(contig_names, 2, mkChar("md5"));
+    SET_STRING_ELT(contig_names, 3, mkChar("url"));
+    SEXP cid_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP clen_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP cmd5_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP curl_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    for (int i = 0; i < meta->n_contig; i++) {
+        SET_STRING_ELT(cid_col, i, mkChar(meta->contig_fields[i].id ? meta->contig_fields[i].id : ""));
+        SET_STRING_ELT(clen_col, i, mkChar(meta->contig_fields[i].length ? meta->contig_fields[i].length : ""));
+        SET_STRING_ELT(cmd5_col, i, mkChar(meta->contig_fields[i].md5 ? meta->contig_fields[i].md5 : ""));
+        SET_STRING_ELT(curl_col, i, mkChar(meta->contig_fields[i].url ? meta->contig_fields[i].url : ""));
+    }
+    SET_VECTOR_ELT(contig_df, 0, cid_col);
+    SET_VECTOR_ELT(contig_df, 1, clen_col);
+    SET_VECTOR_ELT(contig_df, 2, cmd5_col);
+    SET_VECTOR_ELT(contig_df, 3, curl_col);
+    setAttrib(contig_df, R_NamesSymbol, contig_names);
+    SET_VECTOR_ELT(out, 5, contig_df);
+    // sample_names
+    SEXP samples = PROTECT(allocVector(STRSXP, meta->n_samples));
+    for (int i = 0; i < meta->n_samples; i++)
+        SET_STRING_ELT(samples, i, mkChar(meta->sample_names[i] ? meta->sample_names[i] : ""));
+    SET_VECTOR_ELT(out, 6, samples);
+    setAttrib(out, R_NamesSymbol, names);
+    UNPROTECT(12);
     return out;
 }
 
@@ -574,13 +915,76 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     return out;
 }
 
+// Linear scan region query using VBI index
+SEXP RC_VBI_query_region(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_genotypes = asLogical(include_genotypes);
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    int nfound = 0;
+    int *indices = vbi_index_query_region(ctx->vbi_idx, reg, &nfound);
+    if (!indices || nfound == 0) {
+        if (indices) free(indices);
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
+    }
+    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
+    free(indices);
+    return out;
+}
+
+// Linear scan into VBI index for matches in a range
+SEXP RC_VBI_query_range(SEXP vbi_vcf_ctx, SEXP chrom, SEXP start, SEXP end, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    const char *chr = CHAR(STRING_ELT(chrom, 0));
+    int st = asInteger(start);
+    int en = asInteger(end);
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_geno = asLogical(include_genotypes);
+    int nfound = 0;
+    // Linear scan: collect all indices matching chrom and position in [st, en]
+    vbi_index_t *idx = ctx->vbi_idx;
+    int *hits = (int*) malloc(sizeof(int) * idx->num_marker);
+    if (!hits) Rf_error("[VBI] OOM");
+    for (int i = 0; i < idx->num_marker; i++) {
+        const char *c = idx->chrom_names[idx->chrom_ids[i]];
+        int64_t pos = idx->positions[i];
+        if (strcmp(c, chr) == 0 && pos >= st && pos <= en) {
+            hits[nfound++] = i;
+        }
+    }
+    SEXP out;
+    if (nfound > 0) {
+        out = vbi_query_variants_basic(ctx, hits, nfound, inc_info, inc_format, inc_geno);
+    } else {
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        out = df;
+    }
+    free(hits);
+    return out;
+}
+
 // Minimal cgranges R binding
 // 
 //
-typedef struct {
-    cgranges_t *cr;
-} cgranges_ptr_t;
-
 SEXP RC_cgranges_create() {
     cgranges_ptr_t *ptr = (cgranges_ptr_t*) R_Calloc(1, cgranges_ptr_t);
     ptr->cr = cr_init();
@@ -700,8 +1104,220 @@ SEXP RC_cgranges_extract_by_index(SEXP cr_ptr, SEXP indices) {
     return df;
 }
 
+// Header info for VCF/BCF file (no VBI)
+SEXP RC_VCF_header_info(SEXP vcf_path) {
+    const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
+    htsFile *fp = hts_open(vcf, "r");
+    if (!fp) Rf_error("[VCF] Failed to open file %s", vcf);
+    bcf_hdr_t *hdr = bcf_hdr_read(fp);
+    if (!hdr) {
+        hts_close(fp);
+        Rf_error("[VCF] Failed to read header from %s", vcf);
+    }
+    VcfHeaderMetadata *meta = parse_vcf_header_metadata(hdr);
+    bcf_hdr_destroy(hdr);
+    hts_close(fp);
+    // Build R list
+    SEXP out = PROTECT(allocVector(VECSXP, 7));
+    SEXP names = PROTECT(allocVector(STRSXP, 7));
+    SET_STRING_ELT(names, 0, mkChar("fileformat"));
+    SET_STRING_ELT(names, 1, mkChar("info_fields"));
+    SET_STRING_ELT(names, 2, mkChar("format_fields"));
+    SET_STRING_ELT(names, 3, mkChar("filter_fields"));
+    SET_STRING_ELT(names, 4, mkChar("alt_fields"));
+    SET_STRING_ELT(names, 5, mkChar("contig_fields"));
+    SET_STRING_ELT(names, 6, mkChar("sample_names"));
+    SET_VECTOR_ELT(out, 0, ScalarString(mkChar(meta->fileformat ? meta->fileformat : "")));
+    // info_fields
+    SEXP info_df = PROTECT(allocVector(VECSXP, 6));
+    SEXP info_names = PROTECT(allocVector(STRSXP, 6));
+    SET_STRING_ELT(info_names, 0, mkChar("id"));
+    SET_STRING_ELT(info_names, 1, mkChar("number"));
+    SET_STRING_ELT(info_names, 2, mkChar("type"));
+    SET_STRING_ELT(info_names, 3, mkChar("description"));
+    SET_STRING_ELT(info_names, 4, mkChar("source"));
+    SET_STRING_ELT(info_names, 5, mkChar("version"));
+    SEXP id_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP num_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP type_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP desc_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP src_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP ver_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    for (int i = 0; i < meta->n_info; i++) {
+        SET_STRING_ELT(id_col, i, mkChar(meta->info_fields[i].id ? meta->info_fields[i].id : ""));
+        SET_STRING_ELT(num_col, i, mkChar(meta->info_fields[i].number ? meta->info_fields[i].number : ""));
+        SET_STRING_ELT(type_col, i, mkChar(
+            meta->info_fields[i].type == VCF_TYPE_INTEGER ? "Integer" :
+            meta->info_fields[i].type == VCF_TYPE_FLOAT ? "Float" :
+            meta->info_fields[i].type == VCF_TYPE_FLAG ? "Flag" :
+            meta->info_fields[i].type == VCF_TYPE_CHARACTER ? "Character" : "String"
+        ));
+        SET_STRING_ELT(desc_col, i, mkChar(meta->info_fields[i].description ? meta->info_fields[i].description : ""));
+        SET_STRING_ELT(src_col, i, mkChar(meta->info_fields[i].source ? meta->info_fields[i].source : ""));
+        SET_STRING_ELT(ver_col, i, mkChar(meta->info_fields[i].version ? meta->info_fields[i].version : ""));
+    }
+    SET_VECTOR_ELT(info_df, 0, id_col);
+    SET_VECTOR_ELT(info_df, 1, num_col);
+    SET_VECTOR_ELT(info_df, 2, type_col);
+    SET_VECTOR_ELT(info_df, 3, desc_col);
+    SET_VECTOR_ELT(info_df, 4, src_col);
+    SET_VECTOR_ELT(info_df, 5, ver_col);
+    setAttrib(info_df, R_NamesSymbol, info_names);
+    SET_VECTOR_ELT(out, 1, info_df);
+    // format_fields
+    SEXP fmt_df = PROTECT(allocVector(VECSXP, 4));
+    SEXP fmt_names = PROTECT(allocVector(STRSXP, 4));
+    SET_STRING_ELT(fmt_names, 0, mkChar("id"));
+    SET_STRING_ELT(fmt_names, 1, mkChar("number"));
+    SET_STRING_ELT(fmt_names, 2, mkChar("type"));
+    SET_STRING_ELT(fmt_names, 3, mkChar("description"));
+    SEXP fid_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP fnum_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP ftype_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP fdesc_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    for (int i = 0; i < meta->n_format; i++) {
+        SET_STRING_ELT(fid_col, i, mkChar(meta->format_fields[i].id ? meta->format_fields[i].id : ""));
+        SET_STRING_ELT(fnum_col, i, mkChar(meta->format_fields[i].number ? meta->format_fields[i].number : ""));
+        SET_STRING_ELT(ftype_col, i, mkChar(
+            meta->format_fields[i].type == VCF_TYPE_INTEGER ? "Integer" :
+            meta->format_fields[i].type == VCF_TYPE_FLOAT ? "Float" :
+            meta->format_fields[i].type == VCF_TYPE_FLAG ? "Flag" :
+            meta->format_fields[i].type == VCF_TYPE_CHARACTER ? "Character" : "String"
+        ));
+        SET_STRING_ELT(fdesc_col, i, mkChar(meta->format_fields[i].description ? meta->format_fields[i].description : ""));
+    }
+    SET_VECTOR_ELT(fmt_df, 0, fid_col);
+    SET_VECTOR_ELT(fmt_df, 1, fnum_col);
+    SET_VECTOR_ELT(fmt_df, 2, ftype_col);
+    SET_VECTOR_ELT(fmt_df, 3, fdesc_col);
+    setAttrib(fmt_df, R_NamesSymbol, fmt_names);
+    SET_VECTOR_ELT(out, 2, fmt_df);
+    // filter_fields
+    SEXP filter_df = PROTECT(allocVector(VECSXP, 2));
+    SEXP filter_names = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(filter_names, 0, mkChar("id"));
+    SET_STRING_ELT(filter_names, 1, mkChar("description"));
+    SEXP fid_col2 = PROTECT(allocVector(STRSXP, meta->n_filter));
+    SEXP fdesc_col2 = PROTECT(allocVector(STRSXP, meta->n_filter));
+    for (int i = 0; i < meta->n_filter; i++) {
+        SET_STRING_ELT(fid_col2, i, mkChar(meta->filter_fields[i].id ? meta->filter_fields[i].id : ""));
+        SET_STRING_ELT(fdesc_col2, i, mkChar(meta->filter_fields[i].description ? meta->filter_fields[i].description : ""));
+    }
+    SET_VECTOR_ELT(filter_df, 0, fid_col2);
+    SET_VECTOR_ELT(filter_df, 1, fdesc_col2);
+    setAttrib(filter_df, R_NamesSymbol, filter_names);
+    SET_VECTOR_ELT(out, 3, filter_df);
+    // alt_fields
+    SEXP alt_df = PROTECT(allocVector(VECSXP, 2));
+    SEXP alt_names = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(alt_names, 0, mkChar("id"));
+    SET_STRING_ELT(alt_names, 1, mkChar("description"));
+    SEXP aid_col = PROTECT(allocVector(STRSXP, meta->n_alt));
+    SEXP adesc_col = PROTECT(allocVector(STRSXP, meta->n_alt));
+    for (int i = 0; i < meta->n_alt; i++) {
+        SET_STRING_ELT(aid_col, i, mkChar(meta->alt_fields[i].id ? meta->alt_fields[i].id : ""));
+        SET_STRING_ELT(adesc_col, i, mkChar(meta->alt_fields[i].description ? meta->alt_fields[i].description : ""));
+    }
+    SET_VECTOR_ELT(alt_df, 0, aid_col);
+    SET_VECTOR_ELT(alt_df, 1, adesc_col);
+    setAttrib(alt_df, R_NamesSymbol, alt_names);
+    SET_VECTOR_ELT(out, 4, alt_df);
+    // contig_fields
+    SEXP contig_df = PROTECT(allocVector(VECSXP, 4));
+    SEXP contig_names = PROTECT(allocVector(STRSXP, 4));
+    SET_STRING_ELT(contig_names, 0, mkChar("id"));
+    SET_STRING_ELT(contig_names, 1, mkChar("length"));
+    SET_STRING_ELT(contig_names, 2, mkChar("md5"));
+    SET_STRING_ELT(contig_names, 3, mkChar("url"));
+    SEXP cid_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP clen_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP cmd5_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP curl_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    for (int i = 0; i < meta->n_contig; i++) {
+        SET_STRING_ELT(cid_col, i, mkChar(meta->contig_fields[i].id ? meta->contig_fields[i].id : ""));
+        SET_STRING_ELT(clen_col, i, mkChar(meta->contig_fields[i].length ? meta->contig_fields[i].length : ""));
+        SET_STRING_ELT(cmd5_col, i, mkChar(meta->contig_fields[i].md5 ? meta->contig_fields[i].md5 : ""));
+        SET_STRING_ELT(curl_col, i, mkChar(meta->contig_fields[i].url ? meta->contig_fields[i].url : ""));
+    }
+    SET_VECTOR_ELT(contig_df, 0, cid_col);
+    SET_VECTOR_ELT(contig_df, 1, clen_col);
+    SET_VECTOR_ELT(contig_df, 2, cmd5_col);
+    SET_VECTOR_ELT(contig_df, 3, curl_col);
+    setAttrib(contig_df, R_NamesSymbol, contig_names);
+    SET_VECTOR_ELT(out, 5, contig_df);
+    // sample_names
+    SEXP samples = PROTECT(allocVector(STRSXP, meta->n_samples));
+    for (int i = 0; i < meta->n_samples; i++)
+        SET_STRING_ELT(samples, i, mkChar(meta->sample_names[i] ? meta->sample_names[i] : ""));
+    SET_VECTOR_ELT(out, 6, samples);
+    setAttrib(out, R_NamesSymbol, names);
+    UNPROTECT(12);
+    return out;
+}
 
-// Return the memory usage in bytes of a vbi_index_t structure
+// Query by contiguous indices using existing context
+SEXP RC_VBI_query_by_indices_ctx(SEXP vbi_vcf_ctx, SEXP start_idx, SEXP end_idx, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_geno = asLogical(include_genotypes);
+    int start = asInteger(start_idx) - 1;
+    int end = asInteger(end_idx) - 1;
+    if (start < 0) start = 0;
+    if (end >= ctx->vbi_idx->num_marker) end = ctx->vbi_idx->num_marker - 1;
+    if (end < start) {
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
+    }
+    int nfound = end - start + 1;
+    int *hits = (int*) malloc(sizeof(int)*nfound); if(!hits) Rf_error("[VBI] OOM");
+    for(int i=0;i<nfound;i++) hits[i]= start + i;
+    SEXP out = vbi_query_variants_basic(ctx, hits, nfound, inc_info, inc_format, inc_geno);
+    free(hits);
+    return out;
+}
+
+// CGRanges-optimized region query using existing VBI VCF context
+SEXP RC_VBI_query_region_cgranges_ctx(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
+    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
+    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
+    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
+    
+    int inc_info = asLogical(include_info);
+    int inc_format = asLogical(include_format);
+    int inc_genotypes = asLogical(include_genotypes);
+    const char *reg = CHAR(STRING_ELT(region_str, 0));
+    
+    // Use cgranges for fast interval tree query
+    int nfound = 0;
+    int *indices = vbi_index_query_region_cgranges(ctx->vbi_idx, reg, &nfound);
+    if (!indices || nfound == 0) {
+        if (indices) free(indices);
+        SEXP df = PROTECT(allocVector(VECSXP, 0));
+        SEXP names = PROTECT(allocVector(STRSXP, 0));
+        SEXP rn = PROTECT(allocVector(INTSXP, 0));
+        setAttrib(df, R_NamesSymbol, names);
+        setAttrib(df, R_RowNamesSymbol, rn);
+        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
+        UNPROTECT(3);
+        return df;
+    }
+    
+    // Use existing VCF context - no need to reopen files!
+    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
+    free(indices);
+    return out;
+}
+
+
 SEXP RC_VBI_index_memory_usage(SEXP extPtr) {
     vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(extPtr);
     if (!idx) return ScalarReal(NA_REAL);
@@ -737,64 +1353,5 @@ SEXP RC_VBI_index_memory_usage(SEXP extPtr) {
     SET_VECTOR_ELT(out, 1, ScalarReal((double)cr_bytes));
     setAttrib(out, R_NamesSymbol, nms);
     UNPROTECT(2);
-    return out;
-}
-
-// Query region using VBI VCF context (wrapper around RC_VBI_query_range)
-SEXP RC_VBI_query_region(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
-    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
-    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
-    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
-    int inc_info = asLogical(include_info);
-    int inc_format = asLogical(include_format);
-    int inc_genotypes = asLogical(include_genotypes);
-    const char *reg = CHAR(STRING_ELT(region_str, 0));
-    int nfound = 0;
-    int *indices = vbi_index_query_region(ctx->vbi_idx, reg, &nfound);
-    if (!indices || nfound == 0) {
-        if (indices) free(indices);
-        SEXP df = PROTECT(allocVector(VECSXP, 0));
-        SEXP names = PROTECT(allocVector(STRSXP, 0));
-        SEXP rn = PROTECT(allocVector(INTSXP, 0));
-        setAttrib(df, R_NamesSymbol, names);
-        setAttrib(df, R_RowNamesSymbol, rn);
-        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
-        UNPROTECT(3);
-        return df;
-    }
-    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
-    free(indices);
-    return out;
-}
-
-// CGRanges-optimized region query using existing VBI VCF context
-SEXP RC_VBI_query_region_cgranges_ctx(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes) {
-    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_ExternalPtrAddr(vbi_vcf_ctx);
-    if (!ctx) Rf_error("[VBI] VCF context pointer is NULL");
-    if (!ctx->vbi_idx) Rf_error("[VBI] No VBI index available in context");
-    
-    int inc_info = asLogical(include_info);
-    int inc_format = asLogical(include_format);
-    int inc_genotypes = asLogical(include_genotypes);
-    const char *reg = CHAR(STRING_ELT(region_str, 0));
-    
-    // Use cgranges for fast interval tree query
-    int nfound = 0;
-    int *indices = vbi_index_query_region_cgranges(ctx->vbi_idx, reg, &nfound);
-    if (!indices || nfound == 0) {
-        if (indices) free(indices);
-        SEXP df = PROTECT(allocVector(VECSXP, 0));
-        SEXP names = PROTECT(allocVector(STRSXP, 0));
-        SEXP rn = PROTECT(allocVector(INTSXP, 0));
-        setAttrib(df, R_NamesSymbol, names);
-        setAttrib(df, R_RowNamesSymbol, rn);
-        setAttrib(df, R_ClassSymbol, mkString("data.frame"));
-        UNPROTECT(3);
-        return df;
-    }
-    
-    // Use existing VCF context - no need to reopen files!
-    SEXP out = vbi_query_variants_basic(ctx, indices, nfound, inc_info, inc_format, inc_genotypes);
-    free(indices);
     return out;
 }

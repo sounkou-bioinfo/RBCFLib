@@ -31,6 +31,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"RC_VBI_query_by_indices", (DL_FUNC) &RC_VBI_query_by_indices_ctx, 6},
     {"RC_VBI_print_index", (DL_FUNC) &RC_VBI_print_index, 2},
     {"RC_VBI_query_region_cgranges", (DL_FUNC) &RC_VBI_query_region_cgranges_ctx, 5},
+    {"RC_VCF_header_info", (DL_FUNC) &RC_VCF_header_info, 1},
+    {"RC_VBI_print_header_metadata", (DL_FUNC) &RC_VBI_print_header_metadata, 1},
     {"RC_cgranges_extract_by_index", (DL_FUNC) &RC_cgranges_extract_by_index, 2},
     {"RC_VBI_index_memory_usage", (DL_FUNC) &RC_VBI_index_memory_usage, 1},
     {"RC_VBI_extract_ranges", (DL_FUNC) &RC_VBI_extract_ranges, 2},

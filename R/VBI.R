@@ -199,15 +199,39 @@ VBIIndex <- function(VcfPath, VbiPath, Threads = 1) {
   )
 }
 
-#' Query VBI index by region (legacy function)
+#' Query VBI index by region (linear scan)
+#'
+#' Performs a linear scan into the VBI index for all variants matching the specified chromosome and position range.
 #'
 #' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
-#' @param region Region string (e.g., "chr1:1000-2000") for query
+#' @param chrom Chromosome name (character scalar)
+#' @param start Start position (integer scalar)
+#' @param end End position (integer scalar)
+#' @param include_info Logical, include INFO fields (default: FALSE)
+#' @param include_format Logical, include FORMAT fields (default: FALSE)
+#' @param include_genotypes Logical, include genotype data (default: FALSE)
 #' @return data.frame with variant information
 #' @export
-VBIQueryRange <- function(vbi_vcf_ctx, region) {
-  # Use the standardized query function instead of the legacy one
-  VBIQueryRegion(vbi_vcf_ctx, region, include_info = FALSE)
+VBIQueryRange <- function(
+  vbi_vcf_ctx,
+  chrom,
+  start,
+  end,
+  include_info = FALSE,
+  include_format = FALSE,
+  include_genotypes = FALSE
+) {
+  .Call(
+    RC_VBI_query_range,
+    vbi_vcf_ctx,
+    as.character(chrom),
+    as.integer(start),
+    as.integer(end),
+    as.logical(include_info),
+    as.logical(include_format),
+    as.logical(include_genotypes),
+    PACKAGE = "RBCFLib"
+  )
 }
 
 #' Query VBI index by contiguous variant index range
@@ -376,4 +400,29 @@ VBIFormats <- function(vbi_vcf_ctx) {
 #' @export
 VBIFilters <- function(vbi_vcf_ctx) {
   .Call(RC_VBI_filters, vbi_vcf_ctx, PACKAGE = "RBCFLib")
+}
+
+#' Print VCF/BCF header metadata from a VBI context
+#'
+#' Prints a summary of the header fields and sample names for the file from a VBI VCF context object.
+#'
+#' @param vbi_vcf_ctx VBI VCF context object from VCFLoad()
+#' @return Invisible NULL
+#' @export
+VBIPrintHeaderMetadata <- function(vbi_vcf_ctx) {
+  .Call(
+    RC_VBI_print_header_metadata,
+    vbi_vcf_ctx,
+    PACKAGE = "RBCFLib"
+  )
+}
+#' Retrieve VCF/BCF header metadata from a file path
+#'
+#' Parses and returns header metadata (INFO, FORMAT, FILTER, ALT, CONTIG fields, sample names) from a VCF/BCF file, without requiring a VBI context object.
+#'
+#' @param vcf_path Path to the VCF/BCF file
+#' @return List containing header metadata tables and sample names
+#' @export
+VCFHeaderInfo <- function(vcf_path) {
+  .Call(RC_VCF_header_info, as.character(vcf_path), PACKAGE = "RBCFLib")
 }

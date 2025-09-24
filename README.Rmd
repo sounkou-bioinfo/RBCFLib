@@ -365,6 +365,31 @@ BCFClose(fp_in); BCFClose(out)
 ```
 
 
+# VCF/BCF Header Metadata API
+
+RBCFLib provides direct access to VCF/BCF header metadata, including INFO, FORMAT, FILTER, ALT, CONTIG fields, and sample names, fully parsed and mapped to R types.
+
+## Header-only API
+
+To retrieve header metadata from any VCF/BCF file (no index or context required):
+
+```{r header-only-api, eval=TRUE, echo=TRUE}
+header <- VCFHeaderInfo(vcfFile)
+str(header)
+```
+
+## VBI Context Metadata
+
+When working with VBI context, header metadata is available via the context object and can be printed in R:
+
+```{r vbi-header-metadata-example, eval=TRUE, echo=TRUE}
+vbiFile <- tempfile(fileext = ".vbi")
+VBIIndex(vcfFile, vbiFile)
+ctx <- VCFLoad(vcfFile, vbiFile)
+VBIPrintHeaderMetadata(ctx)
+unlink(vbiFile)
+```
+
 ## Related Projects
 
 -   [gwasvcf](https://github.com/MRCIEU/gwasvcf): R package for manipulating GWAS summary statistics in VCF format.

@@ -4,11 +4,11 @@ library(RBCFLib)
 # get script path
 exdata <- system.file("exdata", package = "RBCFLib")
 vcf <- file.path(exdata, "imputed.gt.vcf.gz")
-# vcf <- "../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
+#vcf <- "../../1kGP_high_coverage_Illumina.chr21.filtered.SNV_INDEL_SV_phased_panel.bcf"
 # vcf <- "../clinvar_20250504.vcf.gz"
 # vcf <- "../concat.bcf"
 vbi <- paste0(vcf, ".vbi")
-force_index <- FALSE
+force_index <- TRUE
 # Indexing
 if (!file.exists(vbi) || force_index) {
   timing <- system.time(res_idx <- VBIIndex(vcf, vbi, Threads = 1))
@@ -90,7 +90,7 @@ for (i in 1:nsamples) {
 }
 tm1 <- system.time({
   for (i in 1:nsamples) {
-    df <- VBIQueryRange(vcf_ctx, region_str[[i]])
+    df <- VBIQueryRegion(vcf_ctx, region_str[[i]])
     expect_true(is.data.frame(df))
     cat("rows=", nrow(df), "\n")
   }
