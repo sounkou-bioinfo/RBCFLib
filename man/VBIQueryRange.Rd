@@ -2,18 +2,36 @@
 % Please edit documentation in R/VBI.R
 \name{VBIQueryRange}
 \alias{VBIQueryRange}
-\title{Query VBI index by region (legacy function)}
+\title{Query VBI index by region (linear scan)}
 \usage{
-VBIQueryRange(vbi_vcf_ctx, region)
+VBIQueryRange(
+  vbi_vcf_ctx,
+  chrom,
+  start,
+  end,
+  include_info = FALSE,
+  include_format = FALSE,
+  include_genotypes = FALSE
+)
 }
 \arguments{
 \item{vbi_vcf_ctx}{VBI VCF context object from VCFLoad()}
 
-\item{region}{Region string (e.g., "chr1:1000-2000") for query}
+\item{chrom}{Chromosome name (character scalar)}
+
+\item{start}{Start position (integer scalar)}
+
+\item{end}{End position (integer scalar)}
+
+\item{include_info}{Logical, include INFO fields (default: FALSE)}
+
+\item{include_format}{Logical, include FORMAT fields (default: FALSE)}
+
+\item{include_genotypes}{Logical, include genotype data (default: FALSE)}
 }
 \value{
 data.frame with variant information
 }
 \description{
-Query VBI index by region (legacy function)
+Performs a linear scan into the VBI index for all variants matching the specified chromosome and position range.
 }
