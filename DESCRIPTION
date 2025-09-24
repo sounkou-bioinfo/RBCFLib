@@ -1,6 +1,6 @@
 Package: RBCFLib
 Title: `htslib`  And `bcftools` Libraries And Command Line Tools Wrapper
-Version: 1.22-0.0.3.1.90000
+Version: 1.22-0.0.3.2
 Authors@R: c(
     person(given = "Sounkou Mahamane", family = "Toure", 
     email = "sounkoutoure@gmail.com", role = c("aut", "cre")),
