@@ -70,7 +70,6 @@ extern SEXP RC_VBI_sample2index(SEXP vbi_vcf_ctx, SEXP sample_name);
 extern SEXP RC_VBI_infos(SEXP vbi_vcf_ctx);
 extern SEXP RC_VBI_formats(SEXP vbi_vcf_ctx);
 extern SEXP RC_VBI_filters(SEXP vbi_vcf_ctx);
-extern SEXP RC_VBI_query_region_cgranges(SEXP vbi_vcf_ctx, SEXP region_str, SEXP include_info, SEXP include_format, SEXP include_genotypes);
 // VBI extract ranges
 extern SEXP RC_VBI_extract_ranges(SEXP idx_ptr, SEXP n);
 // cleanup

@@ -574,25 +574,9 @@ SEXP RC_VBI_query_by_indices(SEXP vcf_path, SEXP idx_ptr, SEXP start_idx, SEXP e
     return out;
 }
 
-// Region query via region_cgranges wrapper reopening VCF (legacy)
-SEXP RC_VBI_query_region_cgranges(SEXP vcf_path, SEXP idx_ptr, SEXP region_str) {
-    const char *vcf = CHAR(STRING_ELT(vcf_path, 0));
-    vbi_index_t *idx = (vbi_index_t*) R_ExternalPtrAddr(idx_ptr);
-    if (!idx) Rf_error("[VBI] Index pointer is NULL");
-    const char *reg = CHAR(STRING_ELT(region_str, 0));
-    int nfound=0; int *hits = vbi_index_query_region_cgranges(idx, reg, &nfound);
-    if(!hits || nfound==0){ if(hits) free(hits); SEXP df=PROTECT(allocVector(VECSXP,0)); SEXP n=PROTECT(allocVector(STRSXP,0)); SEXP rn=PROTECT(allocVector(INTSXP,0)); setAttrib(df,R_NamesSymbol,n); setAttrib(df,R_RowNamesSymbol,rn); setAttrib(df,R_ClassSymbol,mkString("data.frame")); UNPROTECT(3); return df; }
-    VBIVcfContextPtr ctx = (VBIVcfContextPtr) R_Calloc(1, VBIVcfContext);
-    ctx->query_failed=0; memset(&ctx->tmp_line,0,sizeof(kstring_t));
-    ctx->fp = hts_open(vcf, "r"); if(!ctx->fp){ R_Free(ctx); free(hits); Rf_error("Failed to open %s", vcf);}    
-    ctx->hdr = bcf_hdr_read(ctx->fp); if(!ctx->hdr){ hts_close(ctx->fp); R_Free(ctx); free(hits); Rf_error("Failed header %s", vcf);}    
-    ctx->vbi_idx = idx; ctx->tmp_ctx = bcf_init(); if(!ctx->tmp_ctx){ bcf_hdr_destroy(ctx->hdr); hts_close(ctx->fp); R_Free(ctx); free(hits); Rf_error("[VBI] OOM variant ctx"); }
-    SEXP out = vbi_query_variants_basic(ctx, hits, nfound, 0,0,0);
-    if(ctx->tmp_ctx) bcf_destroy(ctx->tmp_ctx); if(ctx->hdr) bcf_hdr_destroy(ctx->hdr); if(ctx->fp) hts_close(ctx->fp); if(ctx->tmp_line.s) free(ctx->tmp_line.s); R_Free(ctx); free(hits);
-    return out;
-}
-
 // Minimal cgranges R binding
+// 
+//
 typedef struct {
     cgranges_t *cr;
 } cgranges_ptr_t;
