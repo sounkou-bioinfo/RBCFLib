@@ -23,9 +23,7 @@ archived low-level `rbcf` bindings.
 
 - R
 - Unix-like OS (Linux, macOS) or Windows WSL2
-- htslib/bcftools system dependencies
-- cmake (for building bundled SuiteSparse/CHOLMOD used by BCFToolsPGS if
-  no system cholmod can be found)
+- cmake (for building bundled SuiteSparse/CHOLMOD used by BCFToolsPGS)
 
 ``` r
 
@@ -193,7 +191,7 @@ vbiFile <- tempfile(fileext = ".vbi")
 
 # Create VBI index
 VBIIndex(vcfFile, vbiFile)
-#> Wrote 15 index records into /tmp/RtmpK55x6P/filed3eff50bf6090.vbi
+#> Wrote 15 index records into /tmp/RtmpVmvZM7/file60e1a59b8e71d.vbi
 #> Indexing  finished: 3202 samples, 15 markers, 1 chromosomes
 #> NULL
 
