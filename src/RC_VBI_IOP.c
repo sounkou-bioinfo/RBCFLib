@@ -1118,8 +1118,9 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     bcf_hdr_destroy(hdr);
     hts_close(fp);
     // Build R list
-    SEXP out = PROTECT(allocVector(VECSXP, 7));
-    SEXP names = PROTECT(allocVector(STRSXP, 7));
+    int nprot = 0;
+    SEXP out = PROTECT(allocVector(VECSXP, 7)); nprot++;
+    SEXP names = PROTECT(allocVector(STRSXP, 7)); nprot++;
     SET_STRING_ELT(names, 0, mkChar("fileformat"));
     SET_STRING_ELT(names, 1, mkChar("info_fields"));
     SET_STRING_ELT(names, 2, mkChar("format_fields"));
@@ -1129,20 +1130,20 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     SET_STRING_ELT(names, 6, mkChar("sample_names"));
     SET_VECTOR_ELT(out, 0, ScalarString(mkChar(meta->fileformat ? meta->fileformat : "")));
     // info_fields
-    SEXP info_df = PROTECT(allocVector(VECSXP, 6));
-    SEXP info_names = PROTECT(allocVector(STRSXP, 6));
+    SEXP info_df = PROTECT(allocVector(VECSXP, 6)); nprot++;
+    SEXP info_names = PROTECT(allocVector(STRSXP, 6)); nprot++;
     SET_STRING_ELT(info_names, 0, mkChar("id"));
     SET_STRING_ELT(info_names, 1, mkChar("number"));
     SET_STRING_ELT(info_names, 2, mkChar("type"));
     SET_STRING_ELT(info_names, 3, mkChar("description"));
     SET_STRING_ELT(info_names, 4, mkChar("source"));
     SET_STRING_ELT(info_names, 5, mkChar("version"));
-    SEXP id_col = PROTECT(allocVector(STRSXP, meta->n_info));
-    SEXP num_col = PROTECT(allocVector(STRSXP, meta->n_info));
-    SEXP type_col = PROTECT(allocVector(STRSXP, meta->n_info));
-    SEXP desc_col = PROTECT(allocVector(STRSXP, meta->n_info));
-    SEXP src_col = PROTECT(allocVector(STRSXP, meta->n_info));
-    SEXP ver_col = PROTECT(allocVector(STRSXP, meta->n_info));
+    SEXP id_col = PROTECT(allocVector(STRSXP, meta->n_info)); nprot++;
+    SEXP num_col = PROTECT(allocVector(STRSXP, meta->n_info)); nprot++;
+    SEXP type_col = PROTECT(allocVector(STRSXP, meta->n_info)); nprot++;
+    SEXP desc_col = PROTECT(allocVector(STRSXP, meta->n_info)); nprot++;
+    SEXP src_col = PROTECT(allocVector(STRSXP, meta->n_info)); nprot++;
+    SEXP ver_col = PROTECT(allocVector(STRSXP, meta->n_info)); nprot++;
     for (int i = 0; i < meta->n_info; i++) {
         SET_STRING_ELT(id_col, i, mkChar(meta->info_fields[i].id ? meta->info_fields[i].id : ""));
         SET_STRING_ELT(num_col, i, mkChar(meta->info_fields[i].number ? meta->info_fields[i].number : ""));
@@ -1165,16 +1166,16 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     setAttrib(info_df, R_NamesSymbol, info_names);
     SET_VECTOR_ELT(out, 1, info_df);
     // format_fields
-    SEXP fmt_df = PROTECT(allocVector(VECSXP, 4));
-    SEXP fmt_names = PROTECT(allocVector(STRSXP, 4));
+    SEXP fmt_df = PROTECT(allocVector(VECSXP, 4)); nprot++;
+    SEXP fmt_names = PROTECT(allocVector(STRSXP, 4)); nprot++;
     SET_STRING_ELT(fmt_names, 0, mkChar("id"));
     SET_STRING_ELT(fmt_names, 1, mkChar("number"));
     SET_STRING_ELT(fmt_names, 2, mkChar("type"));
     SET_STRING_ELT(fmt_names, 3, mkChar("description"));
-    SEXP fid_col = PROTECT(allocVector(STRSXP, meta->n_format));
-    SEXP fnum_col = PROTECT(allocVector(STRSXP, meta->n_format));
-    SEXP ftype_col = PROTECT(allocVector(STRSXP, meta->n_format));
-    SEXP fdesc_col = PROTECT(allocVector(STRSXP, meta->n_format));
+    SEXP fid_col = PROTECT(allocVector(STRSXP, meta->n_format)); nprot++;
+    SEXP fnum_col = PROTECT(allocVector(STRSXP, meta->n_format)); nprot++;
+    SEXP ftype_col = PROTECT(allocVector(STRSXP, meta->n_format)); nprot++;
+    SEXP fdesc_col = PROTECT(allocVector(STRSXP, meta->n_format)); nprot++;
     for (int i = 0; i < meta->n_format; i++) {
         SET_STRING_ELT(fid_col, i, mkChar(meta->format_fields[i].id ? meta->format_fields[i].id : ""));
         SET_STRING_ELT(fnum_col, i, mkChar(meta->format_fields[i].number ? meta->format_fields[i].number : ""));
@@ -1193,12 +1194,12 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     setAttrib(fmt_df, R_NamesSymbol, fmt_names);
     SET_VECTOR_ELT(out, 2, fmt_df);
     // filter_fields
-    SEXP filter_df = PROTECT(allocVector(VECSXP, 2));
-    SEXP filter_names = PROTECT(allocVector(STRSXP, 2));
+    SEXP filter_df = PROTECT(allocVector(VECSXP, 2)); nprot++;
+    SEXP filter_names = PROTECT(allocVector(STRSXP, 2)); nprot++;
     SET_STRING_ELT(filter_names, 0, mkChar("id"));
     SET_STRING_ELT(filter_names, 1, mkChar("description"));
-    SEXP fid_col2 = PROTECT(allocVector(STRSXP, meta->n_filter));
-    SEXP fdesc_col2 = PROTECT(allocVector(STRSXP, meta->n_filter));
+    SEXP fid_col2 = PROTECT(allocVector(STRSXP, meta->n_filter)); nprot++;
+    SEXP fdesc_col2 = PROTECT(allocVector(STRSXP, meta->n_filter)); nprot++;
     for (int i = 0; i < meta->n_filter; i++) {
         SET_STRING_ELT(fid_col2, i, mkChar(meta->filter_fields[i].id ? meta->filter_fields[i].id : ""));
         SET_STRING_ELT(fdesc_col2, i, mkChar(meta->filter_fields[i].description ? meta->filter_fields[i].description : ""));
@@ -1208,12 +1209,12 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     setAttrib(filter_df, R_NamesSymbol, filter_names);
     SET_VECTOR_ELT(out, 3, filter_df);
     // alt_fields
-    SEXP alt_df = PROTECT(allocVector(VECSXP, 2));
-    SEXP alt_names = PROTECT(allocVector(STRSXP, 2));
+    SEXP alt_df = PROTECT(allocVector(VECSXP, 2)); nprot++;
+    SEXP alt_names = PROTECT(allocVector(STRSXP, 2)); nprot++;
     SET_STRING_ELT(alt_names, 0, mkChar("id"));
     SET_STRING_ELT(alt_names, 1, mkChar("description"));
-    SEXP aid_col = PROTECT(allocVector(STRSXP, meta->n_alt));
-    SEXP adesc_col = PROTECT(allocVector(STRSXP, meta->n_alt));
+    SEXP aid_col = PROTECT(allocVector(STRSXP, meta->n_alt)); nprot++;
+    SEXP adesc_col = PROTECT(allocVector(STRSXP, meta->n_alt)); nprot++;
     for (int i = 0; i < meta->n_alt; i++) {
         SET_STRING_ELT(aid_col, i, mkChar(meta->alt_fields[i].id ? meta->alt_fields[i].id : ""));
         SET_STRING_ELT(adesc_col, i, mkChar(meta->alt_fields[i].description ? meta->alt_fields[i].description : ""));
@@ -1223,16 +1224,16 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     setAttrib(alt_df, R_NamesSymbol, alt_names);
     SET_VECTOR_ELT(out, 4, alt_df);
     // contig_fields
-    SEXP contig_df = PROTECT(allocVector(VECSXP, 4));
-    SEXP contig_names = PROTECT(allocVector(STRSXP, 4));
+    SEXP contig_df = PROTECT(allocVector(VECSXP, 4)); nprot++;
+    SEXP contig_names = PROTECT(allocVector(STRSXP, 4)); nprot++;
     SET_STRING_ELT(contig_names, 0, mkChar("id"));
     SET_STRING_ELT(contig_names, 1, mkChar("length"));
     SET_STRING_ELT(contig_names, 2, mkChar("md5"));
     SET_STRING_ELT(contig_names, 3, mkChar("url"));
-    SEXP cid_col = PROTECT(allocVector(STRSXP, meta->n_contig));
-    SEXP clen_col = PROTECT(allocVector(STRSXP, meta->n_contig));
-    SEXP cmd5_col = PROTECT(allocVector(STRSXP, meta->n_contig));
-    SEXP curl_col = PROTECT(allocVector(STRSXP, meta->n_contig));
+    SEXP cid_col = PROTECT(allocVector(STRSXP, meta->n_contig)); nprot++;
+    SEXP clen_col = PROTECT(allocVector(STRSXP, meta->n_contig)); nprot++;
+    SEXP cmd5_col = PROTECT(allocVector(STRSXP, meta->n_contig)); nprot++;
+    SEXP curl_col = PROTECT(allocVector(STRSXP, meta->n_contig)); nprot++;
     for (int i = 0; i < meta->n_contig; i++) {
         SET_STRING_ELT(cid_col, i, mkChar(meta->contig_fields[i].id ? meta->contig_fields[i].id : ""));
         SET_STRING_ELT(clen_col, i, mkChar(meta->contig_fields[i].length ? meta->contig_fields[i].length : ""));
@@ -1246,12 +1247,12 @@ SEXP RC_VCF_header_info(SEXP vcf_path) {
     setAttrib(contig_df, R_NamesSymbol, contig_names);
     SET_VECTOR_ELT(out, 5, contig_df);
     // sample_names
-    SEXP samples = PROTECT(allocVector(STRSXP, meta->n_samples));
+    SEXP samples = PROTECT(allocVector(STRSXP, meta->n_samples)); nprot++;
     for (int i = 0; i < meta->n_samples; i++)
         SET_STRING_ELT(samples, i, mkChar(meta->sample_names[i] ? meta->sample_names[i] : ""));
     SET_VECTOR_ELT(out, 6, samples);
     setAttrib(out, R_NamesSymbol, names);
-    UNPROTECT(12);
+    UNPROTECT(nprot);
     return out;
 }
 
