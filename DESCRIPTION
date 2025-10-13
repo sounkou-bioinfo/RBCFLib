@@ -26,6 +26,6 @@ Imports: utils
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-SystemRequirements: GNU make, pkg-config, libgsl, libcurl, libdeflate, cmake
+SystemRequirements: GNU make, pkg-config, cmake, libgsl, libcurl, libdeflate, libbzip2, libzlib
 OS_type: unix
 Suggests: tinytest
