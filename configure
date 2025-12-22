@@ -114,9 +114,9 @@ configure_suitesparse() {
 
     cmake .. \
         -DCMAKE_C_COMPILER="${R_CC_BIN}" \
-        -DCMAKE_C_FLAGS="${R_CC_FLAGS} ${CFLAGS}" \
+        -DCMAKE_C_FLAGS="${R_CC_FLAGS} ${CFLAGS} -Wno-array-parameter -Wno-alloc-size-larger-than \
         -DCMAKE_CXX_COMPILER="${R_CXX_BIN}" \
-        -DCMAKE_CXX_FLAGS="${R_CXX_FLAGS} ${CXXFLAGS:-}" \
+        -DCMAKE_CXX_FLAGS="${R_CXX_FLAGS} ${CXXFLAGS:-} " \
         -DCMAKE_AR="${AR}" \
         -DCMAKE_RANLIB="${RANLIB}" \
         -DCMAKE_INSTALL_PREFIX="${SS_INSTALL}" \
